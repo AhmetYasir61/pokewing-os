@@ -20,7 +20,7 @@ export function AppWindow({ title, accentColor = '#0A84FF', onBack, children, no
       {!noHeader && (
         <div
           className="flex items-center gap-2 px-3 flex-shrink-0"
-          style={{ height: 52, paddingTop: 8, background: transparent ? 'rgba(10,10,12,0.6)' : 'rgb(10,10,12)', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
+          style={{ paddingTop: 46, paddingBottom: 8, background: transparent ? 'rgba(10,10,12,0.6)' : 'rgb(10,10,12)', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
         >
           <button
             onClick={onBack}

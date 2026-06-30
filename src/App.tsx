@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useOS } from './hooks/useOS';
 import { MUSIC_TRACKS } from './data';
+import { AppId } from './types';
 
 // Components
 import { StatusBar } from './components/StatusBar';
@@ -92,6 +93,13 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { state, dispatch, toast } = useOS();
   const time = useTime();
+
+  // MCEF/derin bağlantı: ?app=<id> ile belirli bir uygulamayı açarak başla
+  useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get('app');
+    const valid: AppId[] = ['market','depo','katalog','news','mesaj','vc','galeri','kamera','web','tema','muzik','takvim','notlar','harita','hesap','ayar'];
+    if (a && valid.includes(a as AppId)) dispatch({ type: 'OPEN_APP', app: a as AppId });
+  }, [dispatch]);
 
   // PC modu → Windows 11 masaüstü; aksi halde telefon arayüzü
   const isPc = new URLSearchParams(window.location.search).get('mode') === 'pc';

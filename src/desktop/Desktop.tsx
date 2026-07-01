@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Monitor, Folder, FileText, FolderOpen, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { Monitor, Folder, FileText, FolderOpen, Image as ImageIcon, RefreshCw, Pencil, Trash2 } from 'lucide-react';
 import { OSState } from '../types';
 import { APPS } from '../data';
 import { AppIconGraphic } from '../components/AppIconGraphic';
@@ -29,7 +29,21 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
   const [zTop, setZTop] = useState(10);
   const [start, setStart] = useState(false);
   const [ctx, setCtx] = useState<{ x: number; y: number; target?: string } | null>(null);
+  const [iconCtx, setIconCtx] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const clickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 });
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // MCEF çift-tık göndermediği için tek-tık zamanlamasıyla çift-tık algıla.
+  function iconClick(id: string, open: () => void) {
+    const now = Date.now();
+    if (clickRef.current.id === id && now - clickRef.current.t < 450) {
+      clickRef.current = { id: '', t: 0 };
+      open();
+    } else {
+      clickRef.current = { id, t: now };
+    }
+  }
 
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify({ fs, iconPos, wallpaper })); } catch { /* kota */ }
@@ -136,20 +150,36 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
 
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ background: bg, fontFamily: '"Segoe UI",system-ui,sans-serif' }}
-      onMouseDown={() => { setCtx(null); setStart(false); }}
-      onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }); }}>
+      onMouseDown={() => { setCtx(null); setIconCtx(null); setStart(false); }}
+      onContextMenu={(e) => { e.preventDefault(); setIconCtx(null); setCtx({ x: e.clientX, y: e.clientY }); }}>
 
       {/* masaüstü ikonları */}
       {deskItems.map((it, i) => {
         const p = iconPos[it.id] || defaultPos(i);
+        const isRenaming = renaming?.id === it.id;
         return (
           <button key={it.id}
-            onMouseDown={(e) => startIconDrag(e, it.id, p)}
-            onDoubleClick={it.onOpen}
+            onMouseDown={(e) => { if (e.button === 0 && !isRenaming) startIconDrag(e, it.id, p); }}
+            onClick={(e) => { e.stopPropagation(); if (!isRenaming) iconClick(it.id, it.onOpen); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setCtx(null); setIconCtx({ x: e.clientX, y: e.clientY, id: it.id }); }}
             className="absolute flex flex-col items-center gap-1 w-[76px] p-1.5 rounded hover:bg-white/10 focus:bg-white/15"
             style={{ left: p.x, top: p.y }}>
             {it.icon}
-            <span className="text-[11.5px] text-white text-center leading-tight" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{it.name}</span>
+            {isRenaming ? (
+              <input autoFocus value={renaming!.name}
+                onChange={(e) => setRenaming({ id: it.id, name: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onBlur={() => { ops.rename(it.id, renaming!.name.trim() || it.name); setRenaming(null); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { ops.rename(it.id, renaming!.name.trim() || it.name); setRenaming(null); }
+                  else if (e.key === 'Escape') setRenaming(null);
+                }}
+                className="text-[11.5px] text-center w-full rounded px-0.5 outline-none"
+                style={{ background: '#fff', color: '#000', border: '1px solid #4cc2ff' }} />
+            ) : (
+              <span className="text-[11.5px] text-white text-center leading-tight" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{it.name}</span>
+            )}
           </button>
         );
       })}
@@ -179,6 +209,21 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
           <Ctx label="Yenile" icon={<RefreshCw size={15} />} onClick={() => setCtx(null)} />
         </div>
       )}
+
+      {/* per-ikon sağ-tık menü (Aç / Yeniden Adlandır / Sil) */}
+      {iconCtx && (() => {
+        const isFs = !!fs[iconCtx.id];
+        const target = deskItems.find(d => d.id === iconCtx.id);
+        return (
+          <div className="absolute z-[960] py-1 rounded-lg text-[13px] text-gray-100"
+            style={{ left: Math.min(iconCtx.x, window.innerWidth - 190), top: Math.min(iconCtx.y, window.innerHeight - 160), width: 180, background: 'rgba(43,43,45,0.97)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 12px 32px rgba(0,0,0,0.5)' }}
+            onMouseDown={(e) => e.stopPropagation()}>
+            <Ctx label="Aç" icon={<FolderOpen size={15} />} onClick={() => { target?.onOpen(); setIconCtx(null); }} />
+            {isFs && <Ctx label="Yeniden Adlandır" icon={<Pencil size={15} />} onClick={() => { setRenaming({ id: iconCtx.id, name: fs[iconCtx.id].name }); setIconCtx(null); }} />}
+            {isFs && <Ctx label="Sil" icon={<Trash2 size={15} />} onClick={() => { ops.del(iconCtx.id); setIconCtx(null); }} />}
+          </div>
+        );
+      })()}
 
       <input ref={fileInput} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onWallFile} />
 

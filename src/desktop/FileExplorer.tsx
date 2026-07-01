@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Folder, FileText, ChevronLeft, FolderPlus, FilePlus, Trash2, Monitor, HardDrive } from 'lucide-react';
 
 export interface FsNode { id: string; name: string; type: 'folder' | 'txt'; parent: string; content?: string; }
@@ -11,8 +11,17 @@ export interface FsOps {
 
 export function FileExplorer({ fs, ops, start = 'root' }: { fs: Record<string, FsNode>; ops: FsOps; start?: string }) {
   const [cwd, setCwd] = useState(start);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const clickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 });
   const children = Object.values(fs).filter(n => n.parent === cwd);
   const cur = fs[cwd];
+
+  // MCEF çift-tık göndermediği için tek-tık zamanlamasıyla algıla
+  const dbl = (id: string, open: () => void) => {
+    const now = Date.now();
+    if (clickRef.current.id === id && now - clickRef.current.t < 450) { clickRef.current = { id: '', t: 0 }; open(); }
+    else clickRef.current = { id, t: now };
+  };
 
   return (
     <div className="flex h-full text-[13px] text-gray-200" style={{ background: '#1c1c1c' }}>
@@ -33,16 +42,33 @@ export function FileExplorer({ fs, ops, start = 'root' }: { fs: Record<string, F
         </div>
         <div className="flex-1 overflow-auto p-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,84px)', gap: 10, alignContent: 'start' }}>
           {children.length === 0 && <div className="col-span-full opacity-40 text-center mt-8">Bu klasör boş</div>}
-          {children.map(n => (
+          {children.map(n => {
+            const isRenaming = renaming?.id === n.id;
+            return (
             <button key={n.id}
-              onDoubleClick={() => n.type === 'folder' ? setCwd(n.id) : ops.openTxt(n)}
+              onClick={() => { if (!isRenaming) dbl(n.id, () => n.type === 'folder' ? setCwd(n.id) : ops.openTxt(n)); }}
+              onContextMenu={(e) => { e.preventDefault(); setRenaming({ id: n.id, name: n.name }); }}
               className="group relative flex flex-col items-center gap-1 p-2 rounded hover:bg-white/10 text-center">
               {n.type === 'folder' ? <Folder size={40} className="text-[#e8c069]" fill="#e8c069" /> : <FileText size={38} className="text-[#9fd0ff]" />}
-              <span className="text-[11.5px] leading-tight break-words w-full">{n.name}</span>
+              {isRenaming ? (
+                <input autoFocus value={renaming!.name}
+                  onChange={(e) => setRenaming({ id: n.id, name: e.target.value })}
+                  onClick={(e) => e.stopPropagation()}
+                  onBlur={() => { ops.rename(n.id, renaming!.name.trim() || n.name); setRenaming(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { ops.rename(n.id, renaming!.name.trim() || n.name); setRenaming(null); }
+                    else if (e.key === 'Escape') setRenaming(null);
+                  }}
+                  className="text-[11.5px] text-center w-full rounded px-0.5 outline-none"
+                  style={{ background: '#fff', color: '#000', border: '1px solid #4cc2ff' }} />
+              ) : (
+                <span className="text-[11.5px] leading-tight break-words w-full">{n.name}</span>
+              )}
               <span onClick={(e) => { e.stopPropagation(); ops.del(n.id); }}
                 className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-600/70"><Trash2 size={13} /></span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

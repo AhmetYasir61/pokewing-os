@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
 import { MOCK_PRODUCTS } from '../data';
 import { Product } from '../types';
+import { hasBridge, getMarket, buyProduct } from '../bridge';
 import { ShoppingCart, Star, Zap, Check, X } from 'lucide-react';
 
 interface Props {
@@ -9,13 +10,27 @@ interface Props {
   onBack: () => void;
   onBuy: (price: number) => void;
   onToast: (msg: string) => void;
+  onCoins?: (total: number) => void;
 }
 
-export function MarketApp({ coins, onBack, onBuy, onToast }: Props) {
+export function MarketApp({ coins, onBack, onBuy, onToast, onCoins }: Props) {
   const [tab, setTab] = useState<'tumu' | 'rutbe' | 'kit' | 'kozmetik'>('tumu');
   const [selected, setSelected] = useState<Product | null>(null);
   const [buying, setBuying] = useState(false);
   const [bought, setBought] = useState<Set<number>>(new Set());
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+
+  // Oyun içi köprü varsa gerçek ürünleri/coini çek; yoksa mock kalır.
+  useEffect(() => {
+    if (!hasBridge()) return;
+    let alive = true;
+    getMarket().then(m => {
+      if (!alive || !m) return;
+      if (m.products.length) setProducts(m.products);
+      if (m.coins >= 0) onCoins?.(m.coins);
+    });
+    return () => { alive = false; };
+  }, []);
 
   const TABS = [
     { id: 'tumu', label: 'Tümü' },
@@ -25,8 +40,8 @@ export function MarketApp({ coins, onBack, onBuy, onToast }: Props) {
   ] as const;
 
   const filtered = tab === 'tumu'
-    ? MOCK_PRODUCTS
-    : MOCK_PRODUCTS.filter(p => {
+    ? products
+    : products.filter(p => {
         if (tab === 'rutbe') return p.type === 'Rütbe';
         if (tab === 'kit') return p.type === 'Kit';
         return ['Kozmetik', 'Özellik', 'Anahtar', 'Paket'].includes(p.type);
@@ -35,14 +50,31 @@ export function MarketApp({ coins, onBack, onBuy, onToast }: Props) {
   const handleBuy = () => {
     if (!selected) return;
     if (coins < selected.price) { onToast('Yetersiz Coin!'); setSelected(null); return; }
+    const item = selected;
     setBuying(true);
-    setTimeout(() => {
-      onBuy(selected.price);
-      setBought(prev => new Set([...prev, selected.id]));
-      setBuying(false);
-      onToast(`${selected.name} satın alındı!`);
-      setSelected(null);
-    }, 1200);
+    if (hasBridge()) {
+      // Gerçek satın alma: sunucu coin düşer + eşyayı depoya yazar
+      buyProduct(item.id).then(r => {
+        setBuying(false);
+        setSelected(null);
+        if (r && r.ok) {
+          if (typeof r.coins === 'number' && r.coins >= 0) onCoins?.(r.coins);
+          setBought(prev => new Set([...prev, item.id]));
+          onToast(r.msg || `${item.name} depona eklendi!`);
+        } else {
+          onToast(r?.msg || 'Satın alma başarısız.');
+        }
+      });
+    } else {
+      // Köprü yok (önizleme) → yerel simülasyon
+      setTimeout(() => {
+        onBuy(item.price);
+        setBought(prev => new Set([...prev, item.id]));
+        setBuying(false);
+        onToast(`${item.name} satın alındı!`);
+        setSelected(null);
+      }, 1000);
+    }
   };
 
   const TYPE_COLORS: Record<string, string> = {

@@ -118,6 +118,7 @@ export default function App() {
             onBack={closeApp}
             onBuy={(price) => dispatch({ type: 'SPEND_COIN', amount: price })}
             onToast={toast}
+            onCoins={(n) => dispatch({ type: 'SET_COINS', amount: n })}
           />
         );
       case 'depo':

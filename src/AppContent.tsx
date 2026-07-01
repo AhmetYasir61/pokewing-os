@@ -30,7 +30,7 @@ interface Props {
 export function AppContent({ appId, state, dispatch, toast, onClose }: Props) {
   switch (appId) {
     case 'market':
-      return <MarketApp coins={state.coins} onBack={onClose} onBuy={(p) => dispatch({ type: 'SPEND_COIN', amount: p })} onToast={toast} />;
+      return <MarketApp coins={state.coins} onBack={onClose} onBuy={(p) => dispatch({ type: 'SPEND_COIN', amount: p })} onToast={toast} onCoins={(n) => dispatch({ type: 'SET_COINS', amount: n })} />;
     case 'depo':
       return <DepoApp onBack={onClose} coins={state.coins} onToast={toast} />;
     case 'katalog':

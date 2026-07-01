@@ -1,6 +1,7 @@
-import { useCallback, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { OSState, AppId, Notification, Contact } from '../types';
 import { THEMES } from '../data';
+import { hasBridge, bridge } from '../bridge';
 
 const initThreads: Record<string, import('../types').Message[]> = {
   Misty: [
@@ -75,6 +76,7 @@ type Action =
   | { type: 'SET_WALLPAPER_URL'; url: string }
   | { type: 'ADD_COIN'; amount: number }
   | { type: 'SPEND_COIN'; amount: number }
+  | { type: 'SET_COINS'; amount: number }
   | { type: 'OPEN_CHAT'; contact: Contact }
   | { type: 'CLOSE_CHAT' }
   | { type: 'SEND_MSG'; contactName: string; text: string }
@@ -139,6 +141,8 @@ function reducer(state: OSState, action: Action): OSState {
       return { ...state, coins: state.coins + action.amount };
     case 'SPEND_COIN':
       return { ...state, coins: Math.max(0, state.coins - action.amount) };
+    case 'SET_COINS':
+      return { ...state, coins: Math.max(0, action.amount) };
     case 'OPEN_CHAT':
       return { ...state, chatContact: action.contact };
     case 'CLOSE_CHAT':
@@ -213,6 +217,20 @@ function reducer(state: OSState, action: Action): OSState {
 export function useOS() {
   const [state, dispatch] = useReducer(reducer, initState);
   const toastTimer = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Oyun içi (MCEF) köprü varsa gerçek veriyi çek; yoksa mock kalır (tarayıcı önizleme).
+  useEffect(() => {
+    if (!hasBridge()) return;
+    let alive = true;
+    (async () => {
+      const me = await bridge<{ name?: string }>('me');
+      if (alive && me?.name) dispatch({ type: 'SET_USERNAME', name: me.name });
+      const mk = await bridge<{ coins?: number }>('market');
+      if (alive && mk && typeof mk.coins === 'number' && mk.coins >= 0)
+        dispatch({ type: 'SET_COINS', amount: mk.coins });
+    })();
+    return () => { alive = false; };
+  }, []);
 
   const toast = useCallback((text: string) => {
     const id = String(Date.now());

@@ -48,11 +48,12 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const fit = () => {
-      const margin = 10; // kenar payı
+      const margin = 4; // kenar payı (küçük — MCEF viewport'unu doldursun)
+      // Üst sınır YOK: büyük viewport'ta (MCEF yüksek çözünürlük) telefon büyüyerek
+      // ekranı doldurur → supersampling ile keskin görüntü.
       const s = Math.min(
         (window.innerWidth - margin) / 390,
-        (window.innerHeight - margin) / 844,
-        1
+        (window.innerHeight - margin) / 844
       );
       setScale(s > 0.2 ? s : 1);
     };

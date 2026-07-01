@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
 import { MOCK_NEWS } from '../data';
 import { NewsItem } from '../types';
+import { hasBridge, getNews } from '../bridge';
 import { Calendar, Tag, X } from 'lucide-react';
 
 interface Props { onBack: () => void; }
@@ -16,6 +17,15 @@ const TAG_COLORS: Record<string, string> = {
 
 export function NewsApp({ onBack }: Props) {
   const [reading, setReading] = useState<NewsItem | null>(null);
+  const [news, setNews] = useState<NewsItem[]>(MOCK_NEWS);
+
+  // Oyun içi köprü varsa gerçek duyuruları çek; yoksa mock kalır.
+  useEffect(() => {
+    if (!hasBridge()) return;
+    let alive = true;
+    getNews().then(n => { if (alive && n && n.length) setNews(n); });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <AppWindow
@@ -30,7 +40,7 @@ export function NewsApp({ onBack }: Props) {
     >
       {!reading ? (
         <div className="scroll-area h-full px-4 py-3 flex flex-col gap-3">
-          {MOCK_NEWS.map(news => {
+          {news.map(news => {
             const tagColor = TAG_COLORS[news.tag] ?? '#8E8E93';
             return (
               <button

@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-import type { Product } from './types';
+import type { Product, InventoryItem, NewsItem } from './types';
 
 export const hasBridge = (): boolean =>
   typeof window !== 'undefined' && typeof window.cefQuery === 'function';
@@ -51,6 +51,41 @@ export async function getMarket(): Promise<MarketData | null> {
 /** Ürün satın al. Dönüş: {ok, coins, msg}. Köprü yoksa null. */
 export async function buyProduct(id: number): Promise<{ ok: boolean; coins?: number; msg?: string } | null> {
   return bridge<{ ok: boolean; coins?: number; msg?: string }>('buy', { id });
+}
+
+// ---- Depo ----
+/** Depodaki (teslim bekleyen) eşyaları çeker. Köprü/veri yoksa null. */
+export async function getDepo(): Promise<InventoryItem[] | null> {
+  const r = await bridge<{ items?: any[] }>('depo');
+  if (!r || !Array.isArray(r.items)) return null;
+  return r.items.map((it): InventoryItem => ({
+    id: Number(it?.depoId) || 0,
+    name: String(it?.name ?? ''),
+    type: TYPE_MAP[String(it?.type ?? 'item')] ?? 'Özellik',
+    slots: Number(it?.slots ?? it?.qty ?? 1) || 1,
+  }));
+}
+
+/** Depodan bir eşyayı teslim al (envantere). Dönüş: {ok, depoId, msg}. */
+export async function claimItem(id: number): Promise<{ ok: boolean; depoId?: number; msg?: string } | null> {
+  return bridge<{ ok: boolean; depoId?: number; msg?: string }>('claim', { id });
+}
+
+// ---- Duyurular ----
+const NEWS_TAG: Record<string, string> = { update: 'Güncelleme', event: 'Etkinlik', reward: 'Kampanya', info: 'Bilgi' };
+
+/** Duyuruları çeker. Köprü/veri yoksa null. */
+export async function getNews(): Promise<NewsItem[] | null> {
+  const r = await bridge<any>('news');
+  const arr = Array.isArray(r) ? r : r?.announcements;
+  if (!Array.isArray(arr)) return null;
+  return arr.map((a: any, i: number): NewsItem => ({
+    id: i + 1,
+    tag: NEWS_TAG[String(a?.type ?? '')] ?? 'Bilgi',
+    date: String(a?.date ?? ''),
+    title: String(a?.title ?? ''),
+    body: String(a?.message ?? a?.body ?? ''),
+  }));
 }
 
 /** Mod'a bir istek gönderir, JSON yanıtı çözer. Köprü yoksa null döner. */

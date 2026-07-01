@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
 import { MOCK_INVENTORY } from '../data';
+import { hasBridge, getDepo, claimItem } from '../bridge';
 import { Package, Trash2, ArrowDownToLine } from 'lucide-react';
 
 interface Props { onBack: () => void; coins: number; onToast: (msg: string) => void; }
 
 const TYPE_COLORS: Record<string, string> = {
   'Rütbe': '#FFD60A', 'Kit': '#0A84FF', 'Kozmetik': '#BF5AF2',
-  'Özellik': '#30D158', 'Anahtar': '#FF9F0A',
+  'Özellik': '#30D158', 'Anahtar': '#FF9F0A', 'Paket': '#FF375F',
 };
 
 export function DepoApp({ onBack, coins, onToast }: Props) {
@@ -15,11 +16,28 @@ export function DepoApp({ onBack, coins, onToast }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   const [tab, setTab] = useState<'envanter' | 'islem'>('envanter');
 
+  // Oyun içi köprü varsa gerçek depo eşyalarını çek; yoksa mock kalır.
+  useEffect(() => {
+    if (!hasBridge()) return;
+    let alive = true;
+    getDepo().then(d => { if (alive && d) setItems(d); });
+    return () => { alive = false; };
+  }, []);
+
   const handleUse = (id: number) => {
     const item = items.find(i => i.id === id);
-    onToast(`${item?.name} kullanıldı!`);
-    setItems(prev => prev.map(i => i.id === id && i.slots ? { ...i, slots: i.slots - 1 } : i).filter(i => (i.slots ?? 1) > 0));
-    setSelected(null);
+    if (hasBridge()) {
+      // Gerçek: sunucu eşyayı envantere teslim eder (komutları çalıştırır)
+      claimItem(id).then(r => {
+        if (r && r.ok) { setItems(prev => prev.filter(i => i.id !== id)); onToast(r.msg || `${item?.name} teslim alındı!`); }
+        else onToast(r?.msg || 'Teslim alınamadı (envanterde yer yok?).');
+        setSelected(null);
+      });
+    } else {
+      onToast(`${item?.name} teslim alındı!`);
+      setItems(prev => prev.filter(i => i.id !== id));
+      setSelected(null);
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -93,7 +111,7 @@ export function DepoApp({ onBack, coins, onToast }: Props) {
                   {selected === item.id && (
                     <div className="flex gap-2">
                       <button className="pill-btn primary text-xs py-1.5 px-3 flex items-center gap-1" onClick={e => { e.stopPropagation(); handleUse(item.id); }}>
-                        <ArrowDownToLine size={13} /> Kullan
+                        <ArrowDownToLine size={13} /> Teslim Al
                       </button>
                       <button className="pill-btn danger text-xs py-1.5 px-3" onClick={e => { e.stopPropagation(); handleDelete(item.id); }}>
                         <Trash2 size={13} />

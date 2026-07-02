@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
-import { hasBridge, bridge, publishAppBridge, deleteAppBridge, getServerApps } from '../bridge';
+import { hasBridge, bridge, publishAppBridge, deleteAppBridge, renewAppBridge, getServerApps } from '../bridge';
 import { DEVELOPERS, Target, StoreApp, devApps, saveDevApp, deleteDevApp, install, isPcMode, cloudApps, setCloudApps } from '../appstore';
 import { Code2, Rocket, Trash2, ShieldAlert, Smartphone, Monitor, Play } from 'lucide-react';
 
@@ -102,7 +102,7 @@ export function DevStudio({ onBack, toast }: Props) {
       setCloudApps(r.apps);
       install(id);
       setApps(myApps());
-      toast(`🚀 "${n}" yayınlandı — TÜM oyunculara dağıtıldı!`);
+      toast(`🚀 "${n}" yayınlandı! (aylık kira 500 coin — güncellemeler ücretsiz)`);
     } else {
       saveDevApp(app);
       install(id);
@@ -159,8 +159,11 @@ export function DevStudio({ onBack, toast }: Props) {
           <div className="text-[11px] font-semibold uppercase" style={{ color: 'rgba(235,235,245,0.45)', letterSpacing: 1 }}>Uygulamaların</div>
           <div className="flex-1 scroll-area flex flex-col gap-2">
             {apps.length === 0 && <div className="text-[12px] mt-4 text-center" style={{ color: 'rgba(235,235,245,0.3)' }}>Henüz yayın yok</div>}
-            {apps.map(a => (
-              <div key={a.id} className="rounded-xl p-2.5 flex items-center gap-2" style={{ background: 'rgba(28,28,30,0.9)' }}>
+            {apps.map(a => {
+              const days = a.paidUntil ? Math.ceil((a.paidUntil - Date.now()) / 86400000) : null;
+              return (
+              <div key={a.id} className="rounded-xl p-2.5 flex flex-col gap-1.5" style={{ background: 'rgba(28,28,30,0.9)', border: a.expired ? '1px solid rgba(255,69,58,0.4)' : 'none' }}>
+                <div className="flex items-center gap-2">
                 <span style={{ fontSize: 20 }}>{a.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-white text-[12.5px] font-semibold truncate">{a.name}</div>
@@ -181,8 +184,26 @@ export function DevStudio({ onBack, toast }: Props) {
                   toast('Uygulama kaldırıldı.');
                 }}
                   className="p-1 rounded hover:bg-red-600/30"><Trash2 size={13} color="#FF453A" /></button>
+                </div>
+                {/* 💰 Aylık kira durumu (D fazı) */}
+                {hasBridge() && days !== null && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] flex-1" style={{ color: a.expired ? '#FF453A' : days <= 7 ? '#FF9F0A' : 'rgba(235,235,245,0.4)' }}>
+                      {a.expired ? '⛔ Kira doldu — mağazadan kalktı' : `Kira: ${days} gün kaldı`}
+                    </span>
+                    {(a.expired || days <= 7) && (
+                      <button onClick={async () => {
+                        const r = await renewAppBridge(a.id);
+                        if (r?.error) { toast(r.error); return; }
+                        if (r) { setCloudApps(r.apps); setApps(myApps()); toast('Kira +30 gün uzatıldı 💰'); }
+                      }} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,214,10,0.15)', color: '#FFD60A' }}>
+                        Yenile (500)
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
+            );})}
           </div>
         </div>
       </div>

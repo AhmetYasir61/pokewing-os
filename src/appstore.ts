@@ -16,6 +16,8 @@ export interface StoreApp {
   custom?: boolean;    // geliştirici stüdyosundan yayınlanan
   html?: string;       // custom uygulamanın kaynak kodu (iframe'de çalışır)
   author?: string;
+  paidUntil?: number;  // aylık kira bitişi (ms) — D fazı
+  expired?: boolean;   // kirası dolmuş (yalnız sahibi görür)
 }
 
 // ---- GELİŞTİRİCİLER: Dev Studio'ya giriş yetkisi olan Minecraft kullanıcı adları ----

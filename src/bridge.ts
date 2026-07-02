@@ -108,6 +108,7 @@ export function parseCloudApps(r: any): CloudCatalog | null {
     color: String(a?.color ?? '#5E5CE6'), desc: String(a?.desc ?? ''), category: 'Geliştirici',
     targets: Array.isArray(a?.targets) ? a.targets.filter((t: any) => t === 'phone' || t === 'pc') : ['phone', 'pc'],
     size: String(a?.size ?? ''), custom: true, html: String(a?.html ?? ''), author: String(a?.author ?? ''),
+    paidUntil: Number(a?.paidUntil) || 0, expired: a?.expired === true,
   })).filter((a: StoreApp) => a.id.startsWith('dev:'));
   return { apps, error: r.error ? String(r.error) : undefined, canDev: r.canDev === true };
 }
@@ -127,6 +128,10 @@ export async function publishAppBridge(app: StoreApp): Promise<CloudCatalog | nu
 }
 export async function deleteAppBridge(id: string): Promise<CloudCatalog | null> {
   return parseCloudApps(await bridge('deleteApp', { id }));
+}
+/** Aylık kirayı yenile (+30 gün; sunucu 500 coin tahsil eder, OP muaf). */
+export async function renewAppBridge(id: string): Promise<CloudCatalog | null> {
+  return parseCloudApps(await bridge('renewApp', { id }));
 }
 
 // ---- VC: gerçek arama + ses ayarları (mikrofon/kulaklık/cızırtı önleyici) ----

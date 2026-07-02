@@ -19,7 +19,8 @@ export function StartMenu({ userName, onOpen, onClose }: Props) {
   return (
     <>
       <div className="fixed inset-0 z-[900]" onClick={onClose} />
-      <div className="absolute z-[901] left-1/2 -translate-x-1/2 bottom-[60px] rounded-xl overflow-hidden flex flex-col"
+      <div onMouseDown={(e) => e.stopPropagation()}
+        className="absolute z-[901] left-1/2 -translate-x-1/2 bottom-[60px] rounded-xl overflow-hidden flex flex-col"
         style={{ width: 540, maxWidth: '92vw', height: 600, maxHeight: '78vh',
           background: 'rgba(36,36,38,0.86)', backdropFilter: 'blur(40px) saturate(1.5)',
           border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 30px 80px rgba(0,0,0,0.55)' }}>

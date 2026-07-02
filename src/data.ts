@@ -15,6 +15,7 @@ export const APPS: AppMeta[] = [
   { id: 'takvim', name: 'Takvim', gradient: 'linear-gradient(160deg,#FF9F0A,#FF453A)', iconKey: 'takvim' },
   { id: 'notlar', name: 'Notlar', gradient: 'linear-gradient(160deg,#FFD60A,#FF9F0A)', iconKey: 'notlar' },
   { id: 'yayin', name: 'Yayın', gradient: 'linear-gradient(160deg,#53FC18,#1a8f3c)', iconKey: 'yayin' },
+  { id: 'store', name: 'Play Store', gradient: 'linear-gradient(160deg,#30D158,#0A84FF)', iconKey: 'store' },
   { id: 'harita', name: 'Harita', gradient: 'linear-gradient(160deg,#30D158,#40C8E0)', iconKey: 'harita' },
   { id: 'hesap', name: 'Hesap', gradient: 'linear-gradient(160deg,#636366,#48484A)', iconKey: 'hesap' },
   { id: 'ayar', name: 'Ayarlar', gradient: 'linear-gradient(160deg,#8E8E93,#48484A)', iconKey: 'ayar' },

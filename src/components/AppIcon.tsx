@@ -38,7 +38,9 @@ export function AppIcon({ app, size = 'md', onPress, onLongPress, wobble }: Prop
         onMouseUp={handleTouchEnd}
         onMouseLeave={handleTouchEnd}
       >
-        <AppIconGraphic id={app.id} size={size} />
+        {app.emoji
+          ? <span style={{ fontSize: size === 'sm' ? 22 : 28 }}>{app.emoji}</span>
+          : <AppIconGraphic id={app.id} size={size} />}
         {!!app.badge && (
           <div className="notif-dot" style={{ top: -4, right: -4 }}>
             {app.badge > 999 ? '999+' : app.badge}

@@ -2,7 +2,14 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { OSState, AppId, Notification, Contact } from '../types';
 import { THEMES } from '../data';
 import { hasBridge, bridge, getMessages, ding } from '../bridge';
+import { itemId } from '../appstore';
 import type { Message } from '../types';
+
+// ---- Telefon verileri item'a bağlı saklanır (PC'deki gibi): tema, duvar kağıdı, notlar, ayarlar ----
+const PHONE_KEY = () => 'pwphone:' + itemId();
+function loadPhone(): Partial<OSState> {
+  try { return JSON.parse(localStorage.getItem(PHONE_KEY()) || 'null') || {}; } catch { return {}; }
+}
 
 const initThreads: Record<string, import('../types').Message[]> = {
   Misty: [
@@ -230,8 +237,32 @@ function reducer(state: OSState, action: Action): OSState {
 }
 
 export function useOS() {
-  const [state, dispatch] = useReducer(reducer, initState);
+  const [state, dispatch] = useReducer(reducer, initState, (s) => {
+    // Item'a kayıtlı telefon verilerini yükle (çalınan telefonda veriler yeni sahibine görünür)
+    const p = loadPhone();
+    return {
+      ...s,
+      ...(p.theme !== undefined ? { theme: p.theme, wallpaper: THEMES[p.theme]?.bg ?? s.wallpaper } : {}),
+      ...(p.wallpaperUrl ? { wallpaperUrl: p.wallpaperUrl } : {}),
+      ...(p.brightness !== undefined ? { brightness: p.brightness } : {}),
+      ...(p.volume !== undefined ? { volume: p.volume } : {}),
+      ...(p.wifi !== undefined ? { wifi: p.wifi } : {}),
+      ...(p.bluetooth !== undefined ? { bluetooth: p.bluetooth } : {}),
+      ...(p.dnd !== undefined ? { dnd: p.dnd } : {}),
+      ...(Array.isArray(p.notes) && p.notes.length ? { notes: p.notes } : {}),
+    };
+  });
   const toastTimer = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Değişen telefon verilerini item'a yaz
+  useEffect(() => {
+    try {
+      localStorage.setItem(PHONE_KEY(), JSON.stringify({
+        theme: state.theme, wallpaperUrl: state.wallpaperUrl, brightness: state.brightness,
+        volume: state.volume, wifi: state.wifi, bluetooth: state.bluetooth, dnd: state.dnd, notes: state.notes,
+      }));
+    } catch { /* kota */ }
+  }, [state.theme, state.wallpaperUrl, state.brightness, state.volume, state.wifi, state.bluetooth, state.dnd, state.notes]);
 
   // Oyun içi (MCEF) köprü varsa gerçek veriyi çek; yoksa mock kalır (tarayıcı önizleme).
   useEffect(() => {

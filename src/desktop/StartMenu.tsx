@@ -2,14 +2,19 @@ import { Search, Power, FolderOpen, FileText } from 'lucide-react';
 import { APPS } from '../data';
 import { AppIconGraphic } from '../components/AppIconGraphic';
 import { AppId } from '../types';
+import { installedAppsForPlatform } from '../appstore';
 
 interface Props { userName: string; onOpen: (id: string) => void; onClose: () => void; }
 
 export function StartMenu({ userName, onOpen, onClose }: Props) {
   const pinned = [
-    ...APPS.map(a => ({ id: a.id as string, name: a.name, gradient: a.gradient, app: a.id as AppId })),
-    { id: 'explorer', name: 'Dosyalar', gradient: 'linear-gradient(160deg,#FFD60A,#E8A020)', app: null },
-    { id: 'notepad', name: 'Not Defteri', gradient: 'linear-gradient(160deg,#4FC3F7,#2b7fae)', app: null },
+    ...APPS.map(a => ({ id: a.id as string, name: a.name, gradient: a.gradient, app: a.id as AppId, emoji: undefined as string | undefined })),
+    // Play Store'dan kurulanlar (PC hedefli olanlar)
+    ...installedAppsForPlatform().map(s => ({
+      id: s.id, name: s.name, gradient: `linear-gradient(160deg, ${s.color}, ${s.color}88)`, app: null, emoji: s.emoji,
+    })),
+    { id: 'explorer', name: 'Dosyalar', gradient: 'linear-gradient(160deg,#FFD60A,#E8A020)', app: null, emoji: undefined },
+    { id: 'notepad', name: 'Not Defteri', gradient: 'linear-gradient(160deg,#4FC3F7,#2b7fae)', app: null, emoji: undefined },
   ];
   return (
     <>
@@ -29,7 +34,9 @@ export function StartMenu({ userName, onOpen, onClose }: Props) {
           {pinned.map(p => (
             <button key={p.id} onClick={() => onOpen(p.id)} className="flex flex-col items-center gap-1.5 py-2 rounded-lg hover:bg-white/10">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: p.gradient, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)' }}>
-                {p.app ? <AppIconGraphic id={p.app} size="sm" /> : p.id === 'explorer' ? <FolderOpen size={22} color="#fff" /> : <FileText size={22} color="#fff" />}
+                {p.emoji ? <span style={{ fontSize: 22 }}>{p.emoji}</span>
+                  : p.app ? <AppIconGraphic id={p.app} size="sm" />
+                  : p.id === 'explorer' ? <FolderOpen size={22} color="#fff" /> : <FileText size={22} color="#fff" />}
               </div>
               <span className="text-[11px] text-gray-200 text-center leading-tight">{p.name}</span>
             </button>

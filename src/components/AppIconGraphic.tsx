@@ -1,6 +1,6 @@
 import {
   ShoppingBag, Package, BookOpen, Newspaper, MessageCircle, Camera, Phone, Image,
-  Globe, Palette, Music, Calendar, FileText, Map, Calculator, Settings, Radio, LucideIcon
+  Globe, Palette, Music, Calendar, FileText, Map, Calculator, Settings, Radio, Store, LucideIcon
 } from 'lucide-react';
 import { AppId } from '../types';
 
@@ -24,6 +24,7 @@ const ICON_MAP: Record<AppId, LucideIcon> = {
   hesap: Calculator,
   ayar: Settings,
   yayin: Radio,
+  store: Store,
   home: Settings,
 };
 

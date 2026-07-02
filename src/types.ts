@@ -1,8 +1,10 @@
 export type AppId =
   | 'home'
   | 'yayin'
+  | 'store'
   | 'market'
   | 'depo'
+  | (string & {})   // Play Store / geliştirici uygulamaları (dinamik id'ler)
   | 'katalog'
   | 'news'
   | 'mesaj'
@@ -25,6 +27,7 @@ export interface AppMeta {
   iconKey: string;
   dockSlot?: boolean;
   badge?: number;
+  emoji?: string;   // Play Store / geliştirici uygulamaları emoji ikon kullanır
 }
 
 export interface Product {

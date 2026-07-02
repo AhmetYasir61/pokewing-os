@@ -18,6 +18,10 @@ import { HaritaApp } from './apps/HaritaApp';
 import { HesapApp } from './apps/HesapApp';
 import { AyarlarApp } from './apps/AyarlarApp';
 import { YayinApp } from './apps/YayinApp';
+import { MINI_APPS } from './apps/MiniApps';
+import { DevStudio, CustomAppViewer } from './apps/DevStudio';
+import { PlayStoreApp } from './apps/StoreApp';
+import { findApp } from './appstore';
 
 interface Props {
   appId: AppId;
@@ -25,10 +29,23 @@ interface Props {
   dispatch: React.Dispatch<any>;
   toast: (t: string) => void;
   onClose: () => void;
+  onOpenApp?: (id: string) => void;   // Play Store "Aç" (masaüstünde pencere, telefonda app)
 }
 
 /** Telefon uygulamalarını hem telefon hem masaüstü pencerelerinde render eder. */
-export function AppContent({ appId, state, dispatch, toast, onClose }: Props) {
+export function AppContent({ appId, state, dispatch, toast, onClose, onOpenApp }: Props) {
+  // ---- Play Store ekosistemi (dinamik uygulamalar) ----
+  if (appId === 'store')
+    return <PlayStoreApp onBack={onClose} toast={toast}
+      onOpenApp={(id) => (onOpenApp ? onOpenApp(id) : dispatch({ type: 'OPEN_APP', app: id }))} />;
+  if (appId === 'dev') return <DevStudio onBack={onClose} toast={toast} />;
+  const Mini = MINI_APPS[appId];
+  if (Mini) return <Mini onBack={onClose} toast={toast} />;
+  if (typeof appId === 'string' && appId.startsWith('dev:')) {
+    const capp = findApp(appId);
+    if (capp) return <CustomAppViewer app={capp} onBack={onClose} />;
+  }
+
   switch (appId) {
     case 'market':
       return <MarketApp coins={state.coins} onBack={onClose} onBuy={(p) => dispatch({ type: 'SPEND_COIN', amount: p })} onToast={toast} onCoins={(n) => dispatch({ type: 'SET_COINS', amount: n })} />;

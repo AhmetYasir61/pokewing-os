@@ -12,25 +12,7 @@ import { QuickSettings } from './components/QuickSettings';
 import { LockScreen } from './components/LockScreen';
 import { ContextMenu } from './components/ContextMenu';
 import { Desktop } from './desktop/Desktop';
-
-// Apps
-import { MarketApp } from './apps/MarketApp';
-import { DepoApp } from './apps/DepoApp';
-import { KatalogApp } from './apps/KatalogApp';
-import { NewsApp } from './apps/NewsApp';
-import { MesajApp } from './apps/MesajApp';
-import { TelefonApp } from './apps/TelefonApp';
-import { GaleriApp } from './apps/GaleriApp';
-import { KameraApp } from './apps/KameraApp';
-import { WebApp } from './apps/WebApp';
-import { TemaApp } from './apps/TemaApp';
-import { MuzikApp } from './apps/MuzikApp';
-import { TakvimApp } from './apps/TakvimApp';
-import { NotlarApp } from './apps/NotlarApp';
-import { HaritaApp } from './apps/HaritaApp';
-import { HesapApp } from './apps/HesapApp';
-import { AyarlarApp } from './apps/AyarlarApp';
-import { YayinApp } from './apps/YayinApp';
+import { AppContent } from './AppContent';
 
 function useTime() {
   const [time, setTime] = useState(new Date());
@@ -109,134 +91,19 @@ export default function App() {
 
   const closeApp = () => dispatch({ type: 'CLOSE_APP' });
 
+  // Tüm uygulamalar tek yerden (AppContent) — masaüstü pencereleriyle aynı kaynak.
   const renderApp = () => {
     if (!state.activeApp) return null;
-    switch (state.activeApp) {
-      case 'market':
-        return (
-          <MarketApp
-            coins={state.coins}
-            onBack={closeApp}
-            onBuy={(price) => dispatch({ type: 'SPEND_COIN', amount: price })}
-            onToast={toast}
-            onCoins={(n) => dispatch({ type: 'SET_COINS', amount: n })}
-          />
-        );
-      case 'depo':
-        return (
-          <DepoApp
-            onBack={closeApp}
-            coins={state.coins}
-            onToast={toast}
-          />
-        );
-      case 'katalog':
-        return <KatalogApp onBack={closeApp} />;
-      case 'news':
-        return <NewsApp onBack={closeApp} />;
-      case 'mesaj':
-        return (
-          <MesajApp
-            onBack={closeApp}
-            threads={state.threads}
-            onSend={(name, text) => dispatch({ type: 'SEND_MSG', contactName: name, text })}
-            onRecv={(name, text) => dispatch({ type: 'RECV_MSG', contactName: name, text })}
-            onToast={toast}
-          />
-        );
-      case 'vc':
-        return (
-          <TelefonApp
-            dialNumber={state.dialNumber}
-            onBack={closeApp}
-            onDialAppend={(c) => dispatch({ type: 'DIAL_APPEND', char: c })}
-            onDialDelete={() => dispatch({ type: 'DIAL_DELETE' })}
-            onDialClear={() => dispatch({ type: 'DIAL_CLEAR' })}
-            onToast={toast}
-          />
-        );
-      case 'galeri':
-        return <GaleriApp onBack={closeApp} onToast={toast} />;
-      case 'kamera':
-        return <KameraApp onBack={closeApp} onToast={toast} />;
-      case 'web':
-        return (
-          <WebApp
-            onBack={closeApp}
-            webUrl={state.webUrl}
-            onNavigate={(url) => dispatch({ type: 'NAVIGATE_WEB', url })}
-            onToast={toast}
-          />
-        );
-      case 'tema':
-        return (
-          <TemaApp
-            onBack={closeApp}
-            currentTheme={state.theme}
-            wallpaperUrl={state.wallpaperUrl}
-            onSetTheme={(idx) => dispatch({ type: 'SET_THEME', idx })}
-            onSetWallpaper={(url) => dispatch({ type: 'SET_WALLPAPER_URL', url })}
-            onToast={toast}
-          />
-        );
-      case 'muzik':
-        return (
-          <MuzikApp
-            onBack={closeApp}
-            playing={state.musicPlaying}
-            trackIdx={state.musicTrack}
-            volume={state.volume}
-            onToggle={() => dispatch({ type: 'TOGGLE_MUSIC' })}
-            onNext={() => dispatch({ type: 'NEXT_TRACK', total: MUSIC_TRACKS.length })}
-            onPrev={() => dispatch({ type: 'PREV_TRACK', total: MUSIC_TRACKS.length })}
-            onSetTrack={(i) => dispatch({ type: 'SET_TRACK', idx: i })}
-          />
-        );
-      case 'takvim':
-        return (
-          <TakvimApp
-            onBack={closeApp}
-            date={state.calendarDate}
-            onSetDate={(d) => dispatch({ type: 'SET_CALENDAR', date: d })}
-          />
-        );
-      case 'notlar':
-        return (
-          <NotlarApp
-            notes={state.notes}
-            activeNote={state.activeNote}
-            onBack={closeApp}
-            onCreate={(title, body) => dispatch({ type: 'CREATE_NOTE', title, body })}
-            onUpdate={(id, title, body) => dispatch({ type: 'UPDATE_NOTE', id, title, body })}
-            onDelete={(id) => dispatch({ type: 'DELETE_NOTE', id })}
-            onOpenNote={(id) => dispatch({ type: 'OPEN_NOTE', id })}
-            onToast={toast}
-          />
-        );
-      case 'yayin':
-        return <YayinApp onBack={closeApp} onToast={toast} />;
-      case 'harita':
-        return <HaritaApp onBack={closeApp} onToast={toast} />;
-      case 'hesap':
-        return <HesapApp onBack={closeApp} />;
-      case 'ayar':
-        return (
-          <AyarlarApp
-            state={state}
-            onBack={closeApp}
-            onToggleWifi={() => dispatch({ type: 'TOGGLE_WIFI' })}
-            onToggleBt={() => dispatch({ type: 'TOGGLE_BT' })}
-            onToggleDnd={() => dispatch({ type: 'TOGGLE_DND' })}
-            onBrightness={(v) => dispatch({ type: 'SET_BRIGHTNESS', val: v })}
-            onVolume={(v) => dispatch({ type: 'SET_VOLUME', val: v })}
-            onSetUsername={(name) => dispatch({ type: 'SET_USERNAME', name })}
-            onToast={toast}
-            onLock={() => dispatch({ type: 'LOCK' })}
-          />
-        );
-      default:
-        return null;
-    }
+    return (
+      <AppContent
+        appId={state.activeApp}
+        state={state}
+        dispatch={dispatch}
+        toast={toast}
+        onClose={closeApp}
+        onOpenApp={(id) => dispatch({ type: 'OPEN_APP', app: id as AppId })}
+      />
+    );
   };
 
   const bg = state.wallpaperUrl
@@ -287,8 +154,12 @@ export default function App() {
             />
           )}
 
-          {/* Active App */}
-          {renderApp()}
+          {/* Active App — üstteki durum çubuğuyla (44px) çakışmasın diye yükseklik sınırı */}
+          {state.activeApp && (
+            <div className="absolute inset-x-0 bottom-0" style={{ top: 44 }}>
+              {renderApp()}
+            </div>
+          )}
 
           {/* Notification panel */}
           {state.notifPanelOpen && (

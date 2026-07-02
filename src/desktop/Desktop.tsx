@@ -5,6 +5,7 @@ import { APPS } from '../data';
 import { AppIconGraphic } from '../components/AppIconGraphic';
 import { AppContent } from '../AppContent';
 import { Win, WinData } from './Win';
+import { findApp } from '../appstore';
 import { Taskbar } from './Taskbar';
 import { StartMenu } from './StartMenu';
 import { FileExplorer, FsNode, FsOps } from './FileExplorer';
@@ -80,7 +81,12 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
 
   function openApp(appId: string) {
     const a = APPS.find(x => x.id === appId);
-    open('app', { appId, title: a?.name || appId, icon: appIcon(appId) });
+    const s = findApp(appId); // Play Store / geliştirici uygulaması
+    open('app', {
+      appId,
+      title: a?.name || s?.name || appId,
+      icon: s?.emoji ? <span style={{ fontSize: 13 }}>{s.emoji}</span> : appIcon(appId),
+    });
   }
   function launch(id: string) {
     if (id === 'explorer') open('explorer', { title: 'Dosya Gezgini', icon: <FolderOpen size={14} color="#e8c069" />, data: { start: 'root' } });
@@ -200,7 +206,7 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
         <Win key={w.id} win={w} focused={w.z === Math.max(...wins.map(x => x.z))}
           onFocus={() => focus(w.id)} onClose={() => close(w.id)} onMin={() => toggleMin(w.id)} onMax={() => setWin(w.id, { max: !w.max })}
           onMove={(x, y) => setWin(w.id, { x, y })} onResize={(ww, hh) => setWin(w.id, { w: ww, h: hh })}>
-          {w.kind === 'app' && <AppContent appId={w.appId as any} state={os} dispatch={dispatch} toast={toast} onClose={() => close(w.id)} />}
+          {w.kind === 'app' && <AppContent appId={w.appId as any} state={os} dispatch={dispatch} toast={toast} onClose={() => close(w.id)} onOpenApp={openApp} />}
           {w.kind === 'explorer' && <FileExplorer fs={fs} ops={ops} start={w.data?.start || 'root'} />}
           {w.kind === 'notepad' && fs[w.data?.nodeId] &&
             <Notepad name={fs[w.data.nodeId].name} content={fs[w.data.nodeId].content || ''}

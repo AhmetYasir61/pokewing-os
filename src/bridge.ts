@@ -129,6 +129,26 @@ export async function deleteAppBridge(id: string): Promise<CloudCatalog | null> 
   return parseCloudApps(await bridge('deleteApp', { id }));
 }
 
+// ---- VC: gerçek arama + ses ayarları (mikrofon/kulaklık/cızırtı önleyici) ----
+export interface VcSettingsData {
+  micVol: number; spkVol: number;
+  noiseGate: boolean; echoCancel: boolean; proximity: boolean;
+  micIdx: number; spkIdx: number;
+  inputs: string[]; outputs: string[];
+}
+
+export async function getVcSettings(): Promise<VcSettingsData | null> {
+  const r = await bridge<any>('vcSettings');
+  return r && Array.isArray(r.inputs) ? (r as VcSettingsData) : null;
+}
+export async function setVcSetting(key: string, val: number | boolean): Promise<VcSettingsData | null> {
+  const r = await bridge<any>('vcSet', { key, val });
+  return r && Array.isArray(r.inputs) ? (r as VcSettingsData) : null;
+}
+export function vcDial(number: string): void { void bridge('dial', { number }); }
+export function vcAnswer(accept: boolean): void { void bridge('answer', { accept }); }
+export function vcHangup(): void { void bridge('hangup'); }
+
 // ---- Rehber (WhatsApp mantığı: numarayla kişi ekleme) ----
 export interface PwContact { name: string; number: string; online: boolean; }
 

@@ -370,6 +370,12 @@ export function useOS() {
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     (window as any).PWNotify = (type: string, data: any) => {
+      if (type === 'call') {
+        // Arama durumu → Telefon uygulamasına ilet; gelen aramada uygulamayı aç
+        window.dispatchEvent(new CustomEvent('pwcall', { detail: data }));
+        if (data && data.state === 2) { dispatch({ type: 'OPEN_APP', app: 'vc' }); ding(); }
+        return;
+      }
       if (type === 'charge') {
         // İstasyonda şarj satın alındı → hemen çek (şarj bitti ekranı da canlanır)
         void pullCharge();

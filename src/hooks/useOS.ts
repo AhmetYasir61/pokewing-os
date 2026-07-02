@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { OSState, AppId, Notification, Contact } from '../types';
 import { THEMES } from '../data';
-import { hasBridge, bridge, getMessages, ding } from '../bridge';
-import { itemId } from '../appstore';
+import { hasBridge, bridge, getMessages, ding, getServerApps, parseCloudApps } from '../bridge';
+import { itemId, setCloudApps } from '../appstore';
 import type { Message } from '../types';
 
 // ---- Telefon verileri item'a bağlı saklanır (PC'deki gibi): tema, duvar kağıdı, notlar, ayarlar ----
@@ -283,6 +283,9 @@ export function useOS() {
         if (Object.keys(threads).length) dispatch({ type: 'SET_THREADS', threads });
         dispatch({ type: 'SET_MSG_UNREAD', count: Object.values(ms.unread).reduce((a, b) => a + b, 0) });
       }
+      // Sunucudaki uygulama mağazası kataloğunu çek (geliştirici yayınları)
+      const ca = await getServerApps();
+      if (alive && ca) setCloudApps(ca.apps);
     })();
     return () => { alive = false; };
   }, []);
@@ -291,6 +294,12 @@ export function useOS() {
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     (window as any).PWNotify = (type: string, data: any) => {
+      if (type === 'apps') {
+        // Biri uygulama yayınladı/kaldırdı → katalog önbelleğini tazele
+        const c = parseCloudApps(data);
+        if (c) setCloudApps(c.apps);
+        return;
+      }
       if (type === 'msg' && data && data.from) {
         dispatch({ type: 'RECV_MSG', contactName: String(data.peer || data.from), text: String(data.text || '') });
         dispatch({ type: 'BUMP_UNREAD' });

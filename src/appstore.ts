@@ -1,5 +1,6 @@
 // Play Store altyapısı: uygulama kataloğu, kurulum durumu (item'a bağlı),
 // platform hedefi (telefon/pc) ve geliştirici yetkileri.
+import { hasBridge } from './bridge';
 
 export type Target = 'phone' | 'pc';
 
@@ -72,8 +73,22 @@ export function deleteDevApp(id: string): void {
   try { localStorage.setItem(DKEY(), JSON.stringify(devApps().filter(a => a.id !== id))); } catch { /* kota */ }
 }
 
-/** Tam katalog: yerleşik + bu cihazda yayınlanmış geliştirici uygulamaları. */
-export function fullCatalog(): StoreApp[] { return [...STORE_CATALOG, ...devApps()]; }
+// ---- Bulut kataloğu (SUNUCUDAN gelen geliştirici yayınları — herkes görür) ----
+// Katalog evrenseldir (item'a değil sunucuya aittir); yerelde önbelleklenir.
+const CLOUD_KEY = 'pwcloudapps';
+export function cloudApps(): StoreApp[] {
+  try { return JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null') || []; } catch { return []; }
+}
+export function setCloudApps(list: StoreApp[]): void {
+  try { localStorage.setItem(CLOUD_KEY, JSON.stringify(list)); } catch { /* kota */ }
+}
+
+/** Tam katalog: yerleşik + geliştirici yayınları.
+ *  Oyun içinde (köprü var) → SUNUCU kataloğu (herkese dağıtılan);
+ *  önizlemede → yerel taslaklar. */
+export function fullCatalog(): StoreApp[] {
+  return [...STORE_CATALOG, ...(hasBridge() ? cloudApps() : devApps())];
+}
 
 /** Bu cihazda (platforma göre) kullanılabilir + kurulu uygulamalar. */
 export function installedAppsForPlatform(): StoreApp[] {

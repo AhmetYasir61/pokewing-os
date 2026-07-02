@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
-import { fullCatalog, installedIds, install, uninstall, currentTarget, StoreApp as SApp } from '../appstore';
+import { fullCatalog, installedIds, install, uninstall, currentTarget, setCloudApps, StoreApp as SApp } from '../appstore';
+import { hasBridge, getServerApps } from '../bridge';
 import { Download, Check, Trash2, Star, Smartphone, Monitor, Search } from 'lucide-react';
 
 interface Props { onBack: () => void; toast: (t: string) => void; onOpenApp: (id: string) => void; }
@@ -12,6 +13,14 @@ export function PlayStoreApp({ onBack, toast, onOpenApp }: Props) {
   const [q, setQ] = useState('');
   const [, force] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // Sunucu kataloğunu tazele (başkalarının yeni yayınları görünsün)
+  useEffect(() => {
+    if (!hasBridge()) return;
+    let alive = true;
+    getServerApps().then(c => { if (alive && c) { setCloudApps(c.apps); force(x => x + 1); } });
+    return () => { alive = false; };
+  }, []);
 
   const t = currentTarget();
   const inst = installedIds();

@@ -244,6 +244,14 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
 
       <input ref={fileInput} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onWallFile} />
 
+      {/* Toast bildirimleri (Windows tarzı sağ alt) */}
+      {os.toasts.map((t, i) => (
+        <div key={t.id} className="absolute right-4 z-[970] px-4 py-3 rounded-xl text-[13px] text-white anim-slideup"
+          style={{ bottom: 60 + i * 52, background: 'rgba(36,36,40,0.96)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+          {t.text}
+        </div>
+      ))}
+
       {start && <StartMenu userName={os.userName} onOpen={launch} onClose={() => setStart(false)} />}
 
       <Taskbar time={time} dateStr={dateStr} startOpen={start} windows={wins}

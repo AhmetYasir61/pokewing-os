@@ -16,6 +16,7 @@ declare global {
 }
 
 import type { Product, InventoryItem, NewsItem } from './types';
+import type { StoreApp } from './appstore';
 
 export const hasBridge = (): boolean =>
   typeof window !== 'undefined' && typeof window.cefQuery === 'function';
@@ -95,6 +96,30 @@ export function markMsgRead(peer: string): void {
 export async function browseInGame(url: string): Promise<boolean> {
   const r = await bridge<{ ok?: boolean }>('browse', { url });
   return !!r?.ok;
+}
+
+// ---- Uygulama mağazası (geliştirici yayınları — SUNUCUDA saklanır, herkese dağıtılır) ----
+export interface CloudCatalog { apps: StoreApp[]; error?: string; }
+
+export function parseCloudApps(r: any): CloudCatalog | null {
+  if (!r || !Array.isArray(r.apps)) return null;
+  const apps: StoreApp[] = r.apps.map((a: any): StoreApp => ({
+    id: String(a?.id ?? ''), name: String(a?.name ?? ''), emoji: String(a?.emoji ?? '🚀'),
+    color: String(a?.color ?? '#5E5CE6'), desc: String(a?.desc ?? ''), category: 'Geliştirici',
+    targets: Array.isArray(a?.targets) ? a.targets.filter((t: any) => t === 'phone' || t === 'pc') : ['phone', 'pc'],
+    size: String(a?.size ?? ''), custom: true, html: String(a?.html ?? ''), author: String(a?.author ?? ''),
+  })).filter((a: StoreApp) => a.id.startsWith('dev:'));
+  return { apps, error: r.error ? String(r.error) : undefined };
+}
+
+export async function getServerApps(): Promise<CloudCatalog | null> {
+  return parseCloudApps(await bridge('appList'));
+}
+export async function publishAppBridge(app: StoreApp): Promise<CloudCatalog | null> {
+  return parseCloudApps(await bridge('publishApp', app as unknown as Record<string, unknown>));
+}
+export async function deleteAppBridge(id: string): Promise<CloudCatalog | null> {
+  return parseCloudApps(await bridge('deleteApp', { id }));
 }
 
 // ---- Rehber (WhatsApp mantığı: numarayla kişi ekleme) ----

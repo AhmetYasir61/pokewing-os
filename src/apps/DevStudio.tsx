@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
-import { hasBridge, bridge } from '../bridge';
-import { DEVELOPERS, Target, StoreApp, devApps, saveDevApp, deleteDevApp, install, isPcMode } from '../appstore';
+import { hasBridge, bridge, publishAppBridge, deleteAppBridge, getServerApps } from '../bridge';
+import { DEVELOPERS, Target, StoreApp, devApps, saveDevApp, deleteDevApp, install, isPcMode, cloudApps, setCloudApps } from '../appstore';
 import { Code2, Rocket, Trash2, ShieldAlert, Smartphone, Monitor, Play } from 'lucide-react';
 
 interface Props { onBack: () => void; toast: (t: string) => void; }
@@ -33,7 +33,16 @@ export function DevStudio({ onBack, toast }: Props) {
   useEffect(() => {
     if (!hasBridge()) { setUser('Önizleme'); setChecked(true); return; }
     bridge<{ name?: string }>('me').then(m => { setUser(m?.name ?? null); setChecked(true); });
+    // Sunucu kataloğunu tazele (uygulamalarım listesi güncel olsun)
+    getServerApps().then(c => { if (c) { setCloudApps(c.apps); setApps(myApps()); } });
   }, []);
+
+  // Uygulamalarım: oyun içinde = sunucudaki yayınlarım; önizlemede = yerel taslaklar
+  function myApps(): StoreApp[] {
+    if (!hasBridge()) return devApps();
+    const me = (user ?? '').toLowerCase();
+    return cloudApps().filter(a => (a.author ?? '').toLowerCase() === me || me === '');
+  }
 
   const authorized = !hasBridge() || (user !== null && DEVELOPERS.some(d => d.toLowerCase() === user.toLowerCase()));
 
@@ -65,11 +74,12 @@ export function DevStudio({ onBack, toast }: Props) {
     );
   }
 
-  const publish = () => {
+  const publish = async () => {
     const n = name.trim();
     if (n.length < 2) { toast('Uygulama adı gir.'); return; }
     if (targets.length === 0) { toast('En az bir hedef seç (Telefon/PC).'); return; }
     if (html.trim().length < 20) { toast('Uygulama kodu çok kısa.'); return; }
+    if (html.length > 120000) { toast('Kod çok büyük (sınır ~120 KB).'); return; }
     const id = 'dev:' + n.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
     const app: StoreApp = {
       id, name: n, emoji: emoji || '🚀', color: '#5E5CE6',
@@ -77,10 +87,21 @@ export function DevStudio({ onBack, toast }: Props) {
       category: 'Geliştirici', targets: [...targets],
       size: (html.length / 1024).toFixed(1) + ' KB', custom: true, html, author: user ?? '',
     };
-    saveDevApp(app);
-    install(id); // geliştirici kendi cihazına otomatik kurar
-    setApps(devApps());
-    toast(`🚀 "${n}" yayınlandı! Play Store'da görünür.`);
+    if (hasBridge()) {
+      // SUNUCUYA yayınla → tüm oyunculara dağıtılır (sunucu yetkiyi ayrıca doğrular)
+      const r = await publishAppBridge(app);
+      if (!r) { toast('Sunucuya ulaşılamadı.'); return; }
+      if (r.error) { toast(r.error); return; }
+      setCloudApps(r.apps);
+      install(id);
+      setApps(myApps());
+      toast(`🚀 "${n}" yayınlandı — TÜM oyunculara dağıtıldı!`);
+    } else {
+      saveDevApp(app);
+      install(id);
+      setApps(devApps());
+      toast(`🚀 "${n}" yayınlandı (önizleme — yerel).`);
+    }
   };
 
   const tgl = (t: Target) => setTargets(x => x.includes(t) ? x.filter(v => v !== t) : [...x, t]);
@@ -140,7 +161,18 @@ export function DevStudio({ onBack, toast }: Props) {
                     {a.targets.includes('phone') && '📱'}{a.targets.includes('pc') && '🖥️'} {a.size}
                   </div>
                 </div>
-                <button onClick={() => { deleteDevApp(a.id); setApps(devApps()); toast('Uygulama kaldırıldı.'); }}
+                <button onClick={async () => {
+                  if (hasBridge()) {
+                    const r = await deleteAppBridge(a.id);
+                    if (r?.error) { toast(r.error); return; }
+                    if (r) setCloudApps(r.apps);
+                    setApps(myApps());
+                  } else {
+                    deleteDevApp(a.id);
+                    setApps(devApps());
+                  }
+                  toast('Uygulama kaldırıldı.');
+                }}
                   className="p-1 rounded hover:bg-red-600/30"><Trash2 size={13} color="#FF453A" /></button>
               </div>
             ))}

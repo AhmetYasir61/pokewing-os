@@ -166,6 +166,16 @@ export default function App() {
             />
           )}
 
+          {/* Uygulama açıkken durum çubuğu şeridi uygulamanın arka plan rengini alır
+              (duvar kağıdı sızmaz — profesyonel görünüm) */}
+          {state.activeApp && (
+            <div className="absolute inset-x-0 top-0" style={{
+              height: 44, zIndex: 40,
+              background: ({ mesaj: '#202C33', darkchat: '#0a0a0c', vc: 'rgb(10,10,12)' } as Record<string, string>)[state.activeApp] ?? 'rgb(10,10,12)',
+              transition: 'background 0.25s',
+            }} />
+          )}
+
           {/* Active App — üstteki durum çubuğuyla (44px) çakışmasın diye yükseklik sınırı */}
           {state.activeApp && (
             <div className="absolute inset-x-0 bottom-0" style={{ top: 44 }}>

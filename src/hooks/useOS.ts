@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { OSState, AppId, Notification, Contact } from '../types';
 import { THEMES } from '../data';
-import { hasBridge, bridge } from '../bridge';
+import { hasBridge, bridge, getMessages, ding } from '../bridge';
+import type { Message } from '../types';
 
 const initThreads: Record<string, import('../types').Message[]> = {
   Misty: [
@@ -56,6 +57,8 @@ const initState: OSState = {
   activeNote: null,
   webUrl: 'https://www.google.com',
   webHistory: [],
+  msgUnread: 0,
+  banner: null,
 };
 
 type Action =
@@ -77,6 +80,10 @@ type Action =
   | { type: 'ADD_COIN'; amount: number }
   | { type: 'SPEND_COIN'; amount: number }
   | { type: 'SET_COINS'; amount: number }
+  | { type: 'SET_THREADS'; threads: Record<string, Message[]> }
+  | { type: 'SET_MSG_UNREAD'; count: number }
+  | { type: 'BUMP_UNREAD' }
+  | { type: 'SET_BANNER'; banner: { from: string; text: string } | null }
   | { type: 'OPEN_CHAT'; contact: Contact }
   | { type: 'CLOSE_CHAT' }
   | { type: 'SEND_MSG'; contactName: string; text: string }
@@ -108,7 +115,7 @@ type Action =
 function reducer(state: OSState, action: Action): OSState {
   switch (action.type) {
     case 'OPEN_APP':
-      return { ...state, activeApp: action.app, prevApp: state.activeApp, drawerOpen: false, notifPanelOpen: false, quickSettingsOpen: false, contextMenu: null };
+      return { ...state, activeApp: action.app, prevApp: state.activeApp, drawerOpen: false, notifPanelOpen: false, quickSettingsOpen: false, contextMenu: null, msgUnread: action.app === 'mesaj' ? 0 : state.msgUnread };
     case 'CLOSE_APP':
       return { ...state, activeApp: null, chatContact: null };
     case 'TOGGLE_DRAWER':
@@ -143,6 +150,14 @@ function reducer(state: OSState, action: Action): OSState {
       return { ...state, coins: Math.max(0, state.coins - action.amount) };
     case 'SET_COINS':
       return { ...state, coins: Math.max(0, action.amount) };
+    case 'SET_THREADS':
+      return { ...state, threads: action.threads };
+    case 'SET_MSG_UNREAD':
+      return { ...state, msgUnread: Math.max(0, action.count) };
+    case 'BUMP_UNREAD':
+      return { ...state, msgUnread: state.activeApp === 'mesaj' ? state.msgUnread : state.msgUnread + 1 };
+    case 'SET_BANNER':
+      return { ...state, banner: action.banner };
     case 'OPEN_CHAT':
       return { ...state, chatContact: action.contact };
     case 'CLOSE_CHAT':
@@ -228,8 +243,33 @@ export function useOS() {
       const mk = await bridge<{ coins?: number }>('market');
       if (alive && mk && typeof mk.coins === 'number' && mk.coins >= 0)
         dispatch({ type: 'SET_COINS', amount: mk.coins });
+      // Gerçek sohbet geçmişi + okunmamış sayısı
+      const ms = await getMessages();
+      if (alive && ms) {
+        const threads: Record<string, Message[]> = {};
+        for (const [peer, list] of Object.entries(ms.threads))
+          threads[peer] = list.filter(m => m.who !== 'sys').map(m => ({ who: m.who as 'me' | 'them', text: m.text, time: '' }));
+        if (Object.keys(threads).length) dispatch({ type: 'SET_THREADS', threads });
+        dispatch({ type: 'SET_MSG_UNREAD', count: Object.values(ms.unread).reduce((a, b) => a + b, 0) });
+      }
     })();
     return () => { alive = false; };
+  }, []);
+
+  // Mod'dan push bildirimleri (PWNotify): yeni mesaj → sohbete ekle + rozet + baloncuk + ding
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    (window as any).PWNotify = (type: string, data: any) => {
+      if (type === 'msg' && data && data.from) {
+        dispatch({ type: 'RECV_MSG', contactName: String(data.peer || data.from), text: String(data.text || '') });
+        dispatch({ type: 'BUMP_UNREAD' });
+        dispatch({ type: 'SET_BANNER', banner: { from: String(data.from), text: String(data.text || '') } });
+        ding();
+        if (bannerTimer.current) clearTimeout(bannerTimer.current);
+        bannerTimer.current = setTimeout(() => dispatch({ type: 'SET_BANNER', banner: null }), 4000);
+      }
+    };
+    return () => { (window as any).PWNotify = undefined; };
   }, []);
 
   const toast = useCallback((text: string) => {

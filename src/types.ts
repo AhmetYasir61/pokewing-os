@@ -104,4 +104,6 @@ export interface OSState {
   activeNote: string | null;
   webUrl: string;
   webHistory: string[];
+  msgUnread: number;                                  // toplam okunmamış mesaj (app rozeti)
+  banner: { from: string; text: string } | null;      // üstte bildirim baloncuğu
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
+import { hasBridge, browseInGame } from '../bridge';
 import { Search, ArrowLeft, ArrowRight, RefreshCw, Home, Bookmark, X } from 'lucide-react';
 
 interface Props { onBack: () => void; webUrl: string; onNavigate: (url: string) => void; onToast: (msg: string) => void; }
@@ -29,7 +30,19 @@ export function WebApp({ onBack, webUrl, onNavigate, onToast }: Props) {
 
   const navigate = (url: string) => {
     let full = url;
-    if (!url.startsWith('http')) full = `https://${url}`;
+    if (!url.startsWith('http')) {
+      // URL değilse Google araması yap
+      full = url.includes('.') && !url.includes(' ')
+        ? `https://${url}`
+        : `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    }
+    if (hasBridge()) {
+      // OYUN İÇİ GERÇEK TARAYICI: Google/YouTube MCEF overlay'de açılır (ses dahil).
+      onToast('Tarayıcı açılıyor...');
+      void browseInGame(full);
+      onNavigate(full);
+      return;
+    }
     setLoading(true);
     setUrlInput(full);
     onNavigate(full);

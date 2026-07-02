@@ -15,8 +15,10 @@ interface Props {
 const HOME_PAGE_APP_IDS: AppId[] = ['market', 'depo', 'katalog', 'news', 'mesaj', 'kamera', 'galeri', 'web', 'tema', 'muzik', 'takvim', 'notlar'];
 
 export function HomeScreen({ state, onOpenApp, onOpenDrawer, onSearch, onLongPressApp }: Props) {
-  const homeApps = APPS.filter(a => HOME_PAGE_APP_IDS.includes(a.id));
-  const dockApps = APPS.filter(a => DOCK_APPS.includes(a.id));
+  // Rozetler dinamik: Mesajlar = gerçek okunmamış sayısı
+  const withBadge = (a: (typeof APPS)[number]) => (a.id === 'mesaj' ? { ...a, badge: state.msgUnread } : a);
+  const homeApps = APPS.filter(a => HOME_PAGE_APP_IDS.includes(a.id)).map(withBadge);
+  const dockApps = APPS.filter(a => DOCK_APPS.includes(a.id)).map(withBadge);
   const [search, setSearch] = React.useState('');
   const filtered = search.trim()
     ? APPS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()))

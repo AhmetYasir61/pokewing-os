@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppWindow } from '../components/AppWindow';
 import { MOCK_CONTACTS } from '../data';
 import { Contact, Message } from '../types';
+import { hasBridge, sendMsgBridge, markMsgRead } from '../bridge';
 import { Send, ChevronLeft, Phone, Video } from 'lucide-react';
 
 interface Props {
@@ -28,15 +29,26 @@ export function MesajApp({ onBack, threads, onSend, onRecv, onToast }: Props) {
     msgEnd.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  // Sohbet açılınca mod tarafında "okundu" işaretle (rozet + bildirim bastırma)
+  useEffect(() => {
+    if (hasBridge()) markMsgRead(selected ? selected.name : '');
+  }, [selected]);
+
   const send = () => {
     if (!selected || !input.trim()) return;
-    onSend(selected.name, input.trim());
+    const text = input.trim();
+    onSend(selected.name, text);
     setInput('');
-    // Auto-reply
-    setTimeout(() => {
-      const reply = REPLIES[Math.floor(Math.random() * REPLIES.length)];
-      onRecv(selected.name, reply);
-    }, 1200 + Math.random() * 1000);
+    if (hasBridge()) {
+      // Gerçek mesaj: sunucu üzerinden hedef oyuncuya iletilir
+      sendMsgBridge(selected.name, text);
+    } else {
+      // Önizleme (köprü yok) → sahte otomatik yanıt
+      setTimeout(() => {
+        const reply = REPLIES[Math.floor(Math.random() * REPLIES.length)];
+        onRecv(selected.name, reply);
+      }, 1200 + Math.random() * 1000);
+    }
   };
 
   if (selected) {

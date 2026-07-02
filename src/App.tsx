@@ -351,6 +351,21 @@ export default function App() {
             </div>
           )}
 
+          {/* Yeni mesaj baloncuğu (üstte) */}
+          {state.banner && (
+            <div className="msg-banner">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0"
+                style={{ background: `hsl(${state.banner.from.charCodeAt(0) * 20},60%,40%)` }}>
+                {state.banner.from[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-semibold text-[13px]">{state.banner.from}</div>
+                <div className="text-[12px] truncate" style={{ color: 'rgba(235,235,245,0.65)' }}>{state.banner.text}</div>
+              </div>
+              <span style={{ fontSize: 16 }}>💬</span>
+            </div>
+          )}
+
           {/* Toasts */}
           {state.toasts.map(t => (
             <div key={t.id} className="toast-notif">{t.text}</div>

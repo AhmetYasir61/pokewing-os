@@ -281,22 +281,46 @@ input::placeholder { color: rgba(235, 235, 245, 0.35); }
   gap: 2px;
 }
 
-/* Notification dot */
+/* Notification dot — kırmızı top: tek hane = daire, 2-3 hane = sağa büyüyen hap */
 .notif-dot {
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  background: #FF453A;
-  border: 2px solid transparent;
+  min-width: 19px;
+  height: 19px;
+  border-radius: 9.5px;
+  background: #FF3B30;
+  color: #fff;
+  border: 1.5px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 0 4px;
+  line-height: 1;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+
+/* Üst bildirim baloncuğu (yeni mesaj) */
+.msg-banner {
+  position: absolute;
+  top: 54px;
+  left: 12px;
+  right: 12px;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgba(36, 36, 40, 0.96);
+  backdrop-filter: blur(24px) saturate(1.6);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: notifin 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+  pointer-events: none;
 }
 
 /* Quick settings tile */

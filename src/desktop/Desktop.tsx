@@ -131,10 +131,21 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
   ];
   function defaultPos(i: number) { return { x: 16, y: 16 + i * 92 }; }
   const dragRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const rafRef = useRef(0);
   function startIconDrag(e: React.MouseEvent, id: string, cur: { x: number; y: number }) {
     e.stopPropagation();
     dragRef.current = { id, sx: e.clientX, sy: e.clientY, ox: cur.x, oy: cur.y };
-    const mv = (ev: MouseEvent) => { const d = dragRef.current; if (!d) return; setIconPos(p => ({ ...p, [d.id]: { x: Math.max(0, d.ox + ev.clientX - d.sx), y: Math.max(0, d.oy + ev.clientY - d.sy) } })); };
+    let lx = e.clientX, ly = e.clientY;
+    // rAF ile sınırla: her mousemove'da değil, kare başına EN FAZLA 1 render (akıcı sürükleme)
+    const mv = (ev: MouseEvent) => {
+      lx = ev.clientX; ly = ev.clientY;
+      if (rafRef.current) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        const d = dragRef.current; if (!d) return;
+        setIconPos(p => ({ ...p, [d.id]: { x: Math.max(0, d.ox + lx - d.sx), y: Math.max(0, d.oy + ly - d.sy) } }));
+      });
+    };
     const up = () => { dragRef.current = null; document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
     document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
   }

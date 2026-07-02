@@ -41,7 +41,7 @@ export function AppIcon({ app, size = 'md', onPress, onLongPress, wobble }: Prop
         <AppIconGraphic id={app.id} size={size} />
         {!!app.badge && (
           <div className="notif-dot" style={{ top: -4, right: -4 }}>
-            {app.badge > 9 ? '9+' : app.badge}
+            {app.badge > 999 ? '999+' : app.badge}
           </div>
         )}
       </button>

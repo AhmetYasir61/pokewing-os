@@ -23,18 +23,38 @@ export function Win({ win, focused, onFocus, onClose, onMin, onMax, onMove, onRe
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   const rez = useRef<{ sx: number; sy: number; ow: number; oh: number } | null>(null);
 
+  const raf = useRef(0);
   const startDrag = (e: React.MouseEvent) => {
     if (win.max) return;
     onFocus();
     drag.current = { sx: e.clientX, sy: e.clientY, ox: win.x, oy: win.y };
-    const mv = (ev: MouseEvent) => { const d = drag.current; if (!d) return; onMove(d.ox + ev.clientX - d.sx, Math.max(0, d.oy + ev.clientY - d.sy)); };
+    let lx = e.clientX, ly = e.clientY;
+    // rAF ile sınırla: kare başına en fazla 1 güncelleme (akıcı pencere taşıma)
+    const mv = (ev: MouseEvent) => {
+      lx = ev.clientX; ly = ev.clientY;
+      if (raf.current) return;
+      raf.current = requestAnimationFrame(() => {
+        raf.current = 0;
+        const d = drag.current; if (!d) return;
+        onMove(d.ox + lx - d.sx, Math.max(0, d.oy + ly - d.sy));
+      });
+    };
     const up = () => { drag.current = null; document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
     document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
   };
   const startRez = (e: React.MouseEvent) => {
     e.stopPropagation(); onFocus();
     rez.current = { sx: e.clientX, sy: e.clientY, ow: win.w, oh: win.h };
-    const mv = (ev: MouseEvent) => { const r = rez.current; if (!r) return; onResize(Math.max(380, r.ow + ev.clientX - r.sx), Math.max(260, r.oh + ev.clientY - r.sy)); };
+    let lx = e.clientX, ly = e.clientY;
+    const mv = (ev: MouseEvent) => {
+      lx = ev.clientX; ly = ev.clientY;
+      if (raf.current) return;
+      raf.current = requestAnimationFrame(() => {
+        raf.current = 0;
+        const r = rez.current; if (!r) return;
+        onResize(Math.max(380, r.ow + lx - r.sx), Math.max(260, r.oh + ly - r.sy));
+      });
+    };
     const up = () => { rez.current = null; document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
     document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
   };

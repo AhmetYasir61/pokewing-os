@@ -71,6 +71,53 @@ export async function claimItem(id: number): Promise<{ ok: boolean; depoId?: num
   return bridge<{ ok: boolean; depoId?: number; msg?: string }>('claim', { id });
 }
 
+// ---- Mesajlar ----
+export interface BridgeMsg { who: 'me' | 'them' | 'sys'; text: string; }
+
+/** Mod'daki sohbet deposunu çeker: {threads, unread}. Köprü yoksa null. */
+export async function getMessages(): Promise<{ threads: Record<string, BridgeMsg[]>; unread: Record<string, number> } | null> {
+  const r = await bridge<{ threads?: Record<string, BridgeMsg[]>; unread?: Record<string, number> }>('messages');
+  if (!r || typeof r.threads !== 'object') return null;
+  return { threads: r.threads || {}, unread: r.unread || {} };
+}
+
+/** Gerçek oyuncuya mesaj gönder (sunucu iletir). */
+export function sendMsgBridge(to: string, text: string): void {
+  void bridge('sendMsg', { to, text });
+}
+
+/** Sohbet açıldı — mod tarafında okunmamışı temizle + bildirimi bastır. */
+export function markMsgRead(peer: string): void {
+  void bridge('msgRead', { peer });
+}
+
+/** Oyun içi gerçek tarayıcıyı aç (MCEF overlay — Google/YouTube, sesli). */
+export async function browseInGame(url: string): Promise<boolean> {
+  const r = await bridge<{ ok?: boolean }>('browse', { url });
+  return !!r?.ok;
+}
+
+// ---- Bildirim sesi (minik ding — WebAudio, dosya gerekmez) ----
+let _actx: AudioContext | null = null;
+export function ding(): void {
+  try {
+    _actx = _actx || new AudioContext();
+    const ctx = _actx;
+    if (ctx.state === 'suspended') void ctx.resume();
+    const t = ctx.currentTime;
+    [1318.5, 1760].forEach((f, i) => {   // E6 → A6: iki tonlu "ding"
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + i * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.12, t + i * 0.09 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.35);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.4);
+    });
+  } catch { /* ses yoksa sessiz geç */ }
+}
+
 // ---- Duyurular ----
 const NEWS_TAG: Record<string, string> = { update: 'Güncelleme', event: 'Etkinlik', reward: 'Kampanya', info: 'Bilgi' };
 

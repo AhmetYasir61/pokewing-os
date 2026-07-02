@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { OSState, AppId, Notification, Contact } from '../types';
 import { THEMES } from '../data';
-import { hasBridge, bridge, getMessages, getNews, ding, getServerApps, parseCloudApps } from '../bridge';
+import { hasBridge, bridge, getMessages, getNews, ding, getServerApps, parseCloudApps, chargeTake } from '../bridge';
 import { itemId, isPcMode, setCloudApps, cloudApps } from '../appstore';
 import type { Message } from '../types';
 
@@ -280,6 +280,7 @@ export function useOS() {
       ...(p.dnd !== undefined ? { dnd: p.dnd } : {}),
       ...(Array.isArray(p.notes) && p.notes.length ? { notes: p.notes } : {}),
       battery: loadBattery(),
+      lockScreen: !isPcMode(),   // telefon PIN kilidiyle açılır (PC'de kilit yok)
     };
   });
   const toastTimer = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -348,6 +349,18 @@ export function useOS() {
     const t = setInterval(() => dispatch({ type: 'TICK_BATTERY' }), 30000);
     return () => clearInterval(t);
   }, []);
+
+  // ⚡ Şarj istasyonundan bekleyen şarjı çek (açılışta + istasyon kullanımında canlı)
+  const batteryRef = useRef(state.battery);
+  batteryRef.current = state.battery;
+  const pullCharge = useCallback(async () => {
+    if (!hasBridge() || isPcMode()) return;
+    const need = 100 - batteryRef.current;
+    if (need < 1) return;
+    const granted = await chargeTake(itemId(), need);
+    if (granted > 0) dispatch({ type: 'SET_BATTERY', level: batteryRef.current + granted });
+  }, []);
+  useEffect(() => { pullCharge(); }, [pullCharge]);
   useEffect(() => {
     if (isPcMode()) return;
     try { localStorage.setItem(BAT_KEY(), JSON.stringify({ lvl: state.battery, ts: Date.now() })); } catch { /* kota */ }
@@ -357,6 +370,11 @@ export function useOS() {
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     (window as any).PWNotify = (type: string, data: any) => {
+      if (type === 'charge') {
+        // İstasyonda şarj satın alındı → hemen çek (şarj bitti ekranı da canlanır)
+        void pullCharge();
+        return;
+      }
       if (type === 'apps') {
         // Biri uygulama yayınladı/kaldırdı → katalog önbelleğini tazele
         const c = parseCloudApps(data);

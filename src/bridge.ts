@@ -99,7 +99,7 @@ export async function browseInGame(url: string): Promise<boolean> {
 }
 
 // ---- Uygulama mağazası (geliştirici yayınları — SUNUCUDA saklanır, herkese dağıtılır) ----
-export interface CloudCatalog { apps: StoreApp[]; error?: string; }
+export interface CloudCatalog { apps: StoreApp[]; error?: string; canDev?: boolean; }
 
 export function parseCloudApps(r: any): CloudCatalog | null {
   if (!r || !Array.isArray(r.apps)) return null;
@@ -109,7 +109,14 @@ export function parseCloudApps(r: any): CloudCatalog | null {
     targets: Array.isArray(a?.targets) ? a.targets.filter((t: any) => t === 'phone' || t === 'pc') : ['phone', 'pc'],
     size: String(a?.size ?? ''), custom: true, html: String(a?.html ?? ''), author: String(a?.author ?? ''),
   })).filter((a: StoreApp) => a.id.startsWith('dev:'));
-  return { apps, error: r.error ? String(r.error) : undefined };
+  return { apps, error: r.error ? String(r.error) : undefined, canDev: r.canDev === true };
+}
+
+// ---- Şarj (istasyondan alınan bekleyen şarjı çek — powerbank mantığı) ----
+export async function chargeTake(item: string, need: number): Promise<number> {
+  if (need <= 0) return 0;
+  const r = await bridge<{ granted?: number }>('chargeTake', { item, need: Math.ceil(need) });
+  return r && typeof r.granted === 'number' ? Math.max(0, r.granted) : 0;
 }
 
 export async function getServerApps(): Promise<CloudCatalog | null> {

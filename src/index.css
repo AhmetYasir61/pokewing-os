@@ -79,6 +79,13 @@ html, body, #root {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+@keyframes pinshake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
+}
 
 .anim-appin { animation: appin 0.34s cubic-bezier(0.32, 0.72, 0, 1) both; }
 .anim-slideup { animation: slideup 0.3s cubic-bezier(0.32, 0.72, 0, 1) both; }

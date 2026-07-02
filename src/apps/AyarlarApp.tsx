@@ -16,7 +16,12 @@ interface Props {
   onLock: () => void;
 }
 
+import { getPin, setPin } from '../components/LockScreen';
+
 export function AyarlarApp({ state, onBack, onToggleWifi, onToggleBt, onToggleDnd, onBrightness, onVolume, onSetUsername, onToast, onLock }: Props) {
+  const [pinModal, setPinModal] = React.useState(false);
+  const [pinCur, setPinCur] = React.useState('');
+  const [pinNew, setPinNew] = React.useState('');
   const [section, setSection] = useState<string | null>(null);
   const [editName, setEditName] = useState(state.userName);
 
@@ -142,6 +147,45 @@ export function AyarlarApp({ state, onBack, onToggleWifi, onToggleBt, onToggleDn
             );
           })}
         </div>
+
+        {/* PIN Değiştir (kişiye özel — item'a kaydedilir) */}
+        <button
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ background: 'rgba(10,132,255,0.1)', border: '0.5px solid rgba(10,132,255,0.2)' }}
+          onClick={() => { setPinCur(''); setPinNew(''); setPinModal(true); }}
+        >
+          <Lock size={20} color="#0A84FF" />
+          <span className="font-medium" style={{ color: '#0A84FF' }}>PIN Değiştir</span>
+        </button>
+
+        {/* PIN değiştirme modalı */}
+        {pinModal && (
+          <div className="absolute inset-0 z-20 flex items-end anim-fadein"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setPinModal(false)}>
+            <div className="w-full anim-slideup rounded-t-3xl p-6" style={{ background: 'rgb(18,18,22)' }}
+              onClick={e => e.stopPropagation()}>
+              <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: 'rgba(255,255,255,0.2)' }} />
+              <div className="text-white font-bold text-xl mb-4">🔒 PIN Değiştir</div>
+              <input type="password" value={pinCur} inputMode="numeric" placeholder="Mevcut PIN"
+                onChange={e => setPinCur(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                style={{ marginBottom: 10, textAlign: 'center', letterSpacing: 6 }} />
+              <input type="password" value={pinNew} inputMode="numeric" placeholder="Yeni PIN (4-6 rakam)"
+                onChange={e => setPinNew(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                style={{ textAlign: 'center', letterSpacing: 6 }} />
+              <div className="flex gap-3 mt-5">
+                <button className="pill-btn ghost flex-1" onClick={() => setPinModal(false)}>İptal</button>
+                <button className="pill-btn primary flex-1" onClick={() => {
+                  if (pinCur !== getPin()) { onToast('Mevcut PIN yanlış!'); return; }
+                  if (pinNew.length < 4) { onToast('Yeni PIN en az 4 rakam olmalı.'); return; }
+                  setPin(pinNew);
+                  setPinModal(false);
+                  onToast('PIN değiştirildi 🔒');
+                }}>Kaydet</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Lock */}
         <button

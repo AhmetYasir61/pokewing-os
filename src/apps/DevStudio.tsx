@@ -29,12 +29,17 @@ export function DevStudio({ onBack, toast }: Props) {
   const [targets, setTargets] = useState<Target[]>(['phone', 'pc']);
   const [preview, setPreview] = useState(false);
 
-  // Giriş: oyun içindeki KENDİ kullanıcı adınla (köprüden) — yetki listesiyle karşılaştırılır
+  // Giriş: oyun içindeki KENDİ kullanıcı adınla — yetki LAUNCHER/SUNUCUDAN doğrulanır
+  // (OP veya pw_devs tablosu / config/pokewing_devs.txt). Web listesi sadece önizleme içindir.
+  const [canDev, setCanDev] = useState<boolean | null>(null);
   useEffect(() => {
-    if (!hasBridge()) { setUser('Önizleme'); setChecked(true); return; }
-    bridge<{ name?: string }>('me').then(m => { setUser(m?.name ?? null); setChecked(true); });
-    // Sunucu kataloğunu tazele (uygulamalarım listesi güncel olsun)
-    getServerApps().then(c => { if (c) { setCloudApps(c.apps); setApps(myApps()); } });
+    if (!hasBridge()) { setUser('Önizleme'); setChecked(true); setCanDev(true); return; }
+    bridge<{ name?: string }>('me').then(m => setUser(m?.name ?? null));
+    getServerApps().then(c => {
+      if (c) { setCloudApps(c.apps); setApps(myApps()); setCanDev(c.canDev === true); }
+      else setCanDev(false);
+      setChecked(true);
+    });
   }, []);
 
   // Uygulamalarım: oyun içinde = sunucudaki yayınlarım; önizlemede = yerel taslaklar
@@ -44,7 +49,7 @@ export function DevStudio({ onBack, toast }: Props) {
     return cloudApps().filter(a => (a.author ?? '').toLowerCase() === me || me === '');
   }
 
-  const authorized = !hasBridge() || (user !== null && DEVELOPERS.some(d => d.toLowerCase() === user.toLowerCase()));
+  const authorized = !hasBridge() ? true : canDev === true;
 
   if (!isPcMode()) {
     return (
@@ -67,7 +72,9 @@ export function DevStudio({ onBack, toast }: Props) {
           <ShieldAlert size={40} color="#FF453A" />
           <div className="text-white font-semibold text-lg">Erişim reddedildi</div>
           <div className="text-center text-sm" style={{ color: 'rgba(235,235,245,0.5)' }}>
-            Bu uygulama yalnız <b>owner ve geliştiriciler</b> içindir.{'\n'}Giriş yapılan hesap: <b style={{ color: '#FF9F0A' }}>{user ?? 'bilinmiyor'}</b>
+            Bu uygulama yalnız <b>owner ve geliştiriciler</b> içindir.{'\n'}
+            Giriş yapılan hesap: <b style={{ color: '#FF9F0A' }}>{user ?? 'bilinmiyor'}</b>{'\n'}
+            Yetki, launcher/sunucu üzerinden doğrulanır (OP veya geliştirici kaydı).
           </div>
         </div>
       </AppWindow>

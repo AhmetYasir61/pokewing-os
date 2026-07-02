@@ -60,13 +60,6 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
             flexShrink: 0,
           }}
         >
-          {/* Dynamic island */}
-          <div
-            style={{
-              position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-              width: 120, height: 34, background: '#000', borderRadius: 17, zIndex: 100,
-            }}
-          />
           {children}
         </div>
       </div>

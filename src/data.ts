@@ -1,11 +1,11 @@
 import { AppMeta, Contact, NewsItem, Product, InventoryItem } from './types';
 
 export const APPS: AppMeta[] = [
-  { id: 'market', name: 'Market', gradient: 'linear-gradient(160deg,#FFD60A,#FF9F0A)', iconKey: 'market', badge: 0 },
+  { id: 'market', name: 'Market', gradient: 'linear-gradient(160deg,#FFD60A,#FF9F0A)', iconKey: 'market' },
   { id: 'depo', name: 'Depo', gradient: 'linear-gradient(160deg,#0A84FF,#0a4cae)', iconKey: 'depo' },
   { id: 'katalog', name: 'Katalog', gradient: 'linear-gradient(160deg,#5E5CE6,#3634A3)', iconKey: 'katalog' },
-  { id: 'news', name: 'Duyurular', gradient: 'linear-gradient(160deg,#FF453A,#C5281C)', iconKey: 'news', badge: 3 },
-  { id: 'mesaj', name: 'Mesajlar', gradient: 'linear-gradient(160deg,#30D158,#1a8f3c)', iconKey: 'mesaj', badge: 2 },
+  { id: 'news', name: 'Duyurular', gradient: 'linear-gradient(160deg,#FF453A,#C5281C)', iconKey: 'news' },
+  { id: 'mesaj', name: 'Mesajlar', gradient: 'linear-gradient(160deg,#30D158,#1a8f3c)', iconKey: 'mesaj' },
   { id: 'kamera', name: 'Kamera', gradient: 'linear-gradient(160deg,#3a3a3e,#1a1a1e)', iconKey: 'kamera' },
   { id: 'vc', name: 'Telefon', gradient: 'linear-gradient(160deg,#30D158,#178a3a)', iconKey: 'vc' },
   { id: 'galeri', name: 'Galeri', gradient: 'linear-gradient(160deg,#FF375F,#BF5AF2)', iconKey: 'galeri' },

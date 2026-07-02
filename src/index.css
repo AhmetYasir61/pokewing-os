@@ -28,7 +28,8 @@ html, body, #root {
   background: transparent; /* MCEF'te Minecraft arkada görünür; telefon/PC kendi arka planını çizer */
   color: #fff;
   user-select: none;
-  font-family: -apple-system, 'SF Pro Display', 'Segoe UI', system-ui, Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, 'SF Pro Display', 'Segoe UI', system-ui, Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.01em; /* Inter modern sıkı görünüm */
 }
 
 /* Custom scrollbar */

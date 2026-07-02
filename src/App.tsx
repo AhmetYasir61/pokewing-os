@@ -110,6 +110,25 @@ export default function App() {
     ? `url(${state.wallpaperUrl}) center/cover no-repeat`
     : state.wallpaper;
 
+  // 🪫 Pil %5'in altında → telefon açılmaz (kapalıyken kendi kendine yavaşça dolar: 1%/3dk)
+  if (state.battery < 5) {
+    return (
+      <PhoneFrame>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4" style={{ background: '#000' }}>
+          <span style={{ fontSize: 56 }} className="anim-appin">🪫</span>
+          <div className="text-white font-semibold text-lg">Şarj bitti</div>
+          <div className="text-[13px]" style={{ color: '#FF453A', fontVariantNumeric: 'tabular-nums' }}>
+            %{Math.max(0, state.battery).toFixed(1)} — açılmak için %5 gerekli
+          </div>
+          <div className="text-center text-sm px-10" style={{ color: 'rgba(235,235,245,0.45)', lineHeight: 1.6 }}>
+            Kapalıyken kendi kendine yavaşça şarj olur, birazdan tekrar dene.
+            <br />⚡ Şarj istasyonu yakında geliyor!
+          </div>
+        </div>
+      </PhoneFrame>
+    );
+  }
+
   return (
     <PhoneFrame>
       {/* Wallpaper */}

@@ -17,8 +17,11 @@ const HOME_PAGE_APP_IDS: AppId[] = ['market', 'depo', 'katalog', 'news', 'mesaj'
 const PER_PAGE = 12; // 4 sütun × 3 satır / sayfa
 
 export function HomeScreen({ state, onOpenApp, onOpenDrawer, onSearch, onLongPressApp }: Props) {
-  // Rozetler dinamik: Mesajlar = gerçek okunmamış sayısı
-  const withBadge = (a: AppMeta) => (a.id === 'mesaj' ? { ...a, badge: state.msgUnread } : a);
+  // Rozetler dinamik: Mesajlar = okunmamış mesaj; diğerleri genel rozet haritasından (news, store, ...)
+  const withBadge = (a: AppMeta) => ({
+    ...a,
+    badge: a.id === 'mesaj' ? state.msgUnread : (state.badges[a.id] || 0),
+  });
   const baseApps = APPS.filter(a => HOME_PAGE_APP_IDS.includes(a.id)).map(withBadge);
   // Play Store'dan kurulan uygulamalar (emoji ikonlu) sayfalara akar
   const storeApps: AppMeta[] = installedAppsForPlatform()

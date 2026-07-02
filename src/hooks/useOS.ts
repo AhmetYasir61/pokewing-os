@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { OSState, AppId, Notification, Contact } from '../types';
 import { THEMES } from '../data';
-import { hasBridge, bridge, getMessages, ding, getServerApps, parseCloudApps } from '../bridge';
-import { itemId, setCloudApps } from '../appstore';
+import { hasBridge, bridge, getMessages, getNews, ding, getServerApps, parseCloudApps } from '../bridge';
+import { itemId, isPcMode, setCloudApps, cloudApps } from '../appstore';
 import type { Message } from '../types';
 
 // ---- Telefon verileri item'a bağlı saklanır (PC'deki gibi): tema, duvar kağıdı, notlar, ayarlar ----
@@ -10,6 +10,24 @@ const PHONE_KEY = () => 'pwphone:' + itemId();
 function loadPhone(): Partial<OSState> {
   try { return JSON.parse(localStorage.getItem(PHONE_KEY()) || 'null') || {}; } catch { return {}; }
 }
+
+// ---- Pil (item'a bağlı): açıkken iner, KAPALIYKEN yavaşça kendini doldurur (1%/3dk).
+//      Şarj istasyonu (coin ile hızlı şarj) mod turunda gelecek. PC prize takılı sayılır. ----
+const BAT_KEY = () => 'pwbat:' + itemId();
+function loadBattery(): number {
+  if (isPcMode()) return 100;
+  try {
+    const d = JSON.parse(localStorage.getItem(BAT_KEY()) || 'null');
+    if (!d) return 100;
+    const mins = Math.max(0, (Date.now() - (d.ts || Date.now())) / 60000);
+    return Math.max(0, Math.min(100, (d.lvl ?? 100) + mins / 3));
+  } catch { return 100; }
+}
+
+// ---- "Görüldü" sayaçları (rozetler): duyuru/mağaza için son görülen öğe sayısı ----
+const seenKey = (k: string) => 'pwseen_' + k + ':' + itemId();
+const getSeen = (k: string) => { try { return parseInt(localStorage.getItem(seenKey(k)) || '0', 10) || 0; } catch { return 0; } };
+const setSeen = (k: string, n: number) => { try { localStorage.setItem(seenKey(k), String(n)); } catch { /* kota */ } };
 
 const initThreads: Record<string, import('../types').Message[]> = {
   Misty: [
@@ -66,6 +84,8 @@ const initState: OSState = {
   webHistory: [],
   msgUnread: 0,
   banner: null,
+  badges: {},
+  battery: 100,
 };
 
 type Action =
@@ -90,6 +110,9 @@ type Action =
   | { type: 'SET_THREADS'; threads: Record<string, Message[]> }
   | { type: 'SET_MSG_UNREAD'; count: number }
   | { type: 'BUMP_UNREAD' }
+  | { type: 'SET_BADGE'; app: string; count: number }
+  | { type: 'SET_BATTERY'; level: number }
+  | { type: 'TICK_BATTERY' }
   | { type: 'SET_BANNER'; banner: { from: string; text: string } | null }
   | { type: 'OPEN_CHAT'; contact: Contact }
   | { type: 'CLOSE_CHAT' }
@@ -163,6 +186,12 @@ function reducer(state: OSState, action: Action): OSState {
       return { ...state, msgUnread: Math.max(0, action.count) };
     case 'BUMP_UNREAD':
       return { ...state, msgUnread: state.activeApp === 'mesaj' ? state.msgUnread : state.msgUnread + 1 };
+    case 'SET_BADGE':
+      return { ...state, badges: { ...state.badges, [action.app]: Math.max(0, action.count) } };
+    case 'SET_BATTERY':
+      return { ...state, battery: Math.max(0, Math.min(100, action.level)) };
+    case 'TICK_BATTERY':
+      return { ...state, battery: Math.max(0, state.battery - 0.5) };   // açıkken ~1%/dk
     case 'SET_BANNER':
       return { ...state, banner: action.banner };
     case 'OPEN_CHAT':
@@ -250,6 +279,7 @@ export function useOS() {
       ...(p.bluetooth !== undefined ? { bluetooth: p.bluetooth } : {}),
       ...(p.dnd !== undefined ? { dnd: p.dnd } : {}),
       ...(Array.isArray(p.notes) && p.notes.length ? { notes: p.notes } : {}),
+      battery: loadBattery(),
     };
   });
   const toastTimer = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -285,10 +315,43 @@ export function useOS() {
       }
       // Sunucudaki uygulama mağazası kataloğunu çek (geliştirici yayınları)
       const ca = await getServerApps();
-      if (alive && ca) setCloudApps(ca.apps);
+      if (alive && ca) {
+        setCloudApps(ca.apps);
+        // Mağaza rozeti: son bakıştan beri eklenen yeni uygulamalar
+        dispatch({ type: 'SET_BADGE', app: 'store', count: Math.max(0, ca.apps.length - getSeen('store')) });
+      }
+      // Duyuru rozeti: son okumadan beri gelen yeni duyurular
+      const nw = await getNews();
+      if (alive && nw) {
+        try { localStorage.setItem('pwlast_news:' + itemId(), String(nw.length)); } catch { /* kota */ }
+        dispatch({ type: 'SET_BADGE', app: 'news', count: Math.max(0, nw.length - getSeen('news')) });
+      }
     })();
     return () => { alive = false; };
   }, []);
+
+  // Uygulama açılınca rozetini temizle + "görüldü" say
+  useEffect(() => {
+    if (state.activeApp === 'news') {
+      const last = parseInt(localStorage.getItem('pwlast_news:' + itemId()) || '0', 10) || 0;
+      setSeen('news', last);
+      dispatch({ type: 'SET_BADGE', app: 'news', count: 0 });
+    } else if (state.activeApp === 'store') {
+      setSeen('store', cloudApps().length);
+      dispatch({ type: 'SET_BADGE', app: 'store', count: 0 });
+    }
+  }, [state.activeApp]);
+
+  // Pil: telefon açıkken azalır, seviye item'a kaydedilir (PC muaf)
+  useEffect(() => {
+    if (isPcMode()) return;
+    const t = setInterval(() => dispatch({ type: 'TICK_BATTERY' }), 30000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (isPcMode()) return;
+    try { localStorage.setItem(BAT_KEY(), JSON.stringify({ lvl: state.battery, ts: Date.now() })); } catch { /* kota */ }
+  }, [state.battery]);
 
   // Mod'dan push bildirimleri (PWNotify): yeni mesaj → sohbete ekle + rozet + baloncuk + ding
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

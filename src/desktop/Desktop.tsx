@@ -166,7 +166,7 @@ export function Desktop({ os, dispatch, toast, time }: Props) {
   const bg = wallpaper ? `url(${wallpaper}) center/cover no-repeat` : DEFAULT_WALL;
 
   return (
-    <div className="w-full h-full relative overflow-hidden" style={{ background: bg, fontFamily: '"Segoe UI",system-ui,sans-serif' }}
+    <div className="w-full h-full relative overflow-hidden" style={{ background: bg, fontFamily: '"Inter","Segoe UI",system-ui,sans-serif' }}
       onMouseDown={() => { setCtx(null); setIconCtx(null); setStart(false); }}
       onContextMenu={(e) => { e.preventDefault(); setIconCtx(null); setCtx({ x: e.clientX, y: e.clientY }); }}>
 

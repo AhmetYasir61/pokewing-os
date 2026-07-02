@@ -110,4 +110,6 @@ export interface OSState {
   webHistory: string[];
   msgUnread: number;                                  // toplam okunmamış mesaj (app rozeti)
   banner: { from: string; text: string } | null;      // üstte bildirim baloncuğu
+  badges: Record<string, number>;                     // genel kırmızı top rozetleri (news, store, ...)
+  battery: number;                                    // telefon pili (0-100; PC'de hep 100)
 }

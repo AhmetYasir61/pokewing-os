@@ -43,12 +43,18 @@ export function StatusBar({ state, onNotifTap, onQSTap, time }: Props) {
             />
           ))}
         </div>
-        {/* Battery */}
-        <div className="flex items-center gap-0.5">
-          <div
-            style={{ width: 22, height: 12, border: '1.5px solid rgba(255,255,255,0.7)', borderRadius: 3, position: 'relative', overflow: 'hidden' }}
-          >
-            <div style={{ position: 'absolute', top: 1, left: 1, bottom: 1, width: '72%', background: '#30D158', borderRadius: 1.5 }} />
+        {/* Battery — gerçek pil seviyesi (item'a bağlı; azalır/dolar) */}
+        <div className="flex items-center gap-1">
+          <span style={{ fontSize: 10.5, color: state.battery <= 15 ? '#FF453A' : 'rgba(255,255,255,0.85)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+            %{Math.round(state.battery)}
+          </span>
+          <div style={{ width: 22, height: 12, border: '1.5px solid rgba(255,255,255,0.7)', borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+            <div style={{
+              position: 'absolute', top: 1, left: 1, bottom: 1,
+              width: `${Math.max(3, state.battery * 0.9)}%`,
+              background: state.battery <= 15 ? '#FF453A' : state.battery <= 40 ? '#FFD60A' : '#30D158',
+              borderRadius: 1.5, transition: 'width 0.5s, background 0.5s',
+            }} />
           </div>
           <div style={{ width: 2, height: 5, background: 'rgba(255,255,255,0.5)', borderRadius: '0 1px 1px 0' }} />
         </div>

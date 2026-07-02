@@ -17,6 +17,7 @@ import { NotlarApp } from './apps/NotlarApp';
 import { HaritaApp } from './apps/HaritaApp';
 import { HesapApp } from './apps/HesapApp';
 import { AyarlarApp } from './apps/AyarlarApp';
+import { YayinApp } from './apps/YayinApp';
 
 interface Props {
   appId: AppId;
@@ -71,6 +72,8 @@ export function AppContent({ appId, state, dispatch, toast, onClose }: Props) {
         onUpdate={(id, t, b) => dispatch({ type: 'UPDATE_NOTE', id, title: t, body: b })}
         onDelete={(id) => dispatch({ type: 'DELETE_NOTE', id })}
         onOpenNote={(id) => dispatch({ type: 'OPEN_NOTE', id })} onToast={toast} />;
+    case 'yayin':
+      return <YayinApp onBack={onClose} onToast={toast} />;
     case 'harita':
       return <HaritaApp onBack={onClose} onToast={toast} />;
     case 'hesap':

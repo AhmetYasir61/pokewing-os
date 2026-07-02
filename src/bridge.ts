@@ -97,6 +97,42 @@ export async function browseInGame(url: string): Promise<boolean> {
   return !!r?.ok;
 }
 
+// ---- Rehber (WhatsApp mantığı: numarayla kişi ekleme) ----
+export interface PwContact { name: string; number: string; online: boolean; }
+
+/** Numaram + çevrimiçi oyuncular (isim+numara). Kişi eklerken numara doğrulamada kullanılır. */
+export async function getPhoneDirectory(): Promise<{ myNumber: string; online: { name: string; number: string }[] } | null> {
+  const r = await bridge<{ myNumber?: string; contacts?: { name?: string; number?: string }[] }>('contacts');
+  if (!r) return null;
+  return {
+    myNumber: String(r.myNumber ?? ''),
+    online: (Array.isArray(r.contacts) ? r.contacts : []).map(c => ({ name: String(c?.name ?? ''), number: String(c?.number ?? '') })),
+  };
+}
+
+// ---- Yayın (Kick-tarzı canlı yayın dizini) ----
+export interface PwStream { name: string; title: string; url: string; mins: number; }
+export interface StreamState { streams: PwStream[]; me: string; live: boolean; }
+
+function parseStreams(r: any): StreamState | null {
+  if (!r || !Array.isArray(r.streams)) return null;
+  return {
+    streams: r.streams.map((s: any): PwStream => ({
+      name: String(s?.name ?? ''), title: String(s?.title ?? ''), url: String(s?.url ?? ''), mins: Number(s?.mins) || 0,
+    })),
+    me: String(r.me ?? ''), live: !!r.live,
+  };
+}
+
+export async function getStreams(): Promise<StreamState | null> {
+  return parseStreams(await bridge('streams'));
+}
+
+/** Yayını başlat (live=true, title+url) veya durdur (live=false). Güncel liste döner. */
+export async function setStream(live: boolean, title = '', url = ''): Promise<StreamState | null> {
+  return parseStreams(await bridge('streamSet', { live, title, url }));
+}
+
 // ---- Bildirim sesi (minik ding — WebAudio, dosya gerekmez) ----
 let _actx: AudioContext | null = null;
 export function ding(): void {

@@ -1,5 +1,6 @@
 export type AppId =
   | 'home'
+  | 'yayin'
   | 'market'
   | 'depo'
   | 'katalog'

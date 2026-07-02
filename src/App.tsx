@@ -30,6 +30,7 @@ import { NotlarApp } from './apps/NotlarApp';
 import { HaritaApp } from './apps/HaritaApp';
 import { HesapApp } from './apps/HesapApp';
 import { AyarlarApp } from './apps/AyarlarApp';
+import { YayinApp } from './apps/YayinApp';
 
 function useTime() {
   const [time, setTime] = useState(new Date());
@@ -212,6 +213,8 @@ export default function App() {
             onToast={toast}
           />
         );
+      case 'yayin':
+        return <YayinApp onBack={closeApp} onToast={toast} />;
       case 'harita':
         return <HaritaApp onBack={closeApp} onToast={toast} />;
       case 'hesap':

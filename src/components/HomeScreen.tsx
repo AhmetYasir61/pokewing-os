@@ -12,7 +12,7 @@ interface Props {
   onLongPressApp: (id: AppId, x: number, y: number) => void;
 }
 
-const HOME_PAGE_APP_IDS: AppId[] = ['market', 'depo', 'katalog', 'news', 'mesaj', 'kamera', 'galeri', 'web', 'tema', 'muzik', 'takvim', 'notlar'];
+const HOME_PAGE_APP_IDS: AppId[] = ['market', 'depo', 'katalog', 'news', 'mesaj', 'kamera', 'galeri', 'web', 'yayin', 'tema', 'muzik', 'takvim', 'notlar'];
 
 export function HomeScreen({ state, onOpenApp, onOpenDrawer, onSearch, onLongPressApp }: Props) {
   // Rozetler dinamik: Mesajlar = gerçek okunmamış sayısı

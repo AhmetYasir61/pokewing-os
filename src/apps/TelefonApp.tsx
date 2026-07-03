@@ -36,6 +36,7 @@ export function TelefonApp({ dialNumber, onBack, onDialAppend, onDialDelete, onD
   const [myNumber, setMyNumber] = useState('');
   const [call, setCall] = useState<CallState | null>(null);
   const [vc, setVc] = useState<VcSettingsData | null>(null);
+  const [picker, setPicker] = useState<'mic' | 'spk' | null>(null);   // özel cihaz seçici (native select MCEF'te minicik kalıyor)
   const contacts = savedContacts();
 
   // Numaram (sunucudan) + ses ayarları
@@ -214,31 +215,66 @@ export function TelefonApp({ dialNumber, onBack, onDialAppend, onDialDelete, onD
               const s: VcSettingsData = vc ?? { micVol: 100, spkVol: 100, noiseGate: true, echoCancel: false, proximity: true, micIdx: 0, spkIdx: 0, inputs: ['Varsayılan'], outputs: ['Varsayılan'] };
               return (
                 <>
-                  {/* Cihazlar */}
+                  {/* Cihazlar — özel seçici (native <select> MCEF'te minicik kalıyor) */}
                   <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: 'rgba(28,28,30,0.9)' }}>
                     <div className="flex items-center gap-2 text-white font-semibold text-[14px]"><Mic size={15} color="#30D158" /> Mikrofon</div>
-                    <select value={s.micIdx} onChange={e => applyVc('micIdx', parseInt(e.target.value))}
-                      style={{ background: '#2c2c2e', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}>
-                      {s.inputs.map((n, i) => <option key={i} value={i}>{n}</option>)}
-                    </select>
+                    <button onClick={() => setPicker('mic')}
+                      className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-left"
+                      style={{ background: '#2c2c2e' }}>
+                      <span className="flex-1 text-white text-[14px] truncate">{s.inputs[s.micIdx] ?? 'Varsayılan'}</span>
+                      <span style={{ color: 'rgba(235,235,245,0.4)', fontSize: 12 }}>değiştir ›</span>
+                    </button>
                     <div className="flex items-center gap-3">
-                      <span className="text-[12px] w-14" style={{ color: 'rgba(235,235,245,0.5)' }}>Ses %{s.micVol}</span>
-                      <input type="range" min={0} max={100} value={s.micVol} className="flex-1"
+                      <span className="text-[12.5px] w-16" style={{ color: 'rgba(235,235,245,0.55)' }}>Ses %{s.micVol}</span>
+                      <input type="range" min={0} max={100} value={s.micVol} className="flex-1" style={{ height: 26 }}
                         onChange={e => setVc(v => v ? { ...v, micVol: +e.target.value } : v)}
-                        onMouseUp={e => applyVc('micVol', +(e.target as HTMLInputElement).value)} />
+                        onMouseUp={e => applyVc('micVol', +(e.target as HTMLInputElement).value)}
+                        onTouchEnd={e => applyVc('micVol', +(e.target as HTMLInputElement).value)} />
                     </div>
                     <div className="flex items-center gap-2 text-white font-semibold text-[14px] mt-1"><Volume2 size={15} color="#0A84FF" /> Kulaklık / Hoparlör</div>
-                    <select value={s.spkIdx} onChange={e => applyVc('spkIdx', parseInt(e.target.value))}
-                      style={{ background: '#2c2c2e', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}>
-                      {s.outputs.map((n, i) => <option key={i} value={i}>{n}</option>)}
-                    </select>
+                    <button onClick={() => setPicker('spk')}
+                      className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-left"
+                      style={{ background: '#2c2c2e' }}>
+                      <span className="flex-1 text-white text-[14px] truncate">{s.outputs[s.spkIdx] ?? 'Varsayılan'}</span>
+                      <span style={{ color: 'rgba(235,235,245,0.4)', fontSize: 12 }}>değiştir ›</span>
+                    </button>
                     <div className="flex items-center gap-3">
-                      <span className="text-[12px] w-14" style={{ color: 'rgba(235,235,245,0.5)' }}>Ses %{s.spkVol}</span>
-                      <input type="range" min={0} max={100} value={s.spkVol} className="flex-1"
+                      <span className="text-[12.5px] w-16" style={{ color: 'rgba(235,235,245,0.55)' }}>Ses %{s.spkVol}</span>
+                      <input type="range" min={0} max={100} value={s.spkVol} className="flex-1" style={{ height: 26 }}
                         onChange={e => setVc(v => v ? { ...v, spkVol: +e.target.value } : v)}
-                        onMouseUp={e => applyVc('spkVol', +(e.target as HTMLInputElement).value)} />
+                        onMouseUp={e => applyVc('spkVol', +(e.target as HTMLInputElement).value)}
+                        onTouchEnd={e => applyVc('spkVol', +(e.target as HTMLInputElement).value)} />
                     </div>
                   </div>
+
+                  {/* Büyük cihaz seçici sayfası (alttan açılır — okunaklı) */}
+                  {picker && (
+                    <div className="absolute inset-0 z-20 flex items-end anim-fadein"
+                      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+                      onClick={() => setPicker(null)}>
+                      <div className="w-full anim-slideup rounded-t-3xl p-5 pb-7" style={{ background: 'rgb(18,18,22)', maxHeight: '80%' }}
+                        onClick={e => e.stopPropagation()}>
+                        <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                        <div className="text-white font-bold text-lg mb-3 flex items-center gap-2">
+                          {picker === 'mic' ? <><Mic size={18} color="#30D158" /> Mikrofon Seç</> : <><Volume2 size={18} color="#0A84FF" /> Çıkış Cihazı Seç</>}
+                        </div>
+                        <div className="scroll-area flex flex-col gap-1.5" style={{ maxHeight: 340 }}>
+                          {(picker === 'mic' ? s.inputs : s.outputs).map((n, i) => {
+                            const sel = (picker === 'mic' ? s.micIdx : s.spkIdx) === i;
+                            return (
+                              <button key={i}
+                                onClick={() => { applyVc(picker === 'mic' ? 'micIdx' : 'spkIdx', i); setPicker(null); }}
+                                className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-left"
+                                style={{ background: sel ? (picker === 'mic' ? 'rgba(48,209,88,0.18)' : 'rgba(10,132,255,0.18)') : 'rgba(44,44,46,0.8)' }}>
+                                <span className="flex-1 text-white text-[14.5px]">{n}</span>
+                                {sel && <span style={{ color: picker === 'mic' ? '#30D158' : '#0A84FF', fontSize: 18 }}>✓</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {/* Anahtarlar */}
                   <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(28,28,30,0.9)' }}>
                     {[

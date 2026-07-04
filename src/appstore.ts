@@ -44,6 +44,17 @@ export const STORE_CATALOG: StoreApp[] = [
   { id: 'zar', name: 'Zar & Yazı Tura', emoji: '🎲', color: '#FF453A', desc: 'Karar veremedin mi? Zar at ya da yazı tura.', category: 'Araç', targets: ['phone'], size: '0.6 MB' },
   { id: 'darkchat', name: 'DarkChat', emoji: '🕶️', color: '#1c1c1e', desc: 'Kayıt dışı, PIN korumalı gizli yazışma kasası. Kötüler için.', category: 'Sosyal', targets: ['phone'], size: '2.7 MB' },
   { id: 'dev', name: 'Dev Studio', emoji: '👨‍💻', color: '#5E5CE6', desc: 'Kendi uygulamanı yaz ve yayınla. Sadece yetkili geliştiriciler.', category: 'Geliştirici', targets: ['pc'], size: '12.5 MB' },
+  // ---- 2. GRUP (11-20) ----
+  { id: 'tkm', name: 'Taş Kağıt Makas', emoji: '✂️', color: '#5AC8FA', desc: 'Bilgisayara karşı klasik taş-kağıt-makas. Skor tut.', category: 'Oyun', targets: ['phone', 'pc'], size: '0.8 MB' },
+  { id: 'reaksiyon', name: 'Reaksiyon Testi', emoji: '⚡', color: '#FFD60A', desc: 'Refleksin ne kadar hızlı? Yeşili gör, dokun!', category: 'Oyun', targets: ['phone', 'pc'], size: '0.7 MB' },
+  { id: 'kostebek', name: 'Köstebek', emoji: '🔨', color: '#8B5A2B', desc: 'Köstebekleri yakala! 30 saniyede kaç tane?', category: 'Oyun', targets: ['phone', 'pc'], size: '1.5 MB' },
+  { id: 'tugla', name: 'Tuğla Kır', emoji: '🧱', color: '#5AC8FA', desc: 'Klasik breakout — topu sektir, tüm tuğlaları kır.', category: 'Oyun', targets: ['phone', 'pc'], size: '2.3 MB' },
+  { id: 'mayin', name: 'Mayın Tarlası', emoji: '💣', color: '#8E8E93', desc: 'Mayınlara basmadan tüm kareleri aç. Klasik!', category: 'Oyun', targets: ['phone', 'pc'], size: '1.9 MB' },
+  { id: 'tetris', name: 'Tetris', emoji: '🟦', color: '#5AC8FA', desc: 'Efsane blok oyunu. Satırları doldur, temizle.', category: 'Oyun', targets: ['phone', 'pc'], size: '3.1 MB' },
+  { id: 'birim', name: 'Birim Çevirici', emoji: '📐', color: '#64D2FF', desc: 'Uzunluk, ağırlık, sıcaklık, alan, hız — anında çevir.', category: 'Araç', targets: ['phone', 'pc'], size: '0.9 MB' },
+  { id: 'fener', name: 'Fener', emoji: '🔦', color: '#FFD60A', desc: 'Ekranı bembeyaz yakan pratik fener.', category: 'Araç', targets: ['phone'], size: '0.3 MB' },
+  { id: 'kure', name: 'Sihirli Küre', emoji: '🔮', color: '#BF5AF2', desc: 'Bir soru sor, kader küresi cevaplasın.', category: 'Araç', targets: ['phone', 'pc'], size: '0.6 MB' },
+  { id: 'metronom', name: 'Metronom', emoji: '🎼', color: '#FF9F0A', desc: 'Gerçek sesli metronom — 40-220 BPM, vuruş göstergesi.', category: 'Araç', targets: ['phone', 'pc'], size: '1.1 MB' },
 ];
 
 // ---- Kurulum durumu (item'a bağlı — telefon çalınırsa uygulamalar da gider) ----

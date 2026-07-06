@@ -44,6 +44,7 @@ export const STORE_CATALOG: StoreApp[] = [
   { id: 'zar', name: 'Zar & Yazı Tura', emoji: '🎲', color: '#FF453A', desc: 'Karar veremedin mi? Zar at ya da yazı tura.', category: 'Araç', targets: ['phone'], size: '0.6 MB' },
   { id: 'darkchat', name: 'DarkChat', emoji: '🕶️', color: '#1c1c1e', desc: 'Kayıt dışı, PIN korumalı gizli yazışma kasası. Kötüler için.', category: 'Sosyal', targets: ['phone'], size: '2.7 MB' },
   { id: 'dev', name: 'Dev Studio', emoji: '👨‍💻', color: '#5E5CE6', desc: 'Kendi uygulamanı yaz ve yayınla. Sadece yetkili geliştiriciler.', category: 'Geliştirici', targets: ['pc'], size: '12.5 MB' },
+  { id: 'itemcreator', name: 'Item Creator', emoji: '🧿', color: '#FF9F0A', desc: 'Özel item tasarla: ad, materyal, RPG stat, komut, market. Sadece geliştirici/owner.', category: 'Geliştirici', targets: ['phone', 'pc'], size: '4.8 MB' },
   // ---- 2. GRUP (11-20) ----
   { id: 'tkm', name: 'Taş Kağıt Makas', emoji: '✂️', color: '#5AC8FA', desc: 'Bilgisayara karşı klasik taş-kağıt-makas. Skor tut.', category: 'Oyun', targets: ['phone', 'pc'], size: '0.8 MB' },
   { id: 'reaksiyon', name: 'Reaksiyon Testi', emoji: '⚡', color: '#FFD60A', desc: 'Refleksin ne kadar hızlı? Yeşili gör, dokun!', category: 'Oyun', targets: ['phone', 'pc'], size: '0.7 MB' },

@@ -113,6 +113,37 @@ export function parseCloudApps(r: any): CloudCatalog | null {
   return { apps, error: r.error ? String(r.error) : undefined, canDev: r.canDev === true };
 }
 
+// ---- Item Creator (özel item tanımları — dev/owner) ----
+export interface CustomItem {
+  id: number;
+  name: string;         // renk kodlu ad (§a gibi Minecraft kodları)
+  material: string;     // vanilla 'minecraft:diamond_sword' veya ItemsAdder 'ia:ruby_sword'
+  lore: string[];       // açıklama satırları
+  rarity: string;       // common | uncommon | rare | epic | legendary
+  useCommand: string;   // sağ tıkta çalışacak komut ({player})
+  stats: Record<string, number>;  // {damage, speed, health, ...} RPG
+  price: number;        // coin (market için)
+  sellable: boolean;    // markette satılabilir mi
+  author?: string;
+}
+
+export async function getCustomItems(): Promise<CustomItem[] | null> {
+  const r = await bridge<{ items?: CustomItem[] }>('itemList');
+  return r && Array.isArray(r.items) ? r.items : null;
+}
+export async function saveCustomItem(item: Partial<CustomItem>): Promise<{ ok: boolean; id?: number; msg?: string } | null> {
+  const r = await bridge<{ ok?: boolean; id?: number; msg?: string }>('itemSave', item as Record<string, unknown>);
+  return r ? { ok: !!r.ok, id: r.id, msg: r.msg } : null;
+}
+export async function deleteCustomItem(id: number): Promise<boolean> {
+  const r = await bridge<{ ok?: boolean }>('itemDelete', { id });
+  return !!r?.ok;
+}
+export async function canUseItemCreator(): Promise<boolean> {
+  const r = await bridge<{ canDev?: boolean }>('itemPerm');
+  return !!r?.canDev;
+}
+
 // ---- Şarj (istasyondan alınan bekleyen şarjı çek — powerbank mantığı) ----
 export async function chargeTake(item: string, need: number): Promise<number> {
   if (need <= 0) return 0;

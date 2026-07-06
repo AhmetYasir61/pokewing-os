@@ -144,6 +144,37 @@ export async function canUseItemCreator(): Promise<boolean> {
   return !!r?.canDev;
 }
 
+// ---- Oyuncu Marketi (Playershop) ----
+export interface ShopListing {
+  id: number;
+  seller: string;
+  display: string;
+  price: number;
+  amount: number;
+}
+
+export async function getShopListings(): Promise<{ listings: ShopListing[]; coins: number } | null> {
+  const r = await bridge<{ listings?: ShopListing[]; coins?: number }>('shopList');
+  return r ? { listings: r.listings ?? [], coins: r.coins ?? 0 } : null;
+}
+export async function buyShopListing(id: number): Promise<{ ok: boolean; msg?: string; coins?: number } | null> {
+  const r = await bridge<{ ok?: boolean; msg?: string; coins?: number }>('shopBuy', { id });
+  return r ? { ok: !!r.ok, msg: r.msg, coins: r.coins } : null;
+}
+/** Elindeki item'ı satışa koy (mod eldeki item'ı alır). */
+export async function sellHeldItem(price: number): Promise<{ ok: boolean; msg?: string } | null> {
+  const r = await bridge<{ ok?: boolean; msg?: string }>('shopSell', { price });
+  return r ? { ok: !!r.ok, msg: r.msg } : null;
+}
+export async function getMyListings(): Promise<ShopListing[] | null> {
+  const r = await bridge<{ listings?: ShopListing[] }>('shopMine');
+  return r && Array.isArray(r.listings) ? r.listings : null;
+}
+export async function cancelListing(id: number): Promise<boolean> {
+  const r = await bridge<{ ok?: boolean }>('shopCancel', { id });
+  return !!r?.ok;
+}
+
 // ---- Şarj (istasyondan alınan bekleyen şarjı çek — powerbank mantığı) ----
 export async function chargeTake(item: string, need: number): Promise<number> {
   if (need <= 0) return 0;

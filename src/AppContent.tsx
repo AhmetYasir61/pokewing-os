@@ -22,6 +22,7 @@ import { MINI_APPS } from './apps/MiniApps';
 import { MINI_APPS_2 } from './apps/MiniApps2';
 import { DevStudio, CustomAppViewer } from './apps/DevStudio';
 import { ItemCreatorApp } from './apps/ItemCreatorApp';
+import { PlayershopApp } from './apps/PlayershopApp';
 import { PlayStoreApp } from './apps/StoreApp';
 import { findApp } from './appstore';
 
@@ -42,6 +43,7 @@ export function AppContent({ appId, state, dispatch, toast, onClose, onOpenApp }
       onOpenApp={(id) => (onOpenApp ? onOpenApp(id) : dispatch({ type: 'OPEN_APP', app: id }))} />;
   if (appId === 'dev') return <DevStudio onBack={onClose} toast={toast} />;
   if (appId === 'itemcreator') return <ItemCreatorApp onBack={onClose} toast={toast} />;
+  if (appId === 'playershop') return <PlayershopApp onBack={onClose} toast={toast} />;
   const Mini = MINI_APPS[appId] || MINI_APPS_2[appId];
   if (Mini) return <Mini onBack={onClose} toast={toast} />;
   if (typeof appId === 'string' && appId.startsWith('dev:')) {

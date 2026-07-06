@@ -74,7 +74,7 @@ export default function App() {
   // MCEF/derin bağlantı: ?app=<id> ile belirli bir uygulamayı açarak başla
   useEffect(() => {
     const a = new URLSearchParams(window.location.search).get('app');
-    const valid: AppId[] = ['market','depo','katalog','news','mesaj','vc','galeri','kamera','web','tema','muzik','takvim','notlar','harita','hesap','ayar'];
+    const valid: AppId[] = ['market','depo','katalog','news','mesaj','vc','galeri','kamera','web','tema','muzik','takvim','notlar','harita','hesap','ayar','playershop'];
     if (a && valid.includes(a as AppId)) dispatch({ type: 'OPEN_APP', app: a as AppId });
   }, [dispatch]);
 

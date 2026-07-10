@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AppWindow } from '../components/AppWindow';
-import { hasBridge, getStreams, setStream, browseInGame, PwStream } from '../bridge';
-import { Radio, Play, Plus, X, Eye, Clock } from 'lucide-react';
+import { hasBridge, getStreams, setStream, browseInGame, PwStream,
+  getBroadcasters, spectate, PwBroadcaster } from '../bridge';
+import { Radio, Play, Plus, X, Eye, Clock, Video } from 'lucide-react';
 
 interface Props { onBack: () => void; onToast: (msg: string) => void; }
 
@@ -12,6 +13,10 @@ const MOCK_STREAMS: PwStream[] = [
   { name: 'AshKetchum', title: 'Shiny avı — gece boyu!', url: 'https://youtube.com', mins: 42 },
   { name: 'Misty', title: 'Gym savaşları canlı', url: 'https://youtube.com', mins: 15 },
 ];
+const MOCK_BC: PwBroadcaster[] = [
+  { name: 'Brock', activity: 'Oto sinematik', droneId: 1 },
+  { name: 'Gary', activity: 'Pilot drone', droneId: 2 },
+];
 
 export function YayinApp({ onBack, onToast }: Props) {
   const [streams, setStreams] = useState<PwStream[]>(hasBridge() ? [] : MOCK_STREAMS);
@@ -21,11 +26,13 @@ export function YayinApp({ onBack, onToast }: Props) {
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(hasBridge());
+  const [broadcasters, setBroadcasters] = useState<PwBroadcaster[]>(hasBridge() ? [] : MOCK_BC);
 
   const refresh = async () => {
     if (!hasBridge()) return;
     const s = await getStreams();
     if (s) { setStreams(s.streams); setMe(s.me); setLive(s.live); }
+    setBroadcasters(await getBroadcasters());   // drone yayıncıları (oyun içi canlı)
     setLoading(false);
   };
 
@@ -61,6 +68,11 @@ export function YayinApp({ onBack, onToast }: Props) {
     else onToast('Önizlemede izleme yok (oyun içinde çalışır).');
   };
 
+  const watchDrone = (b: PwBroadcaster) => {
+    if (hasBridge()) { onToast(`🎥 ${b.name} yayınına giriliyor...`); spectate(b.droneId, b.name); }
+    else onToast('Önizlemede izleme yok (oyun içinde çalışır).');
+  };
+
   return (
     <AppWindow title="Yayın" accentColor={KICK} onBack={onBack}
       headerRight={live ? (
@@ -89,6 +101,37 @@ export function YayinApp({ onBack, onToast }: Props) {
             </span>
           )}
         </div>
+
+        {/* 🎥 Drone yayınları — oyun içi canlı kamera; İzle = spectate (kamera yayıncının drone'una bağlanır) */}
+        {broadcasters.length > 0 && (
+          <div className="px-4 pt-2 pb-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Video size={14} color={KICK} />
+              <span className="text-[12px] font-bold uppercase tracking-wide" style={{ color: KICK }}>
+                Drone Yayınları · {broadcasters.length} canlı
+              </span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {broadcasters.map((b, i) => (
+                <button key={i} onClick={() => watchDrone(b)}
+                  className="flex-shrink-0 rounded-xl px-3 py-2 flex items-center gap-2 text-left"
+                  style={{ background: 'rgba(28,28,30,0.9)', border: `0.5px solid ${KICK}44`, minWidth: 150 }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0"
+                    style={{ background: `hsl(${b.name.charCodeAt(0) * 20},60%,40%)`, border: `2px solid ${KICK}` }}>
+                    {b.name[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold text-[13px] truncate">{b.name}</div>
+                    <div className="text-[10px] flex items-center gap-1" style={{ color: '#FF453A' }}>
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#FF453A' }} />
+                      {b.activity}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Yayın listesi */}
         <div className="flex-1 scroll-area px-4 py-2 flex flex-col gap-3">

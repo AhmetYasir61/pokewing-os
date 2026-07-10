@@ -252,6 +252,20 @@ export async function setStream(live: boolean, title = '', url = ''): Promise<St
   return parseStreams(await bridge('streamSet', { live, title, url }));
 }
 
+// ---- Drone yayıncıları (Kick app: canlı oyuncu drone yayınları + İzle/spectate) ----
+export interface PwBroadcaster { name: string; activity: string; droneId: number; }
+
+export async function getBroadcasters(): Promise<PwBroadcaster[]> {
+  const r = await bridge('broadcasters');
+  if (!Array.isArray(r)) return [];
+  return r.map((b: any): PwBroadcaster => ({
+    name: String(b?.name ?? ''), activity: String(b?.activity ?? ''), droneId: Number(b?.droneId) || -1,
+  }));
+}
+/** Yayıncının drone'unu izlemeye başla (oyun-içi kamerayı ona bağlar; web ekranı kapanır). */
+export function spectate(droneId: number, name: string): void { void bridge('spectate', { droneId, name }); }
+export function spectateStop(): void { void bridge('spectateStop'); }
+
 // ---- Bildirim sesi (minik ding — WebAudio, dosya gerekmez) ----
 let _actx: AudioContext | null = null;
 export function ding(): void {

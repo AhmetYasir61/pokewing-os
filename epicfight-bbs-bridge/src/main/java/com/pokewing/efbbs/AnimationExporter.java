@@ -99,6 +99,32 @@ public final class AnimationExporter {
             bones.add(e.getKey(), boneObj);
         }
 
+        // Root motion: bake recorded world position + body yaw onto the bone
+        // mapped from the "Root" joint (falls back to a dedicated "root" bone).
+        if (!ex.rootMotion.isEmpty()) {
+            String rootBone = cfg.jointToBone.getOrDefault("Root", "root");
+            JsonObject boneObj = bones.has(rootBone)
+                    ? bones.getAsJsonObject(rootBone) : new JsonObject();
+            JsonObject position = new JsonObject();
+            JsonObject rotation = boneObj.has("rotation")
+                    ? boneObj.getAsJsonObject("rotation") : new JsonObject();
+            for (EpicFightAccess.RootFrame rf : ex.rootMotion) {
+                String t = fmtTime(rf.time);
+                // World blocks -> model units. BBS/Blockbench: +Y up, so map
+                // world (x,y,z) -> (x, y, z) * scale; tune signs via config.
+                position.add(t, arr(
+                        MathUtil.round(rf.x * cfg.translationScale * cfg.rootXSign, cfg.decimals),
+                        MathUtil.round(rf.y * cfg.translationScale, cfg.decimals),
+                        MathUtil.round(rf.z * cfg.translationScale * cfg.rootZSign, cfg.decimals)));
+                if (cfg.recordRootYaw) {
+                    rotation.add(t, arr(0f, MathUtil.round(rf.yawDeg * cfg.rotYSign, cfg.decimals), 0f));
+                }
+            }
+            boneObj.add("position", position);
+            if (cfg.recordRootYaw) boneObj.add("rotation", rotation);
+            bones.add(rootBone, boneObj);
+        }
+
         anim.add("bones", bones);
         animations.add("efbbs." + ex.name.replaceAll("[^a-zA-Z0-9._]", "_"), anim);
         root.add("animations", animations);

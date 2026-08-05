@@ -31,11 +31,60 @@ public final class EpicFightAccess {
         public float qx, qy, qz, qw = 1f; // rotation quaternion
     }
 
+    /** One recorded root-motion sample: world position (relative to start) + body yaw. */
+    public static final class RootFrame {
+        public float time;
+        public float x, y, z;   // blocks, relative to recording origin
+        public float yawDeg;    // body yaw in degrees
+    }
+
     /** A full extracted animation: joint name -> ordered keyframes. */
     public static final class Extracted {
         public String name;
         public float length;
         public final Map<String, List<Frame>> joints = new LinkedHashMap<>();
+        /** Optional root-motion track (set by the live recorder; empty for clip exports). */
+        public final List<RootFrame> rootMotion = new ArrayList<>();
+    }
+
+    /**
+     * Sample the LIVE, fully-blended Epic Fight pose of an entity right now
+     * (client-side). Works for any entity that has an Epic Fight patch, including
+     * other players in multiplayer. Returns joint-name -> {tx,ty,tz,qx,qy,qz,qw}
+     * in Epic Fight space, or null if the entity has no Epic Fight patch.
+     */
+    public static Map<String, float[]> sampleLivePose(Object entity, float partialTick) {
+        try {
+            Class<?> caps = Class.forName("yesman.epicfight.world.capabilities.EpicFightCapabilities");
+            Class<?> livingPatch = Class.forName(
+                    "yesman.epicfight.world.capabilities.entitypatch.LivingEntityPatch");
+            Method getPatch = caps.getMethod("getEntityPatch",
+                    Class.forName("net.minecraft.world.entity.Entity"), Class.class);
+            Object patch = getPatch.invoke(null, entity, livingPatch);
+            if (patch == null) return null;
+
+            // Prefer the client animator (holds the rendered, blended pose).
+            Object animator = tryInvoke(patch, "getClientAnimator");
+            if (animator == null) animator = tryInvoke(patch, "getAnimator");
+            if (animator == null) return null;
+
+            Object pose = animator.getClass()
+                    .getMethod("getPose", float.class).invoke(animator, partialTick);
+            if (pose == null) return null;
+            Object dataObj = invoke(pose, "getJointTransformData");
+            if (!(dataObj instanceof Map<?, ?> data)) return null;
+
+            Map<String, float[]> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : data.entrySet()) {
+                Frame f = new Frame();
+                readTransform(e.getValue(), f);
+                out.put(String.valueOf(e.getKey()),
+                        new float[] {f.tx, f.ty, f.tz, f.qx, f.qy, f.qz, f.qw});
+            }
+            return out;
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     /** Extract a single animation clip by its Epic Fight registry key. */

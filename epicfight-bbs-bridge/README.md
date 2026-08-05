@@ -38,7 +38,31 @@ Forge 1.20.1
  └─ efbbs (bu mod, Forge)            ← buraya
 ```
 
-## Kullanım
+## Canlı kayıt (mocap) — "sen dövüş, gerisi otomatik"
+
+Bu, senin ana iş akışın. Epic Fight ile canlı oynarken (tek başına VEYA online
+arkadaşlarınla) sahnedeki herkesin pozunu ve hareketini kare kare kaydeder,
+sonra her karakter için ayrı bir BBS animasyonu üretir. Keyframe yok, rig
+uğraşı yok.
+
+1. Oyunda **K** tuşuna bas (veya `/efbbs rec start`) — kayıt başlar.
+2. Dövüş: kılıç savur, saldır, koş, zıpla. Yakınındaki (varsayılan 24 blok)
+   **tüm** Epic Fight karakterleri (sen + arkadaşların + moblar) kaydedilir.
+3. Tekrar **K** (veya `/efbbs rec stop`) — durur. Her karakter için bir
+   `rec_<isim>_N.animation.json` dosyası `config/efbbs/exported/` içine yazılır.
+4. BBS'te her dosyayı bir aktöre ver, zaman çizgisinde diz, epik sahneni kur.
+
+Notlar:
+- **Online çalışır**: kayıt tamamen client tarafında olur, sunucuya mod
+  gerekmez. Arkadaşlarının Epic Fight animasyonlarını da yakalar.
+- **Konum + dönüş dahil**: karakterin dünyada nasıl hareket ettiyse (root
+  motion) ve gövde dönüşü, kök kemiğe işlenir — koşarak saldırı gibi sahneler
+  korunur. Ters yöne giderse `retarget.json` içindeki `rootXSign/rootZSign`.
+- **Çoklu karakter**: hepsini aynı anda tek geçişte yakalayabilirsin; ya da her
+  rolü ayrı ayrı oynayıp kaydını alıp BBS'te birleştirebilirsin.
+- Kayıt hızı: client tick hızı (20/sn). BBS'te akıcı görünür.
+
+## Kullanım (hazır Epic Fight animasyonlarını dışa aktarma)
 
 ### A) Oyun içinden (önerilen — resource pack animasyonlarını da yakalar)
 

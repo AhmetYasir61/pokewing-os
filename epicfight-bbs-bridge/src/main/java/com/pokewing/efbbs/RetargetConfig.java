@@ -40,6 +40,15 @@ public class RetargetConfig {
     /** Decimal places to keep in the output JSON. */
     public int decimals = 4;
 
+    // --- live recorder settings ---
+    /** Radius (blocks) around the player within which entities are recorded. */
+    public double recordRadius = 24.0;
+    /** Bake body yaw onto the root bone during recording. */
+    public boolean recordRootYaw = true;
+    /** Root-motion axis sign flips (tune if the actor moves the wrong way). */
+    public float rootXSign = 1.0f;
+    public float rootZSign = 1.0f;
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static Path configPath() {

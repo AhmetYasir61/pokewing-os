@@ -32,20 +32,20 @@ minecraft {
 }
 
 repositories {
-    // Epic Fight is distributed on CurseForge/Modrinth. For local dev, drop the
-    // Epic Fight jar into libs/ and it is picked up by the flatDir repo below.
+    // Epic Fight is accessed purely via reflection at runtime, so it is NOT a
+    // compile dependency and nothing needs to be placed in libs/. This flatDir
+    // repo is kept only as a harmless hook if you later add optional jars.
     flatDir { dirs 'libs' }
-    maven { url = 'https://cursemaven.com' }
 }
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Epic Fight at COMPILE time only. Replace the name with the jar you place
-    // in libs/, e.g. libs/epicfight-20.6.4.jar -> name: 'epicfight-20.6.4'.
-    // If you use cursemaven instead, comment this out and use the maven line.
-    compileOnly fg.deobf("blank:epicfight:${epicfight_version}")
-    // compileOnly fg.deobf("curse.maven:epic-fight-405076:PROJECT_FILE_ID")
+    // NOTE: Epic Fight is intentionally NOT declared here. The bridge reaches
+    // Epic Fight's classes through reflection (see EpicFightAccess), which is
+    // why the mod compiles and loads even when Epic Fight is absent. If you
+    // ever want compile-time access instead, drop the jar into libs/ and add:
+    //   compileOnly fg.deobf(files('libs/epicfight-20.14.17.jar'))
 }
 
 tasks.named('processResources', ProcessResources).configure {

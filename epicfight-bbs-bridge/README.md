@@ -101,10 +101,9 @@ davranıştır — otomatik rest-pozu kalibrasyonu ilerideki sürüme bırakılm
 
 ```
 cd epicfight-bbs-bridge
-# Epic Fight jar'ını libs/ içine koy (compileOnly, opsiyonel):
-#   libs/epicfight-20.14.17.jar
 ./gradlew build      # jar -> build/libs/efbbs-forge-1.20.1-0.1.0.jar
 ```
 
-Epic Fight erişimi **reflection** ile yapıldığı için mod Epic Fight jar'ı
-olmadan da derlenip yüklenebilir.
+Epic Fight erişimi **reflection** ile yapıldığı için Epic Fight jar'ına derleme
+zamanında hiç ihtiyaç yoktur — `libs/` klasörüne bir şey koymana gerek yok. Mod
+Epic Fight kurulu olmadan da derlenip yüklenir.

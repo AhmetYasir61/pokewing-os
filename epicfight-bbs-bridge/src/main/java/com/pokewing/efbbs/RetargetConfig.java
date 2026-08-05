@@ -118,8 +118,10 @@ public class RetargetConfig {
         // NOTE: "Root" is intentionally NOT mapped here -- its raw Epic Fight
         // orientation would tip the whole model. The root bone (anchor) instead
         // receives only recorded root motion (position + body yaw).
+        // Two-segment spine: BBS low_body (waist) -> body (upper chest, parent
+        // of the arms) -> torso mesh. Head hangs off low_body.
         m.put("Torso", "low_body");
-        m.put("Chest", "low_body");
+        m.put("Chest", "body");
         m.put("Head", "head");
         m.put("Shoulder_R", "right_arm");
         m.put("Arm_R", "right_arm");

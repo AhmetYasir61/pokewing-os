@@ -115,6 +115,11 @@ dahil ~350+ animasyon) okuyup bedrock formatında yazar. Bazı özel/insansı-ol
 > sürüm çalıştırdıysan `config/efbbs/retarget.json` dosyasını **sil** ki yeni
 > doğru harita yeniden oluşsun, sonra **yeniden kayıt al**.
 
+> BBS'in varsayılan oyuncu modeli için **hazır** bir dosya repoda var:
+> `examples/bbs_player_alex_retarget.json`. Bunu `config/efbbs/retarget.json`
+> olarak kopyalarsan doğrudan çalışır (omurga `low_body`+`body`, kollar/bacaklar
+> eşlenmiş, uzuvlar rotasyon-only, kök hareket anchor'a).
+
 İlk çalıştırmada `config/efbbs/retarget.json` oluşur. Sol taraf Epic Fight'ın
 biped eklem isimleri (jar'dan doğrulandı: `Root, Torso, Chest, Head,
 Shoulder_R/L, Arm_R/L, Elbow_R/L, Hand_R/L, Thigh_R/L, Leg_R/L, Knee_R/L,

@@ -212,7 +212,7 @@ public final class OfflineConverter {
     private static Map<String, String> defaultMap() {
         Map<String, String> m = new LinkedHashMap<>();
         // "Root" intentionally unmapped (its raw orientation tips the model).
-        m.put("Torso", "low_body"); m.put("Chest", "low_body");
+        m.put("Torso", "low_body"); m.put("Chest", "body");
         m.put("Head", "head");
         m.put("Shoulder_R", "right_arm"); m.put("Arm_R", "right_arm");
         m.put("Elbow_R", "right_arm"); m.put("Hand_R", "right_arm");

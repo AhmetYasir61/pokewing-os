@@ -64,45 +64,46 @@ public final class EpicFightBridge {
         AnimSample out = new AnimSample();
         if (patch == null) return out;
         try {
+            // Verified path: ClientAnimator.baseLayer (public field) ->
+            // Layer.animationPlayer (public field) -> AnimationPlayer.
             Object animator = tryInvoke(patch, "getClientAnimator");
             if (animator == null) animator = tryInvoke(patch, "getAnimator");
             if (animator == null) return out;
 
-            // Scan reachable AnimationPlayer instances for a live StaticAnimation.
-            Object player = findActivePlayer(animator);
-            if (player != null) {
-                Object accessor = tryInvoke(player, "getAnimation");
-                Integer id = accessor == null ? null : (Integer) tryInvoke(accessor, "id");
-                if (id != null) out.animationId = id;
-                Object el = tryInvoke(player, "getElapsedTime");
-                if (el instanceof Number n) out.elapsed = n.floatValue();
-                Object end = tryInvoke(player, "isEnd");
-                if (end instanceof Boolean b) out.ended = b;
-            }
+            Object player = getFieldPath(animator, "baseLayer", "animationPlayer");
+            if (player == null) return out;
+
+            Object accessor = tryInvoke(player, "getAnimation");
+            Object id = accessor == null ? null : tryInvoke(accessor, "id");
+            if (id instanceof Integer i) out.animationId = i;
+            Object el = tryInvoke(player, "getElapsedTime");
+            if (el instanceof Number n) out.elapsed = n.floatValue();
+            Object end = tryInvoke(player, "isEnd");
+            if (end instanceof Boolean b) out.ended = b;
         } catch (Throwable ignored) {}
         return out;
     }
 
-    // Heuristic: reflect over the animator's fields to find an AnimationPlayer
-    // whose animation is non-null. Robustness improved as we learn the mixer.
-    private static Object findActivePlayer(Object animator) {
-        for (java.lang.reflect.Field f : allFields(animator.getClass())) {
-            try {
-                f.setAccessible(true);
-                Object v = f.get(animator);
-                if (v == null) continue;
-                if (v.getClass().getName().endsWith("AnimationPlayer")) return v;
-            } catch (Throwable ignored) {}
+    /** Walk a chain of (public or declared) fields. */
+    private static Object getFieldPath(Object obj, String... fields) {
+        Object cur = obj;
+        for (String name : fields) {
+            if (cur == null) return null;
+            cur = getField(cur, name);
         }
-        return null;
+        return cur;
     }
 
-    private static java.util.List<java.lang.reflect.Field> allFields(Class<?> c) {
-        java.util.List<java.lang.reflect.Field> out = new java.util.ArrayList<>();
-        for (Class<?> k = c; k != null && k != Object.class; k = k.getSuperclass()) {
-            java.util.Collections.addAll(out, k.getDeclaredFields());
+    private static Object getField(Object target, String name) {
+        for (Class<?> k = target.getClass(); k != null && k != Object.class; k = k.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = k.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(target);
+            } catch (NoSuchFieldException ignored) {
+            } catch (Throwable t) { return null; }
         }
-        return out;
+        return null;
     }
 
     // --- driving a clone -------------------------------------------------

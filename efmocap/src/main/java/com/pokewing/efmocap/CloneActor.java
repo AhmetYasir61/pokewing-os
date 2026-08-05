@@ -35,9 +35,10 @@ public final class CloneActor {
         ClientLevel level = mc.level;
         if (level == null) return null;
 
-        GameProfile profile = new GameProfile(UUID.randomUUID(),
-                name.length() > 16 ? name.substring(0, 16) : name);
+        // Empty profile name -> no visible name tag above the clone.
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "");
         RemotePlayer clone = new RemotePlayer(level, profile);
+        clone.setCustomNameVisible(false);
         int id = NEXT_ID.getAndIncrement();
         clone.setId(id);
         clone.setNoGravity(true);

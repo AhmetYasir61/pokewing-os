@@ -22,7 +22,6 @@ public final class CloneActor {
 
     private final RemotePlayer entity;
     private final int fakeId;
-    private int lastAnimId = -2;
 
     private CloneActor(RemotePlayer entity, int fakeId) {
         this.entity = entity;
@@ -62,11 +61,10 @@ public final class CloneActor {
         entity.xOld = f.x; entity.yOld = f.y; entity.zOld = f.z;
         entity.yRotO = f.yRot; entity.xRotO = f.xRot;
 
-        if (f.animId >= 0 && f.animId != lastAnimId) {
-            Object patch = EpicFightBridge.getPatch(entity);
-            if (EpicFightBridge.playById(patch, f.animId, 0.15f)) {
-                lastAnimId = f.animId;
-            }
+        // Force the exact recorded animation + elapsed every tick so Epic Fight's
+        // own auto living-motion on the moving clone can't override the replay.
+        if (f.animId >= 0) {
+            EpicFightBridge.forceAnimation(EpicFightBridge.getPatch(entity), f.animId, f.elapsed);
         }
     }
 

@@ -137,6 +137,37 @@ public final class EpicFightBridge {
         return false;
     }
 
+    /**
+     * Force a clone to show an exact frame: ensure its base-layer animation is
+     * {@code animId} and pin the elapsed time to {@code elapsed}. Called every
+     * client tick AFTER Epic Fight's own tick so it overrides the clone's
+     * auto-computed living motion (walk/idle) and stays frame-synced with the
+     * recording.
+     */
+    public static boolean forceAnimation(Object patch, int animId, float elapsed) {
+        if (patch == null || animId < 0) return false;
+        try {
+            Object animator = tryInvoke(patch, "getClientAnimator");
+            if (animator == null) animator = tryInvoke(patch, "getAnimator");
+            if (animator == null) return false;
+
+            Object player = getFieldPath(animator, "baseLayer", "animationPlayer");
+            Object curAnim = player == null ? null : tryInvoke(player, "getAnimation");
+            Object curId = curAnim == null ? null : tryInvoke(curAnim, "id");
+
+            if (!(curId instanceof Integer i) || i != animId) {
+                playById(patch, animId, 0f);
+                player = getFieldPath(animator, "baseLayer", "animationPlayer");
+            }
+            if (player != null) {
+                Method set = player.getClass().getMethod("setElapsedTime", float.class);
+                set.invoke(player, elapsed);
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     private static Method findPlayMethod(Class<?> patchClass, String name) {
         for (Method m : patchClass.getMethods()) {
             if (m.getName().equals(name) && m.getParameterCount() == 2

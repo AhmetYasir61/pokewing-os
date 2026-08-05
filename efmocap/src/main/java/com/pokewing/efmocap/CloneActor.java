@@ -1,0 +1,81 @@
+package com.pokewing.efmocap;
+
+import com.mojang.authlib.GameProfile;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.world.entity.Entity;
+
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * A client-side clone actor: a fake {@link RemotePlayer} added to the client
+ * level so Epic Fight's client renderer patches and draws it. Each replay tick
+ * we set its transform and, when the recorded animation id changes, tell its
+ * Epic Fight patch to play that animation. Everything is client-only -- nothing
+ * is sent to the server.
+ */
+public final class CloneActor {
+    // Fake entity ids well outside the vanilla range to avoid collisions.
+    private static final AtomicInteger NEXT_ID = new AtomicInteger(1_900_000_000);
+
+    private final RemotePlayer entity;
+    private final int fakeId;
+    private int lastAnimId = -2;
+
+    private CloneActor(RemotePlayer entity, int fakeId) {
+        this.entity = entity;
+        this.fakeId = fakeId;
+    }
+
+    /** Spawn a clone at the given position, or null if no client level. */
+    public static CloneActor spawn(String name, double x, double y, double z) {
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel level = mc.level;
+        if (level == null) return null;
+
+        GameProfile profile = new GameProfile(UUID.randomUUID(),
+                name.length() > 16 ? name.substring(0, 16) : name);
+        RemotePlayer clone = new RemotePlayer(level, profile);
+        int id = NEXT_ID.getAndIncrement();
+        clone.setId(id);
+        clone.setNoGravity(true);
+        clone.noPhysics = true;
+        clone.setPos(x, y, z);
+        clone.setOldPosAndRot();
+        level.addPlayer(id, clone);
+        EFMocap.LOG.info("[efmocap] spawned clone '{}' id={} at {},{},{}", name, id, x, y, z);
+        return new CloneActor(clone, id);
+    }
+
+    /** Apply one recorded frame: transform now, animation on change. */
+    public void apply(MocapFrame f) {
+        entity.setPos(f.x, f.y, f.z);
+        entity.setYRot(f.yRot);
+        entity.setYHeadRot(f.yRot);
+        entity.yBodyRot = f.yBodyRot;
+        entity.yBodyRotO = f.yBodyRot;
+        entity.setXRot(f.xRot);
+        // Keep interpolation from snapping.
+        entity.xOld = f.x; entity.yOld = f.y; entity.zOld = f.z;
+        entity.yRotO = f.yRot; entity.xRotO = f.xRot;
+
+        if (f.animId >= 0 && f.animId != lastAnimId) {
+            Object patch = EpicFightBridge.getPatch(entity);
+            if (EpicFightBridge.playById(patch, f.animId, 0.15f)) {
+                lastAnimId = f.animId;
+            }
+        }
+    }
+
+    public void despawn() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            mc.level.removeEntity(fakeId, Entity.RemovalReason.DISCARDED);
+        }
+        entity.remove(Entity.RemovalReason.DISCARDED);
+    }
+
+    public RemotePlayer entity() { return entity; }
+}

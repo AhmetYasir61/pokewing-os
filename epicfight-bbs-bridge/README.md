@@ -106,6 +106,15 @@ dahil ~350+ animasyon) okuyup bedrock formatında yazar. Bazı özel/insansı-ol
 
 ## Kemik eşleştirme (retargeting)
 
+> **Önemli (BBS varsayılan oyuncu modeli):** BBS'in `player/alex` rig'inde
+> kemikler `anchor, low_body, head, left_arm, right_arm, left_leg, right_leg`
+> şeklindedir (klasik `body`/`root` isimleri YOKTUR). Varsayılan harita artık
+> bunlara göredir. Ayrıca uzuvlar **sadece rotasyon** aktarır (Epic Fight'ın
+> eklem konumları farklı uzayda olduğu için kolları yuvasından koparıyordu);
+> yer değiştirme yalnızca kök kemiğe (root motion) yazılır. Daha önce eski bir
+> sürüm çalıştırdıysan `config/efbbs/retarget.json` dosyasını **sil** ki yeni
+> doğru harita yeniden oluşsun, sonra **yeniden kayıt al**.
+
 İlk çalıştırmada `config/efbbs/retarget.json` oluşur. Sol taraf Epic Fight'ın
 biped eklem isimleri (jar'dan doğrulandı: `Root, Torso, Chest, Head,
 Shoulder_R/L, Arm_R/L, Elbow_R/L, Hand_R/L, Thigh_R/L, Leg_R/L, Knee_R/L,

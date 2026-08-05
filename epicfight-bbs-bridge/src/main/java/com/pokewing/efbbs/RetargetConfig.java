@@ -34,8 +34,14 @@ public class RetargetConfig {
     public float rotYSign = 1.0f;
     public float rotZSign = 1.0f;
 
-    /** Skip exporting joint translation (keep only rotation). Often cleaner for humanoids. */
-    public boolean rotationOnly = false;
+    /**
+     * Skip per-joint translation (export rotation only for limbs). Default TRUE:
+     * Epic Fight's joint translations are in its own bone space and, if written
+     * as Blockbench position offsets, tear limbs off their sockets. Root motion
+     * is unaffected -- it is written separately onto the root bone. Only set this
+     * false if you specifically want raw joint translations.
+     */
+    public boolean rotationOnly = true;
 
     /** Decimal places to keep in the output JSON. */
     public int decimals = 4;
@@ -106,11 +112,14 @@ public class RetargetConfig {
         RetargetConfig c = new RetargetConfig();
         Map<String, String> m = c.jointToBone;
         // Epic Fight biped armature joints (verified from epicfight jar) on the
-        // left -> common Blockbench player-bone names on the right. Edit the
-        // right-hand side to match YOUR actor model's bone names.
-        m.put("Root", "root");
-        m.put("Torso", "body");
-        m.put("Chest", "body");
+        // left -> BBS default player model bone names on the right (anchor,
+        // low_body, head, left_arm/right_arm, left_leg/right_leg -- verified from
+        // BBS's player/alex rig). Edit the right side to match YOUR model's bones.
+        // NOTE: "Root" is intentionally NOT mapped here -- its raw Epic Fight
+        // orientation would tip the whole model. The root bone (anchor) instead
+        // receives only recorded root motion (position + body yaw).
+        m.put("Torso", "low_body");
+        m.put("Chest", "low_body");
         m.put("Head", "head");
         m.put("Shoulder_R", "right_arm");
         m.put("Arm_R", "right_arm");

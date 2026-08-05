@@ -36,7 +36,7 @@ public final class OfflineConverter {
     private Map<String, String> jointToBone = defaultMap();
     private double translationScale = 16.0;
     private double rotXSign = 1, rotYSign = 1, rotZSign = 1;
-    private boolean rotationOnly = false;
+    private boolean rotationOnly = true; // limbs rotation-only (see RetargetConfig)
     private int decimals = 4;
 
     public static void main(String[] args) throws Exception {
@@ -211,8 +211,8 @@ public final class OfflineConverter {
     /** Mirrors RetargetConfig.defaults() for standalone use. */
     private static Map<String, String> defaultMap() {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("Root", "root");
-        m.put("Torso", "body"); m.put("Chest", "body");
+        // "Root" intentionally unmapped (its raw orientation tips the model).
+        m.put("Torso", "low_body"); m.put("Chest", "low_body");
         m.put("Head", "head");
         m.put("Shoulder_R", "right_arm"); m.put("Arm_R", "right_arm");
         m.put("Elbow_R", "right_arm"); m.put("Hand_R", "right_arm");

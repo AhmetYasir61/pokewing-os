@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+Exports Epic Fight animations into Blockbench-format animation files that
+BBS mod (Blockbuster Studio) can play back directly on rigged actors.
+No live runtime hook into Epic Fight rendering is used, so this stays
+compatible with other mods. Epic Fight is an optional dependency: without
+it the bridge simply reports that no source animations are available.
+'''
+
+# Epic Fight is OPTIONAL. Declared so load order is correct WHEN present,
+# but the bridge does not require it to load (ordering="AFTER", not mandatory).
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="epicfight"
+    mandatory=false
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"

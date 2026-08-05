@@ -102,7 +102,8 @@ public final class AnimationExporter {
         // Root motion: bake recorded world position + body yaw onto the bone
         // mapped from the "Root" joint (falls back to a dedicated "root" bone).
         if (!ex.rootMotion.isEmpty()) {
-            String rootBone = cfg.jointToBone.getOrDefault("Root", "anchor");
+            String rootBone = cfg.rootBone != null ? cfg.rootBone
+                    : cfg.jointToBone.getOrDefault("Root", "anchor");
             JsonObject boneObj = bones.has(rootBone)
                     ? bones.getAsJsonObject(rootBone) : new JsonObject();
             JsonObject position = new JsonObject();

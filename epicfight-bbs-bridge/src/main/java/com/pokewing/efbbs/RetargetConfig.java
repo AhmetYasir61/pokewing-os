@@ -51,6 +51,9 @@ public class RetargetConfig {
     public double recordRadius = 24.0;
     /** Bake body yaw onto the root bone during recording. */
     public boolean recordRootYaw = true;
+    /** Name of the model's root bone that receives root motion (anchor for BBS
+     *  native player rig, "root" for the bundled geo actor). */
+    public String rootBone = "anchor";
     /** Root-motion axis sign flips (tune if the actor moves the wrong way). */
     public float rootXSign = 1.0f;
     public float rootZSign = 1.0f;

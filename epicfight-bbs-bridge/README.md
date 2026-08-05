@@ -62,6 +62,41 @@ Notlar:
   rolü ayrı ayrı oynayıp kaydını alıp BBS'te birleştirebilirsin.
 - Kayıt hızı: client tick hızı (20/sn). BBS'te akıcı görünür.
 
+## Aktörü BBS'te oynatma (GARANTİ yol: geo model)
+
+Önemli: BBS iki tür model yükler ve animasyonu farklı okur:
+
+- **`.bbs.json` (native — BBS'in `player/alex` gibi hazır modelleri):** animasyonu
+  yalnızca BBS'in *kendi native formatında* ve modelin config'ine gömülü ister.
+  Bu mod bedrock formatı ürettiği için native modele **doğrudan yüklenmez**
+  (bu yüzden Animations listesi `<none>` görünüyordu).
+- **`.geo.json` (bedrock geometri):** BBS bu modeli yüklerken yanındaki
+  **`.animation.json`** dosyasını (tam da bu modun ürettiği bedrock formatı!)
+  otomatik okur ve Animations listesinde gösterir. ✅
+
+Bu yüzden repoda **hazır bir geo aktör** var: `examples/ef_fighter/`
+(`model.geo.json` + `model.png` + `retarget.json`). Adımlar:
+
+1. `examples/ef_fighter/` klasörünü şuraya kopyala:
+   ```
+   config/bbs/assets/models/ef_fighter/
+   ```
+2. `examples/ef_fighter/retarget.json`'u `config/efbbs/retarget.json` olarak
+   kopyala (bu aktörün kemik isimlerine göre ayarlı: root/body/head/arms/legs).
+3. Oyunda **yeniden kayıt al** (K tuşu) — böylece animasyon doğru kemik
+   isimleriyle üretilir.
+4. Üretilen `config/efbbs/exported/rec_*.animation.json` dosyalarını
+   `config/bbs/assets/models/ef_fighter/` klasörüne kopyala (yani `model.geo.json`
+   ile aynı klasöre). BBS `*.animation.json`'ları otomatik yükler.
+5. BBS'te aktöre **ef_fighter** modelini/formunu ver → **Animations** listesinde
+   `efbbs.rec_...` görünür → seç ve oynat.
+
+> Native BBS player model (`player/alex`) ile dış animasyon oynatma henüz
+> desteklenmiyor (BBS'in native animasyon formatı jar'da örneksiz ve test
+> edilemediği için). Geo aktör yolu garanti çalışır. Kendi karakterini istersen
+> Blockbench'te modelleyip **Bedrock geometry** (`.geo.json`) olarak dışa aktar,
+> kemikleri `retarget.json`'da eşle.
+
 ## Kullanım (hazır Epic Fight animasyonlarını dışa aktarma)
 
 ### A) Oyun içinden (önerilen — resource pack animasyonlarını da yakalar)

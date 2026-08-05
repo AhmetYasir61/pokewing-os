@@ -1,0 +1,33 @@
+{
+  "_comment": "Retarget for the bundled ef_fighter GEO model (model.geo.json). Bones: root, body, head, right_arm, left_arm, right_leg, left_leg. Copy this to config/efbbs/retarget.json.",
+  "jointToBone": {
+    "Torso": "body",
+    "Chest": "body",
+    "Head": "head",
+    "Shoulder_R": "right_arm",
+    "Arm_R": "right_arm",
+    "Elbow_R": "right_arm",
+    "Hand_R": "right_arm",
+    "Shoulder_L": "left_arm",
+    "Arm_L": "left_arm",
+    "Elbow_L": "left_arm",
+    "Hand_L": "left_arm",
+    "Thigh_R": "right_leg",
+    "Leg_R": "right_leg",
+    "Knee_R": "right_leg",
+    "Thigh_L": "left_leg",
+    "Leg_L": "left_leg",
+    "Knee_L": "left_leg"
+  },
+  "translationScale": 16.0,
+  "rotXSign": 1.0,
+  "rotYSign": 1.0,
+  "rotZSign": 1.0,
+  "rotationOnly": true,
+  "decimals": 4,
+  "recordRadius": 24.0,
+  "recordRootYaw": true,
+  "rootBone": "root",
+  "rootXSign": 1.0,
+  "rootZSign": 1.0
+}

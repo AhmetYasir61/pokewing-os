@@ -77,14 +77,23 @@ Notlar:
 
 ### B) Oyun açmadan (çevrimdışı toplu dönüştürme)
 
+Tamamen bağımsız çalışır — **sadece `efbbs.jar` yeter**, Minecraft/Forge/Gson
+gerekmez. Köşeli parantez `[...]` "isteğe bağlı" demek; yazma. Örnek (tek satır):
+
 ```
-java -cp "forge-veya-mc-classpath;epicfight.jar;efbbs.jar" \
-     com.pokewing.efbbs.OfflineConverter epicfight.jar out-klasoru [retarget.json]
+java -cp efbbs-forge-1.20.1-0.2.0.jar com.pokewing.efbbs.OfflineConverter epic-fight-20.14.17-mc1.20.1-forge.jar out-klasoru
+```
+
+Kendi kemik eşleştirmenle çalıştırmak istersen sona `retarget.json` yolunu ekle:
+
+```
+java -cp efbbs-forge-1.20.1-0.2.0.jar com.pokewing.efbbs.OfflineConverter epic-fight-20.14.17-mc1.20.1-forge.jar out-klasoru retarget.json
 ```
 
 Epic Fight jar'ının içindeki
-`assets/epicfight/animmodels/animations/**/*.json` animasyonlarını okuyup
-bedrock formatında yazar.
+`assets/epicfight/animmodels/animations/**/*.json` animasyonlarını (biped combat
+dahil ~350+ animasyon) okuyup bedrock formatında yazar. Bazı özel/insansı-olmayan
+(vex vb.) animasyonlar farklı formatta olduğu için atlanır.
 
 ### BBS'te oynatma
 

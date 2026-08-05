@@ -1,0 +1,38 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+EFMocap -- an Epic Fight-native machinima toolkit. Record your Epic Fight
+performance live, then spawn client-side clone actors that replay it with
+full Epic Fight rendering (no retargeting, no format conversion). Planned:
+layered multi-actor scenes, a cinematic camera, and MP4 export via ffmpeg.
+Epic Fight is required for animations; without it the mod loads but does
+nothing.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="epicfight"
+    mandatory=false
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"

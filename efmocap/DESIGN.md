@@ -1,0 +1,74 @@
+# EFMocap — Design & Roadmap
+
+An **Epic Fight-native machinima toolkit**. Instead of exporting animations to
+another mod (and fighting bone-retargeting / format issues), EFMocap records
+your Epic Fight performance and replays it on **clone actors rendered by Epic
+Fight itself** — so the animation is always 100% correct.
+
+## Why this architecture
+
+Epic Fight renders each patched entity from its own `Animator` + `Armature`.
+If a clone entity is Epic-Fight-patched and we drive it to play the same
+animations (or the same pose) at the same times, it renders identically to the
+original — **no retargeting, no `.animation.json`, no BBS**. Everything can run
+**client-side** for single-player filming (no server mod, no networking).
+
+## Verified Epic Fight API (from epicfight 20.14.17, 1.20.1)
+
+Reflection is used so EFMocap compiles/loads without the Epic Fight jar.
+
+Playback (drive a clone):
+- `AnimationManager.byId(int)` (static) -> `AnimationAccessor`
+- `LivingEntityPatch.playAnimationInClientSide(AssetAccessor, float transition)`
+- `LivingEntityPatch.playAnimation(AssetAccessor, float)`
+
+Read the performer's state (record):
+- `EpicFightCapabilities.getEntityPatch(Entity, Class)` -> patch
+- `patch.getClientAnimator()` / `getAnimator()`
+- `Animator.getPlayer(accessor)` -> `Optional<AnimationPlayer>`;
+  `AnimationPlayer.getAnimation()` -> accessor, `.getElapsedTime()`, `.isEnd()`
+- `ClientAnimator.currentMotion()` -> `LivingMotion` (walk/idle/etc.)
+- Pose fallback: `Animator.getPose(float)` -> `Pose.getJointTransformData()`
+  (map of joint -> `JointTransform{translation, rotation, scale}`)
+- `AnimationAccessor.id()` -> int (record the id, replay via `byId`)
+
+## Two possible replay fidelities
+
+1. **Action-level** (preferred): record the sequence of animation ids + start
+   times + movement; replay by calling `playAnimationInClientSide(byId(id), t)`
+   on the clone. Epic Fight blends/plays natively -> perfect look, tiny data.
+2. **Pose-level** (fallback): record the composed pose every tick and force it
+   onto the clone each frame. Exact, but needs a render/animator hook.
+
+Phase 1 targets action-level for the body plus raw position/rotation replay.
+
+## Roadmap (each phase independently testable)
+
+- **Phase 1 — Core mocap + clone.** Record self (position, body/head rotation,
+  current animation id + elapsed, held items) each tick. Spawn one client-side
+  clone that replays it. Keybind/commands: `record`, `stop`, `spawn clone`,
+  `clear`.
+- **Phase 2 — Layered scenes.** Multiple named recordings + multiple clones
+  playing together; start/sync offsets so a fight choreographs across takes.
+- **Phase 3 — Cinematic camera.** Free-fly + keyframed camera paths (position,
+  look, FOV, roll) with smooth interpolation; play the scene through it.
+- **Phase 4 — MP4 export.** Capture frames during playback and pipe to `ffmpeg`
+  (if installed) to produce an .mp4; configurable fps/resolution.
+- **Phase 5 — Timeline/editing UI.** Trim, retime, offset clips; per-actor
+  visibility; camera keyframe editing.
+
+## Open engineering questions (to resolve during Phase 1)
+
+- **Clone entity type.** Simplest high-fidelity option: a client-only fake
+  player (`AbstractClientPlayer`/`RemotePlayer`) that Epic Fight's client
+  renderer patches. Needs a valid `GameProfile` + skin.
+- **Reading the "current" animation id.** `Animator` exposes `getPlayer(accessor)`
+  but not a no-arg "what is playing". Options: track Epic Fight's animation-play
+  events/`AnimatorControlPacket`, or scan the animator's active layers via
+  reflection. Fallback to pose-level if needed.
+
+## Status
+
+Scaffold + reflection bridge in place. Phase 1 recorder/clone under construction.
+The existing `epicfight-bbs-bridge` (geo-actor path) remains a working option for
+filming in BBS while EFMocap matures.

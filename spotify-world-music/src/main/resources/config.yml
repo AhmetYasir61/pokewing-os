@@ -1,0 +1,116 @@
+# ---------------------------------------------------------------------------
+# SpotifyWorldMusic - belirli dunyalarda/bolgelerde Spotify muzigi calar.
+#
+# Iki calisma yolu var:
+#   WEB : Oyuncu tarayicida kucuk bir sayfa acar (/swm player). Sunucu o sayfaya
+#         hangi parcanin calmasi gerektigini soyler, sayfa Spotify oynaticisini
+#         gomulu olarak calistirir ve dongude tutar. Herkes icin calisir;
+#         tarayicida Spotify oturumu acik olanlar parcayi tam dinler, digerleri
+#         ~30 saniyelik onizleme duyar.
+#   API : Oyuncu /swm link ile Spotify hesabini baglar. Sunucu, oyuncunun kendi
+#         Spotify uygulamasinda (telefon/masaustu) parcayi baslatir ve tekrar
+#         modunu acar. Spotify Premium gerekir.
+#   BOTH: Hesabini baglayanlar API ile, digerleri tarayici oynatici ile dinler.
+#
+# Not: Minecraft istemcisi Spotify sesini kendi icinde calamaz; Spotify'in
+# lisansi buna izin vermez. Bu yuzden ses ya tarayicidan ya da oyuncunun kendi
+# Spotify uygulamasindan gelir.
+# ---------------------------------------------------------------------------
+
+mode: BOTH
+
+web:
+  enabled: true
+  # Dinlenecek adres. Sunucu makinesinde disariya acilacak arayuz.
+  bind: 0.0.0.0
+  port: 8787
+  # Oyunculara gonderilecek adres. Bos birakirsan bind/port kullanilir, ama
+  # gercek sunucularda buraya alan adini/IP'yi yazmalisin (gerekirse port ac).
+  public-url: ""
+  # Ayni bolgedeki oyuncularin sarkiyi yaklasik ayni yerinden duymasi icin
+  # sunucu bir bolge saati tutar. Sadece tek parca (track) icin uygulanir;
+  # playlist/album icin parca sinirlari sunucuca bilinemedigi icin bastan baslar.
+  sync-position: true
+  # Tarayici sayfasinin sunucuyu kac saniyede bir yoklayacagi.
+  poll-seconds: 3
+
+spotify:
+  # https://developer.spotify.com/dashboard adresinden bir uygulama olustur.
+  # Redirect URI olarak asagidaki degeri Spotify panelinde de kaydetmelisin:
+  #   http://<public-url-hostun>:8787/callback
+  client-id: ""
+  client-secret: ""
+  redirect-uri: ""
+  # Oyuncu muzikli bolgeden cikinca Spotify calmayi durdursun mu? (API modu)
+  pause-on-leave: true
+  # Bolgenin volume degeri oyuncunun Spotify cihazina uygulansin mi? (API modu)
+  apply-volume: true
+
+tracking:
+  # Oyuncularin bolge kontrolu kac tickte bir yapilsin (20 tick = 1 saniye).
+  check-interval-ticks: 20
+  # Bolgeye girince sohbette bilgi mesaji gosterilsin mi?
+  announce-on-enter: true
+  # Ust bantta (boss bar) calan parcanin adi gosterilsin mi?
+  boss-bar: true
+  # Aksiyon barinda (envanterin ustu) gosterilsin mi?
+  action-bar: false
+
+messages:
+  prefix: "&8[&aMusic&8] &r"
+
+# ---------------------------------------------------------------------------
+# Bolgeler. Her bolge bir dunyayi, istersen o dunyanin icinde bir kureyi kapsar.
+# url alanina normal Spotify baglantisi ya da spotify: URI'si yazabilirsin:
+#   https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
+#   https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT
+#   spotify:album:1DFixLWuPkv3KT3TnV35m3
+#
+# Ust uste binen bolgelerde once yuksek priority, esitlikte bolge (region)
+# tanimli olan kazanir. Yani "world" genelinde bir muzik + spawn cevresinde
+# baska bir muzik sorunsuz calisir.
+# ---------------------------------------------------------------------------
+zones:
+  spawn:
+    enabled: true
+    display-name: "&aSpawn Temasi"
+    world: world
+    region:
+      # false ise dunyanin tamami. true ise merkez etrafindaki kure/silindir.
+      enabled: true
+      center:
+        x: 0
+        y: 64
+        z: 0
+      radius: 120
+      # true ise yukseklik farki dikkate alinmaz (silindir gibi davranir).
+      ignore-y: true
+    url: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
+    loop: true
+    shuffle: false
+    volume: 55
+    priority: 10
+
+  ana-dunya:
+    enabled: false
+    display-name: "&bAna Dunya"
+    world: world
+    region:
+      enabled: false
+    url: "https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO"
+    loop: true
+    shuffle: true
+    volume: 45
+    priority: 0
+
+  nether:
+    enabled: false
+    display-name: "&cNether"
+    world: world_nether
+    region:
+      enabled: false
+    url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
+    loop: true
+    shuffle: false
+    volume: 50
+    priority: 0

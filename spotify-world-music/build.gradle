@@ -1,0 +1,50 @@
+plugins {
+    id 'java'
+}
+
+group = "${plugin_group_id}"
+version = "${plugin_version}"
+
+base {
+    archivesName = "${plugin_id}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(java_version))
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    // Paper API brings in Bukkit + the bundled Gson / bungee-chat we use.
+    // Everything else the plugin needs (HTTP server, HTTP client) is JDK built-in,
+    // so the produced jar has no shaded dependencies.
+    compileOnly "io.papermc.paper:paper-api:${paper_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+        plugin_id: plugin_id, plugin_name: plugin_name,
+        plugin_version: plugin_version, plugin_authors: plugin_authors,
+        plugin_main: "${plugin_group_id}.SpotifyWorldMusic".toString(),
+        minecraft_version: minecraft_version
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['plugin.yml']) {
+        expand replaceProperties
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': plugin_name,
+                   'Implementation-Version': plugin_version
+    }
+}

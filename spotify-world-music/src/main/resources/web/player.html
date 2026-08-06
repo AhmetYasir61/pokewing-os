@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunucu Muzigi</title>
+<style>
+  :root {
+    --bg: #0d0d10;
+    --card: #17171c;
+    --line: #27272f;
+    --text: #f4f4f5;
+    --muted: #9a9aa5;
+    --accent: #1db954;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 50% -10%, #1a2b1f 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .card {
+    width: 100%;
+    max-width: 34rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+  }
+  header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; }
+  .dot { width: .6rem; height: .6rem; border-radius: 50%; background: #555; flex: none; }
+  .dot.live { background: var(--accent); box-shadow: 0 0 0 4px rgba(29, 185, 84, .18); }
+  h1 { font-size: 1.05rem; margin: 0; font-weight: 600; letter-spacing: .01em; }
+  .sub { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+  #embed { min-height: 152px; border-radius: .9rem; overflow: hidden; }
+  #embed iframe { border-radius: .9rem; }
+  .status {
+    margin-top: 1rem;
+    font-size: .85rem;
+    color: var(--muted);
+    line-height: 1.55;
+    min-height: 2.6rem;
+  }
+  .status b { color: var(--text); font-weight: 600; }
+  .start {
+    display: none;
+    width: 100%;
+    margin-top: 1rem;
+    padding: .85rem 1rem;
+    border: 0;
+    border-radius: .75rem;
+    background: var(--accent);
+    color: #07240f;
+    font-size: .95rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .start:hover { filter: brightness(1.08); }
+  .hint { margin-top: 1rem; font-size: .75rem; color: #6f6f7a; line-height: 1.6; }
+  .idle { display: flex; align-items: center; justify-content: center; height: 152px;
+          border: 1px dashed var(--line); border-radius: .9rem; color: var(--muted);
+          font-size: .9rem; text-align: center; padding: 1rem; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <span class="dot" id="dot"></span>
+      <div>
+        <h1 id="title">Baglaniyor...</h1>
+        <div class="sub" id="subtitle">%%SERVER_NAME%%</div>
+      </div>
+    </header>
+
+    <div id="stage">
+      <div class="idle" id="idle">Muzik bolgesine girdiginde sarki burada baslar.</div>
+      <div id="embed" hidden></div>
+    </div>
+
+    <button class="start" id="start">▶ Muzigi baslat</button>
+    <div class="status" id="status">Sunucuya baglaniliyor...</div>
+    <div class="hint">
+      Bu sekmeyi acik birak. Oyunda muzikli bir bolgeye girdiginde sarki otomatik
+      degisir, bolgeden ciktiginda durur. Tarayicilar kendiliginden ses calmaya
+      izin vermedigi icin ilk seferde yukaridaki baslat dugmesine basman gerekir.
+      Spotify hesabinla bu tarayicida oturum acarsan sarkilar tam uzunlukta calar,
+      acmazsan yaklasik 30 saniyelik onizleme calar.
+    </div>
+  </div>
+
+<script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
+<script>
+(function () {
+  "use strict";
+
+  var POLL_MS = Math.max(1, parseInt("%%POLL_SECONDS%%", 10) || 3) * 1000;
+  var LOOP_EPSILON_MS = 1500;
+
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get("t") || "";
+
+  var els = {
+    dot: document.getElementById("dot"),
+    title: document.getElementById("title"),
+    subtitle: document.getElementById("subtitle"),
+    status: document.getElementById("status"),
+    start: document.getElementById("start"),
+    embed: document.getElementById("embed"),
+    idle: document.getElementById("idle")
+  };
+
+  var controller = null;
+  var apiReady = false;
+  var unlocked = false;          // set once the user pressed "start"
+  var current = null;            // { zone, uri, loop, type }
+  var pendingState = null;       // state that arrived before the API was ready
+  var lastPosition = 0;
+  var lastDuration = 0;
+  var reportedZone = null;
+
+  if (!token) {
+    setStatus("Gecersiz baglanti. Oyunda <b>/swm player</b> yazip sana ozel adresi al.");
+    els.title.textContent = "Baglanti gecersiz";
+    return;
+  }
+
+  els.start.addEventListener("click", function () {
+    unlocked = true;
+    els.start.style.display = "none";
+    if (controller && current) {
+      controller.play();
+    }
+    poll();
+  });
+
+  window.onSpotifyIframeApiReady = function (IFrameAPI) {
+    IFrameAPI.createController(els.embed, { width: "100%", height: "152" }, function (embedController) {
+      controller = embedController;
+      apiReady = true;
+      controller.addListener("playback_update", onPlaybackUpdate);
+      if (pendingState) {
+        applyState(pendingState);
+        pendingState = null;
+      }
+    });
+  };
+
+  function onPlaybackUpdate(event) {
+    var data = event && event.data ? event.data : {};
+    var position = data.position || 0;
+    var duration = data.duration || 0;
+
+    if (duration > 0 && duration !== lastDuration && current) {
+      lastDuration = duration;
+      report(current.zone, duration);
+    }
+
+    // The embed simply stops at the end of the queue; restart it ourselves.
+    if (current && current.loop && data.isPaused && duration > 0
+        && lastPosition >= duration - LOOP_EPSILON_MS && lastPosition > 0) {
+      lastPosition = 0;
+      restart();
+      return;
+    }
+    lastPosition = position;
+  }
+
+  function restart() {
+    if (!controller || !current) {
+      return;
+    }
+    if (current.type === "track" || current.type === "episode") {
+      controller.seek(0);
+      controller.play();
+    } else {
+      // Playlists/albums: reload so the queue starts over from the first item.
+      controller.loadUri(current.uri);
+      if (unlocked) {
+        controller.play();
+      }
+    }
+  }
+
+  function applyState(state) {
+    if (!state.playing) {
+      current = null;
+      lastDuration = 0;
+      lastPosition = 0;
+      els.embed.hidden = true;
+      els.idle.hidden = false;
+      els.dot.classList.remove("live");
+      if (controller) {
+        controller.pause();
+      }
+      els.title.textContent = state.online ? "Sessiz bolge" : "Oyunda degilsin";
+      setStatus(state.online
+        ? "Su an muzikli bir bolgede degilsin."
+        : "Sunucuda cevrimici degilsin. Oyuna girdiginde muzik otomatik baslar.");
+      return;
+    }
+
+    var changed = !current || current.uri !== state.uri || current.zone !== state.zone;
+    current = { zone: state.zone, uri: state.uri, loop: !!state.loop, type: state.type };
+
+    els.idle.hidden = true;
+    els.embed.hidden = false;
+    els.dot.classList.add("live");
+    els.title.textContent = state.zoneName || state.zone;
+    setStatus("Bolge: <b>" + escapeHtml(state.zoneName || state.zone) + "</b>"
+      + (state.loop ? " &middot; dongu acik" : "")
+      + (unlocked ? "" : " &middot; baslatmak icin dugmeye bas"));
+
+    if (!unlocked) {
+      els.start.style.display = "block";
+    }
+
+    if (changed && controller) {
+      lastDuration = 0;
+      lastPosition = 0;
+      reportedZone = null;
+      controller.loadUri(state.uri);
+      if (unlocked) {
+        controller.play();
+        if (state.seekMs > 0 && (state.type === "track" || state.type === "episode")) {
+          var seconds = Math.floor(state.seekMs / 1000);
+          setTimeout(function () { controller.seek(seconds); }, 800);
+        }
+      }
+    } else if (!changed && unlocked && controller) {
+      controller.play();
+    }
+  }
+
+  function poll() {
+    fetch("/api/state?t=" + encodeURIComponent(token), { cache: "no-store" })
+      .then(function (response) { return response.json(); })
+      .then(function (state) {
+        if (!state.ok) {
+          els.title.textContent = "Baglanti gecersiz";
+          setStatus("Bu adres artik gecerli degil. Oyunda <b>/swm player</b> ile yenisini al.");
+          return;
+        }
+        els.subtitle.textContent = state.playerName || "%%SERVER_NAME%%";
+        if (apiReady) {
+          applyState(state);
+        } else {
+          pendingState = state;
+        }
+      })
+      .catch(function () {
+        els.dot.classList.remove("live");
+        setStatus("Sunucuya ulasilamiyor, tekrar deneniyor...");
+      });
+  }
+
+  function report(zone, duration) {
+    if (!zone || zone === reportedZone) {
+      return;
+    }
+    reportedZone = zone;
+    fetch("/api/report?t=" + encodeURIComponent(token)
+      + "&zone=" + encodeURIComponent(zone)
+      + "&duration=" + duration, { cache: "no-store" }).catch(function () {});
+  }
+
+  function setStatus(html) {
+    els.status.innerHTML = html;
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch];
+    });
+  }
+
+  poll();
+  setInterval(poll, POLL_MS);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+name: ${plugin_name}
+version: '${plugin_version}'
+main: ${plugin_main}
+api-version: '1.21'
+author: ${plugin_authors}
+description: Plays a Spotify link in configured worlds/regions and keeps it looping.
+folia-supported: false
+
+commands:
+  swm:
+    description: SpotifyWorldMusic commands
+    usage: /swm help
+    aliases: [spotifymusic, worldmusic]
+
+permissions:
+  swm.use:
+    description: Access to the player facing /swm subcommands
+    default: true
+  swm.admin:
+    description: Access to /swm reload and /swm zones
+    default: op

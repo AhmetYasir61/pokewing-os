@@ -14,6 +14,11 @@ public class Character {
     public String skin = "";
     /** Alex-style thin arms. */
     public boolean slim = false;
+    /**
+     * Skin used once this character's corpse has decayed ("" = the bundled
+     * skeleton texture). Also a PNG under {@code config/efmocap/skins}.
+     */
+    public String decaySkin = "";
     public List<Attachment> attachments = new ArrayList<>();
 
     public Character() {}

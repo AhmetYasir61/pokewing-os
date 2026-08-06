@@ -11,8 +11,14 @@ import net.minecraft.resources.ResourceLocation;
  * while letting a character override the skin and arm model.
  */
 public class CloneEntity extends RemotePlayer {
+    /** Bundled bone texture used once a corpse has decayed. */
+    public static final ResourceLocation SKELETON =
+            new ResourceLocation(EFMocap.MOD_ID, "textures/skeleton.png");
+
     /** Character this clone is cast as (may be null). */
     public Character character;
+    /** Set once the corpse has lain long enough to be down to bones. */
+    public boolean decayed;
 
     public CloneEntity(ClientLevel level, GameProfile profile) {
         super(level, profile);
@@ -20,6 +26,13 @@ public class CloneEntity extends RemotePlayer {
 
     @Override
     public ResourceLocation getSkinTextureLocation() {
+        if (decayed) {
+            if (character != null && !character.decaySkin.isEmpty()) {
+                ResourceLocation custom = CharacterLibrary.INSTANCE.texture(character.decaySkin);
+                if (custom != null) return custom;
+            }
+            return SKELETON;
+        }
         if (character != null && !character.skin.isEmpty()) {
             ResourceLocation rl = CharacterLibrary.INSTANCE.texture(character.skin);
             if (rl != null) return rl;

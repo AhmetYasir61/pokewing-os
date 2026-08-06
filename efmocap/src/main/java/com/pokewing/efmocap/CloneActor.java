@@ -26,6 +26,7 @@ public final class CloneActor {
     private MocapFrame prev;
     private boolean dead;
     private int deathAge;
+    private boolean carried;
 
     private CloneActor(CloneEntity entity, int fakeId) {
         this.entity = entity;
@@ -117,6 +118,8 @@ public final class CloneActor {
     public void revive() {
         dead = false;
         deathAge = 0;
+        carried = false;
+        entity.decayed = false;
         prev = null;
     }
 
@@ -125,20 +128,73 @@ public final class CloneActor {
      * actor fell — the recording keeps running, but a corpse doesn't walk.
      */
     private void tickCorpse() {
-        int id = EpicFightBridge.animationIdByKey(DEATH_ANIM);
-        if (id < 0) return;
-
         float prevElapsed = Math.min(deathAge, DEATH_ANIM_TICKS) * 0.05f;
         deathAge++;
         float elapsed = Math.min(deathAge, DEATH_ANIM_TICKS) * 0.05f;
 
-        // Keep the render lerp anchored so the body doesn't jitter in place.
+        // Flesh goes, bones stay.
+        if (!entity.decayed && deathAge >= Settings.decayTicks) {
+            entity.decayed = true;
+            EFMocap.LOG.info("[efmocap] a corpse decayed to bones");
+        }
+
+        // A carried body is positioned by the carrier, not by itself.
+        if (!carried) {
+            entity.xo = entity.getX(); entity.yo = entity.getY(); entity.zo = entity.getZ();
+            entity.xOld = entity.getX(); entity.yOld = entity.getY(); entity.zOld = entity.getZ();
+            entity.yRotO = entity.getYRot(); entity.xRotO = entity.getXRot();
+            entity.yBodyRotO = entity.yBodyRot;
+        }
+
+        int id = EpicFightBridge.animationIdByKey(DEATH_ANIM);
+        if (id >= 0) {
+            EpicFightBridge.forceAnimation(EpicFightBridge.getPatch(entity), id, prevElapsed, elapsed);
+        }
+    }
+
+    /**
+     * Place a corpse on someone's back. The carrier calls this every tick, so
+     * the body rides along and can be set down anywhere — a grave, a cart, a pyre.
+     */
+    public void setCarriedPose(double carrierX, double carrierY, double carrierZ, float carrierYaw) {
+        double yaw = Math.toRadians(carrierYaw);
+        // Just behind the carrier's shoulders.
+        double bx = carrierX + Math.sin(yaw) * 0.32;
+        double bz = carrierZ - Math.cos(yaw) * 0.32;
+        double by = carrierY + 1.05;
+
         entity.xo = entity.getX(); entity.yo = entity.getY(); entity.zo = entity.getZ();
         entity.xOld = entity.getX(); entity.yOld = entity.getY(); entity.zOld = entity.getZ();
-        entity.yRotO = entity.getYRot(); entity.xRotO = entity.getXRot();
+        entity.yRotO = entity.getYRot();
         entity.yBodyRotO = entity.yBodyRot;
 
-        EpicFightBridge.forceAnimation(EpicFightBridge.getPatch(entity), id, prevElapsed, elapsed);
+        entity.setPos(bx, by, bz);
+        // Lying across the back, perpendicular to the carrier.
+        float across = carrierYaw + 90f;
+        entity.setYRot(across);
+        entity.setYHeadRot(across);
+        entity.yBodyRot = across;
+    }
+
+    public void setCarried(boolean c) { carried = c; }
+    public boolean isCarried() { return carried; }
+    public boolean isDecayed() { return entity.decayed; }
+
+    /** Where the body currently lies — used to drop it and to find it again. */
+    public double x() { return entity.getX(); }
+    public double y() { return entity.getY(); }
+    public double z() { return entity.getZ(); }
+    public float yaw() { return entity.yBodyRot; }
+
+    /** Set the body down here, flat on the ground. */
+    public void placeAt(double px, double py, double pz, float yaw) {
+        entity.setPos(px, py, pz);
+        entity.setYRot(yaw);
+        entity.setYHeadRot(yaw);
+        entity.yBodyRot = yaw;
+        entity.xo = px; entity.yo = py; entity.zo = pz;
+        entity.xOld = px; entity.yOld = py; entity.zOld = pz;
+        entity.yRotO = yaw; entity.yBodyRotO = yaw;
     }
 
     public void despawn() {

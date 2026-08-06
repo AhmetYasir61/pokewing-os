@@ -7,5 +7,6 @@
     "key.efmocap.cinematic": "Play cinematic",
     "key.efmocap.cam_stop": "Stop camera",
     "key.efmocap.video": "Start / stop video capture",
-    "key.efmocap.editor": "Open EFMocap editor"
+    "key.efmocap.editor": "Open EFMocap editor",
+    "key.efmocap.carry": "Carry / drop corpse"
 }

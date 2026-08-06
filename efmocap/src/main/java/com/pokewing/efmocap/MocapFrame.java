@@ -18,6 +18,9 @@ public final class MocapFrame {
     public int animId = -1;     // Epic Fight animation id playing this tick (-1 = none)
     public float elapsed;       // elapsed time within that animation
 
+    /** Take name of a corpse being carried this tick ("" = carrying nothing). */
+    public String carrying = "";
+
     // Visible equipment (registry names; "" = empty)
     public String mainHand = "";
     public String offHand = "";

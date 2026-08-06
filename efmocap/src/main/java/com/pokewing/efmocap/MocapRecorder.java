@@ -47,6 +47,8 @@ public final class MocapRecorder {
         MocapFrame f = new MocapFrame(e.getX(), e.getY(), e.getZ(),
                 e.getYRot(), e.yBodyRot, e.getXRot(), anim.animationId, anim.elapsed);
         ItemUtil.record(e, f);
+        // Carrying a body is part of the performance, so the funeral replays too.
+        f.carrying = CarrySystem.INSTANCE.carriedTake();
         current.frames.add(f);
     }
 }

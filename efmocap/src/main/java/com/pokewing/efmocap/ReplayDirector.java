@@ -101,6 +101,56 @@ public final class ReplayDirector {
             }
             r.actor.apply(r.rec.frameAt(r.tick));
         }
+
+        // Second pass: a performer who shouldered a body carries it here too,
+        // after every actor has been moved for this tick.
+        for (Replay r : replays) {
+            if (r.lingering) continue;
+            MocapFrame f = r.rec.frameAt(r.tick);
+            if (f == null || f.carrying == null || f.carrying.isEmpty()) continue;
+            carryTo(f.carrying, r.actor.x(), r.actor.y(), r.actor.z(), r.actor.yaw());
+        }
+    }
+
+    // --- corpses ---------------------------------------------------------
+
+    /** Take name of the nearest corpse within {@code range}, or null. */
+    public String nearestCorpseTake(double x, double y, double z, double range) {
+        String best = null;
+        double bestSq = range * range;
+        for (Replay r : replays) {
+            if (!r.actor.isDead() || r.actor.isCarried()) continue;
+            double dx = r.actor.x() - x, dy = r.actor.y() - y, dz = r.actor.z() - z;
+            double d = dx * dx + dy * dy + dz * dz;
+            if (d <= bestSq) { bestSq = d; best = r.rec.name; }
+        }
+        return best;
+    }
+
+    public void setCarried(String takeName, boolean carried) {
+        Replay r = find(takeName);
+        if (r != null) r.actor.setCarried(carried);
+    }
+
+    /** Ride a corpse on a carrier's back. False if it's no longer a corpse. */
+    public boolean carryTo(String takeName, double x, double y, double z, float yaw) {
+        Replay r = find(takeName);
+        if (r == null || !r.actor.isDead()) return false;
+        r.actor.setCarried(true);
+        r.actor.setCarriedPose(x, y, z, yaw);
+        return true;
+    }
+
+    public void placeCorpse(String takeName, double x, double y, double z, float yaw) {
+        Replay r = find(takeName);
+        if (r != null) r.actor.placeAt(x, y, z, yaw);
+    }
+
+    private Replay find(String takeName) {
+        for (Replay r : replays) {
+            if (r.rec.name.equals(takeName)) return r;
+        }
+        return null;
     }
 
     /** Current playback position of a take, or -1 if it isn't staged. */
@@ -114,5 +164,6 @@ public final class ReplayDirector {
     public void clearAll() {
         for (Replay r : replays) r.actor.despawn();
         replays.clear();
+        CarrySystem.INSTANCE.reset();
     }
 }

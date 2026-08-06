@@ -154,6 +154,18 @@ public class EditorScreen extends Screen {
             ReplayDirector.INSTANCE.clearAll(); status = "§etemizlendi";
         }).bounds(198, top, 120, 20).build());
 
+        // How long a body lies there before it's just bones.
+        addRenderableWidget(Button.builder(Component.literal(
+                "Çürüme: " + (Settings.decayTicks / 20) + "sn"), b -> {
+            Settings.decayTicks = switch (Settings.decayTicks) {
+                case 200 -> 600; case 600 -> 1200; case 1200 -> 2400;
+                case 2400 -> 100; default -> 200;
+            };
+            Settings.save();
+            status = "§bceset " + (Settings.decayTicks / 20) + " sn sonra iskelet olur";
+            rebuild();
+        }).bounds(322, top, 120, 20).build());
+
         List<String> names = lib.names();
         int y = top + 28;
         for (int i = scroll; i < names.size() && y < height - 60; i++) {

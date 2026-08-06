@@ -119,8 +119,9 @@ public final class CharacterLibrary {
      */
     public ResourceLocation texture(String pngName) {
         if (pngName == null || pngName.isEmpty()) return null;
-        ResourceLocation cached = textures.get(pngName);
-        if (cached != null) return cached;
+        // containsKey, not a null check: a failed load caches null on purpose so
+        // a broken PNG isn't re-read and re-logged every frame.
+        if (textures.containsKey(pngName)) return textures.get(pngName);
 
         Path p = skinsDir().resolve(pngName);
         if (!Files.isRegularFile(p)) p = attachmentsDir().resolve(pngName);

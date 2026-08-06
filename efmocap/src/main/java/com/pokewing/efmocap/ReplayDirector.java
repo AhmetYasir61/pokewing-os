@@ -57,6 +57,8 @@ public final class ReplayDirector {
     /** Stage a single take on its own. */
     public boolean play(MocapRecording rec, boolean looping) {
         if (rec == null || rec.isEmpty()) return false;
+        // Re-staging replaces the scene rather than piling clones on top.
+        clearAll();
         loop = looping;
         boolean ok = stage(rec);
         if (ok) { clock = 0; applyAll(); }
@@ -127,16 +129,34 @@ public final class ReplayDirector {
             r.actor.apply(r.rec.frameAt(Math.min(local, r.rec.length() - 1)));
         }
 
-        // Second pass: a performer who shouldered a body carries it here too,
-        // once every actor has been placed for this tick.
+        applyCarries(clock);
+    }
+
+    /**
+     * Ride carried bodies along, and let go of any that nobody is holding this
+     * frame — otherwise a body stays flagged as carried once its carrier's take
+     * moves on, and can never be picked up again.
+     */
+    private void applyCarries(double tickPos) {
+        carriedNow.clear();
         for (Replay r : replays) {
-            int local = clock - r.rec.startOffset;
+            int local = (int) Math.floor(tickPos - r.rec.startOffset);
             if (local < 0 || local >= r.rec.length()) continue;
             MocapFrame f = r.rec.frameAt(local);
             if (f == null || f.carrying == null || f.carrying.isEmpty()) continue;
+            carriedNow.add(f.carrying);
             carryTo(f.carrying, r.actor.x(), r.actor.y(), r.actor.z(), r.actor.yaw());
         }
+        String byPlayer = CarrySystem.INSTANCE.carriedTake();
+        for (Replay r : replays) {
+            if (r.actor.isCarried() && !carriedNow.contains(r.rec.name)
+                    && !r.rec.name.equals(byPlayer)) {
+                r.actor.setCarried(false);
+            }
+        }
     }
+
+    private final java.util.Set<String> carriedNow = new java.util.HashSet<>();
 
     /**
      * Pose the whole scene at an exact fractional tick. Offline rendering steps
@@ -165,13 +185,7 @@ public final class ReplayDirector {
                     r.rec.frameAt(Math.min(i + 1, last)), frac);
         }
 
-        for (Replay r : replays) {
-            int local = (int) Math.floor(tickPos - r.rec.startOffset);
-            if (local < 0 || local >= r.rec.length()) continue;
-            MocapFrame f = r.rec.frameAt(local);
-            if (f == null || f.carrying == null || f.carrying.isEmpty()) continue;
-            carryTo(f.carrying, r.actor.x(), r.actor.y(), r.actor.z(), r.actor.yaw());
-        }
+        applyCarries(tickPos);
     }
 
     public void clearAll() {

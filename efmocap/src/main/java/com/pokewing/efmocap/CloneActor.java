@@ -142,12 +142,19 @@ public final class CloneActor {
 
     public boolean isDead() { return dead; }
 
-    /** Bring the actor back for another run of the scene. */
+    /**
+     * Bring the actor back among the living. Interpolation history is dropped
+     * only when it was actually a corpse, so the body doesn't slide from where
+     * it fell; clearing it unconditionally would leave every frame with no
+     * previous tick to interpolate from, which reads as stuttering.
+     */
     public void revive() {
-        dead = false;
+        if (dead) {
+            dead = false;
+            prev = null;
+        }
         carried = false;
         entity.decayed = false;
-        prev = null;
     }
 
     /**

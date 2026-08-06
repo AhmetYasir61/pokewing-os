@@ -137,14 +137,15 @@ public final class VideoRecorder {
                 : (seconds > 0.1 && frames > 1 ? frames / seconds : 30.0));
         offline = false;
 
-        writer.shutdown();
+        final ThreadPoolExecutor pending = writer;
+        pending.shutdown();
         final int total = frames;
         final Path folder = dir;
         final double useFps = Math.max(1.0, Math.min(fps, 240.0));
 
         new Thread(() -> {
             try {
-                writer.awaitTermination(60, TimeUnit.SECONDS);
+                pending.awaitTermination(60, TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }

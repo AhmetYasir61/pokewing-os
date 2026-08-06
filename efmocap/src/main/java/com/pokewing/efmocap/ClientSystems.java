@@ -139,17 +139,25 @@ public final class ClientSystems {
     // --- actions ---------------------------------------------------------
 
     private static void toggleRecord() {
-        if (MocapRecorder.INSTANCE.isRecording()) {
-            MocapRecording rec = MocapRecorder.INSTANCE.stop();
-            if (rec != null && !rec.isEmpty()) {
-                TakeLibrary.INSTANCE.add(rec);
-                msg("§a[efmocap] '" + rec.name + "' kaydedildi (" + rec.length() + " kare)");
-            } else {
-                msg("§c[efmocap] boş kayıt");
-            }
-        } else {
+        if (MocapRecorder.INSTANCE.isRecording()) stopRecord();
+        else {
             MocapRecorder.INSTANCE.start(TakeLibrary.INSTANCE.nextName());
             msg("§a[efmocap] kayıt başladı. Dövüş! Durdurmak: K");
+        }
+    }
+
+    /** Stop and file the take; doing nothing if we weren't recording. */
+    private static void stopRecord() {
+        if (!MocapRecorder.INSTANCE.isRecording()) {
+            msg("§7[efmocap] zaten kayıtta değil");
+            return;
+        }
+        MocapRecording rec = MocapRecorder.INSTANCE.stop();
+        if (rec != null && !rec.isEmpty()) {
+            TakeLibrary.INSTANCE.add(rec);
+            msg("§a[efmocap] '" + rec.name + "' kaydedildi (" + rec.length() + " kare)");
+        } else {
+            msg("§c[efmocap] boş kayıt");
         }
     }
 
@@ -193,7 +201,7 @@ public final class ClientSystems {
                         .then(Commands.literal("start").executes(c -> {
                             MocapRecorder.INSTANCE.start(TakeLibrary.INSTANCE.nextName());
                             msg("§akayıt başladı"); return 1; }))
-                        .then(Commands.literal("stop").executes(c -> { toggleRecord(); return 1; })))
+                        .then(Commands.literal("stop").executes(c -> { stopRecord(); return 1; })))
                 .then(Commands.literal("scene").executes(c -> { stageScene(); return 1; }))
                 .then(Commands.literal("restart").executes(c -> {
                     ReplayDirector.INSTANCE.restart(); msg("§asahne baştan"); return 1; }))
@@ -299,7 +307,7 @@ public final class ClientSystems {
             // One way into the studio; the bottom strip moves between pages.
             EDITOR = key("editor", GLFW.GLFW_KEY_KP_MULTIPLY);
             RECORD = key("record", GLFW.GLFW_KEY_K);
-            CARRY = key("carry", GLFW.GLFW_KEY_F);
+            CARRY = key("carry", GLFW.GLFW_KEY_V);
             // Kept because they're needed with no menu open.
             CAM_ADD = key("cam_add", GLFW.GLFW_KEY_C);
             CAM_STOP = key("cam_stop", GLFW.GLFW_KEY_B);

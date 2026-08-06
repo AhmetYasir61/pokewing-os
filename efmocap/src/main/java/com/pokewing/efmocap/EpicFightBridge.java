@@ -186,7 +186,9 @@ public final class EpicFightBridge {
             Object v = accessor == null ? null : tryInvoke(accessor, "id");
             if (v instanceof Integer i) id = i;
         } catch (Throwable ignored) {}
-        KEY_IDS.put(key, id);
+        // Only remember successes: animations register as Epic Fight loads its
+        // packs, so a miss now may well resolve a moment later.
+        if (id >= 0) KEY_IDS.put(key, id);
         return id;
     }
 

@@ -82,7 +82,8 @@ public class TakesScreen extends StudioScreen {
         });
         btn(px + 156, py, 130, "Kafanın olduğu ana",
                 "Ölümü zaman çizgisindeki oynatma kafasına taşı", () -> {
-            r.deathTick = Math.max(0, ReplayDirector.INSTANCE.sceneTick());
+            // deathTick is measured from the take's own start, not the scene's.
+            r.deathTick = Math.max(0, ReplayDirector.INSTANCE.sceneTick() - r.startOffset);
             lib.save(r);
             status = "§cölüm " + Theme.time(r.deathTick);
             rebuild();

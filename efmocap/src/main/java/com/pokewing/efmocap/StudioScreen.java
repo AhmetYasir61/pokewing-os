@@ -267,14 +267,16 @@ public abstract class StudioScreen extends Screen {
             if (mx >= 56 && mx < 76) { rd.setPaused(false); rd.restart(); return true; }
         }
 
+        // Widgets first: at small window heights a panel button can share the
+        // band the timeline scrubs in, and the button should still win.
+        for (Zone z : zones) {
+            if (z.hit(mx, my)) { z.action().run(); return true; }
+        }
+
         if (my >= tlY && my < tabsY && mx >= trackX()) {
             draggingHead = true;
             scrubTo(mx);
             return true;
-        }
-
-        for (Zone z : zones) {
-            if (z.hit(mx, my)) { z.action().run(); return true; }
         }
         return false;
     }

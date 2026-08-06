@@ -8,6 +8,12 @@ public final class MocapRecording {
     public String name;
     /** Character this take was performed as (empty = default look). */
     public String character = "";
+    /**
+     * Tick at which this actor dies, or -1 if it survives. At that point the
+     * clone plays the death animation and stays on the ground as a corpse
+     * instead of being removed, so the death reads on camera every take.
+     */
+    public int deathTick = -1;
     public final List<MocapFrame> frames = new ArrayList<>();
 
     public MocapRecording(String name) { this.name = name; }

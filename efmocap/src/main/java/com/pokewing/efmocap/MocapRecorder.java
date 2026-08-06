@@ -37,6 +37,13 @@ public final class MocapRecorder {
     public void capture(net.minecraft.world.entity.LivingEntity e,
                         EpicFightBridge.AnimSample anim) {
         if (!recording || current == null) return;
+        // If the performer actually died mid-take, mark the moment so the clone
+        // dies there too (in creative you'd mark it by hand in the editor).
+        if (current.deathTick < 0 && (e.isDeadOrDying() || e.getHealth() <= 0f)) {
+            current.deathTick = current.frames.size();
+            EFMocap.LOG.info("[efmocap] death recorded at tick {}", current.deathTick);
+        }
+
         MocapFrame f = new MocapFrame(e.getX(), e.getY(), e.getZ(),
                 e.getYRot(), e.yBodyRot, e.getXRot(), anim.animationId, anim.elapsed);
         ItemUtil.record(e, f);

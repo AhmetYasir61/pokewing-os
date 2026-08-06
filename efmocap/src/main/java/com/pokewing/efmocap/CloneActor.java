@@ -16,9 +16,16 @@ import java.util.UUID;
  * is sent to the server.
  */
 public final class CloneActor {
+    /** Epic Fight's biped death animation. */
+    public static final String DEATH_ANIM = "epicfight:biped/living/death";
+    /** Ticks of death animation to play before the body just lies there. */
+    private static final int DEATH_ANIM_TICKS = 40;
+
     private final CloneEntity entity;
     private final int fakeId;
     private MocapFrame prev;
+    private boolean dead;
+    private int deathAge;
 
     private CloneActor(CloneEntity entity, int fakeId) {
         this.entity = entity;
@@ -56,6 +63,8 @@ public final class CloneActor {
      * pins the clone for a whole tick and reads as stuttering.)
      */
     public void apply(MocapFrame f) {
+        if (dead) { tickCorpse(); return; }
+
         MocapFrame p = prev != null ? prev : f;
 
         // Previous tick state (render lerp source).
@@ -88,6 +97,48 @@ public final class CloneActor {
     /** Drop interpolation history (used when a replay loops or is re-seeked). */
     public void resetInterpolation() {
         prev = null;
+    }
+
+    public boolean isDead() { return dead; }
+
+    /**
+     * Kill the actor: play the death animation from where it stands, then hold
+     * the final pose. The clone is deliberately NOT removed — the body stays in
+     * frame so the death reads on camera.
+     */
+    public void die() {
+        if (dead) return;
+        dead = true;
+        deathAge = 0;
+        EFMocap.LOG.info("[efmocap] actor died at tick, staying as a corpse");
+    }
+
+    /** Bring the actor back for another run of the scene. */
+    public void revive() {
+        dead = false;
+        deathAge = 0;
+        prev = null;
+    }
+
+    /**
+     * Advance the death animation, then freeze it. Position is held wherever the
+     * actor fell — the recording keeps running, but a corpse doesn't walk.
+     */
+    private void tickCorpse() {
+        int id = EpicFightBridge.animationIdByKey(DEATH_ANIM);
+        if (id < 0) return;
+
+        float prevElapsed = Math.min(deathAge, DEATH_ANIM_TICKS) * 0.05f;
+        deathAge++;
+        float elapsed = Math.min(deathAge, DEATH_ANIM_TICKS) * 0.05f;
+
+        // Keep the render lerp anchored so the body doesn't jitter in place.
+        entity.xo = entity.getX(); entity.yo = entity.getY(); entity.zo = entity.getZ();
+        entity.xOld = entity.getX(); entity.yOld = entity.getY(); entity.zOld = entity.getZ();
+        entity.yRotO = entity.getYRot(); entity.xRotO = entity.getXRot();
+        entity.yBodyRotO = entity.yBodyRot;
+
+        EpicFightBridge.forceAnimation(EpicFightBridge.getPatch(entity), id, prevElapsed, elapsed);
     }
 
     public void despawn() {

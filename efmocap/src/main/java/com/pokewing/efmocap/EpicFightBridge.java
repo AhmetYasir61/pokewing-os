@@ -108,6 +108,29 @@ public final class EpicFightBridge {
 
     // --- driving a clone -------------------------------------------------
 
+    /**
+     * Resolve an animation id from its registry key, e.g.
+     * {@code epicfight:biped/living/death}. Cached; -1 when unavailable.
+     */
+    private static final java.util.Map<String, Integer> KEY_IDS = new java.util.HashMap<>();
+
+    public static int animationIdByKey(String key) {
+        Integer cached = KEY_IDS.get(key);
+        if (cached != null) return cached;
+        int id = -1;
+        try {
+            Class<?> mgr = Class.forName(ANIM_MANAGER);
+            Class<?> rlClass = Class.forName("net.minecraft.resources.ResourceLocation");
+            Method byKey = mgr.getMethod("byKey", rlClass);
+            Object rl = rlClass.getConstructor(String.class).newInstance(key);
+            Object accessor = byKey.invoke(null, rl);
+            Object v = accessor == null ? null : tryInvoke(accessor, "id");
+            if (v instanceof Integer i) id = i;
+        } catch (Throwable ignored) {}
+        KEY_IDS.put(key, id);
+        return id;
+    }
+
     /** Resolve an Epic Fight animation accessor by its registry id. */
     public static Object animationById(int id) {
         try {

@@ -174,9 +174,25 @@ public class EditorScreen extends Screen {
                 rebuild();
             }).bounds(264, y, 76, 20).build());
 
+            // Mark the moment this actor dies. Press it while the scene is
+            // playing (the editor doesn't pause) to catch the exact beat.
+            addRenderableWidget(Button.builder(Component.literal(
+                    r.deathTick >= 0 ? "§c☠ " + r.deathTick : "§7ölüm"), b -> {
+                if (r.deathTick >= 0) {
+                    r.deathTick = -1;
+                    status = "§7'" + n + "' ölümü kaldırıldı";
+                } else {
+                    int t = ReplayDirector.INSTANCE.currentTickOf(r);
+                    r.deathTick = t >= 0 ? t : r.length() - 1;
+                    status = "§c'" + n + "' " + r.deathTick + ". tikte ölüyor";
+                }
+                lib.save(r);
+                rebuild();
+            }).bounds(344, y, 56, 20).build());
+
             addRenderableWidget(Button.builder(Component.literal("§cX"), b -> {
                 lib.remove(n); status = "§e'" + n + "' silindi"; rebuild();
-            }).bounds(344, y, 20, 20).build());
+            }).bounds(404, y, 20, 20).build());
 
             y += 22;
         }
@@ -282,7 +298,7 @@ public class EditorScreen extends Screen {
         String hint = switch (tab) {
             case CHARACTERS -> "§7Skin PNG'lerini config/efmocap/skins içine koy, sonra Skin» ile seç. "
                     + "§a●§7 = kayıt bu karakterle yapılır.";
-            case TAKES -> "§7K ile kaydet. Çekimler otomatik kaydedilir; Karakter» ile başka karaktere aktarabilirsin.";
+            case TAKES -> "§7K ile kaydet. §c'ölüm'§7 sahne oynarken tam o anda basılırsa aktör orada ölür — ceset silinmez.";
             case CAMERA -> "§7İstediğin yere uç, bak, 'Nokta ekle'. En az 2 nokta koy — kamera aralarında yumuşak süzülür.";
             case RENDER -> "§7ffmpeg kuruluysa MP4 çıkar; değilse PNG kareler klasörde kalır.";
         };

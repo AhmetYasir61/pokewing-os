@@ -33,10 +33,6 @@ public final class VideoRecorder {
     private volatile boolean active;
     private boolean hidGui;
 
-    /** Set > 0 to force an output frame rate instead of measuring it. */
-    public double forcedFps = 0;
-    /** ffmpeg executable; override if it isn't on PATH. */
-    public String ffmpeg = "ffmpeg";
 
     private VideoRecorder() {}
 
@@ -111,7 +107,7 @@ public final class VideoRecorder {
         mc.options.hideGui = hidGui;
 
         double seconds = (System.nanoTime() - startNanos) / 1_000_000_000.0;
-        double fps = forcedFps > 0 ? forcedFps
+        double fps = Settings.videoFps > 0 ? Settings.videoFps
                 : (seconds > 0.1 && frames > 1 ? frames / seconds : 30.0);
 
         writer.shutdown();
@@ -158,7 +154,7 @@ public final class VideoRecorder {
                 "-i", folder.resolve("frame_%06d.png").toString(),
                 "-c:v", "libx264",
                 "-preset", "medium",
-                "-crf", "18",
+                "-crf", String.valueOf(Settings.videoCrf),
                 "-pix_fmt", "yuv420p",
                 out.toString());
         pb.redirectErrorStream(true);
@@ -187,9 +183,20 @@ public final class VideoRecorder {
      * Find a usable ffmpeg: whatever was configured, then PATH, then the places
      * the common Windows installers put it. Null if there's none.
      */
-    private String resolveFfmpeg() {
+    public String resolveFfmpeg() {
         java.util.List<String> candidates = new java.util.ArrayList<>();
-        if (ffmpeg != null && !ffmpeg.isBlank()) candidates.add(ffmpeg);
+        // Configured value first — accept either the executable or its folder.
+        String cfg = Settings.ffmpegPath;
+        if (cfg != null && !cfg.isBlank()) {
+            cfg = cfg.trim().replace("\"", "");
+            candidates.add(cfg);
+            candidates.add(cfg + java.io.File.separator + "ffmpeg.exe");
+            candidates.add(cfg + java.io.File.separator + "ffmpeg");
+            candidates.add(cfg + java.io.File.separator + "bin"
+                    + java.io.File.separator + "ffmpeg.exe");
+            candidates.add(cfg + java.io.File.separator + "bin"
+                    + java.io.File.separator + "ffmpeg");
+        }
         candidates.add("ffmpeg");
 
         String local = System.getenv("LOCALAPPDATA");
@@ -208,8 +215,10 @@ public final class VideoRecorder {
 
         for (String c : candidates) {
             if (runs(c)) {
-                if (!c.equals(ffmpeg)) {
-                    ffmpeg = c;   // remember it for next time
+                if (!c.equals(Settings.ffmpegPath)) {
+                    // Remember what worked so later launches skip the search.
+                    Settings.ffmpegPath = c;
+                    Settings.save();
                     EFMocap.LOG.info("[efmocap] found ffmpeg at {}", c);
                 }
                 return c;
@@ -233,7 +242,8 @@ public final class VideoRecorder {
     private void writeEncodeScript(Path folder, double fps, String exe) {
         String rate = String.format(Locale.ROOT, "%.3f", fps);
         String args = " -y -framerate " + rate + " -i frame_%06d.png"
-                + " -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p video.mp4";
+                + " -c:v libx264 -preset medium -crf " + Settings.videoCrf
+                + " -pix_fmt yuv420p video.mp4";
         try {
             Files.writeString(folder.resolve("encode.bat"),
                     "@echo off\r\ncd /d \"%~dp0\"\r\n\"" + exe + "\"" + args

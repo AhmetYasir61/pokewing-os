@@ -20,6 +20,7 @@ public class EditorScreen extends Screen {
     private Tab tab = Tab.CHARACTERS;
     private int scroll = 0;
     private EditBox nameBox;
+    private EditBox ffmpegBox;
     private String status = "";
 
     public EditorScreen() {
@@ -277,16 +278,51 @@ public class EditorScreen extends Screen {
         }).bounds(10, top, 170, 20).build());
 
         addRenderableWidget(Button.builder(Component.literal(
-                "FPS: " + (vr.forcedFps <= 0 ? "otomatik" : (int) vr.forcedFps)), b -> {
-            vr.forcedFps = switch ((int) vr.forcedFps) {
+                "FPS: " + (Settings.videoFps <= 0 ? "otomatik" : (int) Settings.videoFps)), b -> {
+            Settings.videoFps = switch ((int) Settings.videoFps) {
                 case 0 -> 30; case 30 -> 60; case 60 -> 24; default -> 0;
             };
+            Settings.save();
             rebuild();
         }).bounds(184, top, 110, 20).build());
 
+        addRenderableWidget(Button.builder(
+                Component.literal("Kalite: crf " + Settings.videoCrf), b -> {
+            Settings.videoCrf = switch (Settings.videoCrf) {
+                case 18 -> 14; case 14 -> 23; case 23 -> 28; default -> 18;
+            };
+            Settings.save();
+            rebuild();
+        }).bounds(298, top, 110, 20).build());
+
         addRenderableWidget(Button.builder(Component.literal("Çıktı klasörü"), b -> {
             net.minecraft.Util.getPlatform().openFile(VideoRecorder.renderRoot().toFile());
-        }).bounds(298, top, 100, 20).build());
+        }).bounds(412, top, 100, 20).build());
+
+        // ffmpeg location: type the exe or just the folder holding it.
+        int fy = top + 52;
+        ffmpegBox = new EditBox(font, 10, fy, 330, 20, Component.literal("ffmpeg"));
+        ffmpegBox.setMaxLength(512);
+        ffmpegBox.setValue(Settings.ffmpegPath);
+        ffmpegBox.setHint(Component.literal("ffmpeg yolu (boş = otomatik ara)"));
+        addRenderableWidget(ffmpegBox);
+
+        addRenderableWidget(Button.builder(Component.literal("Kaydet + test"), b -> {
+            Settings.ffmpegPath = ffmpegBox.getValue().trim();
+            Settings.save();
+            String found = VideoRecorder.INSTANCE.resolveFfmpeg();
+            if (found != null) {
+                status = "§affmpeg çalışıyor: " + found;
+                ffmpegBox.setValue(Settings.ffmpegPath);
+            } else {
+                status = "§cffmpeg bulunamadı — yolu kontrol et";
+            }
+        }).bounds(344, fy, 100, 20).build());
+
+        addRenderableWidget(Button.builder(Component.literal("Config"), b -> {
+            net.minecraft.Util.getPlatform().openFile(
+                    CharacterLibrary.root().toFile());
+        }).bounds(448, fy, 64, 20).build());
 
         addRenderableWidget(Button.builder(
                 Component.literal("Tam sinematik: sahne + kamera + kayıt"), b -> {
@@ -296,6 +332,7 @@ public class EditorScreen extends Screen {
             CameraDirector.INSTANCE.play();
             onClose();
         }).bounds(10, top + 26, 290, 20).build());
+
     }
 
     // --- rendering -------------------------------------------------------
@@ -312,7 +349,7 @@ public class EditorScreen extends Screen {
                     + "§a●§7 = kayıt bu karakterle yapılır.";
             case TAKES -> "§7K ile kaydet. §c'ölüm'§7 sahne oynarken tam o anda basılırsa aktör orada ölür — ceset silinmez.";
             case CAMERA -> "§7İstediğin yere uç, bak, 'Nokta ekle'. En az 2 nokta koy — kamera aralarında yumuşak süzülür.";
-            case RENDER -> "§7ffmpeg kuruluysa MP4 çıkar; değilse PNG kareler klasörde kalır.";
+            case RENDER -> "§7ffmpeg yolunu buraya yaz (exe ya da klasör) — boş bırakırsan otomatik arar. Ayarlar config/efmocap/settings.json içinde.";
         };
         g.drawString(font, hint, 10, y, 0xA0A0A0);
         if (!status.isEmpty()) g.drawString(font, status, 10, y + 12, 0xFFFFFF);

@@ -249,15 +249,19 @@ public final class ClientSystems {
                                 .then(Commands.argument("fps", IntegerArgumentType.integer(0, 240))
                                         .executes(c -> {
                                             int f = IntegerArgumentType.getInteger(c, "fps");
-                                            VideoRecorder.INSTANCE.forcedFps = f;
+                                            Settings.videoFps = f;
+                                            Settings.save();
                                             msg(f == 0 ? "§bfps otomatik ölçülecek"
                                                     : "§bçıkış fps: " + f); return 1; })))
                         .then(Commands.literal("ffmpeg")
                                 .then(Commands.argument("path", StringArgumentType.greedyString())
                                         .executes(c -> {
-                                            VideoRecorder.INSTANCE.ffmpeg =
-                                                    StringArgumentType.getString(c, "path");
-                                            msg("§bffmpeg: " + VideoRecorder.INSTANCE.ffmpeg);
+                                            Settings.ffmpegPath =
+                                                    StringArgumentType.getString(c, "path").trim();
+                                            Settings.save();
+                                            String found = VideoRecorder.INSTANCE.resolveFfmpeg();
+                                            msg(found != null ? "§affmpeg çalışıyor: " + found
+                                                    : "§cffmpeg bulunamadı: " + Settings.ffmpegPath);
                                             return 1; })))));
     }
 

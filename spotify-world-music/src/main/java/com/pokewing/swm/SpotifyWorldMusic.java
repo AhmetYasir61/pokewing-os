@@ -46,7 +46,7 @@ public final class SpotifyWorldMusic extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        saveResource("web/player.html", false);
+        retireStalePlayerPage();
 
         File musicFolder = new File(getDataFolder(), AudioSource.FOLDER);
         if (!musicFolder.isDirectory() && !musicFolder.mkdirs()) {
@@ -143,6 +143,38 @@ public final class SpotifyWorldMusic extends JavaPlugin {
         }
     }
 
+    /**
+     * Earlier versions copied {@code web/player.html} into the data folder and
+     * preferred that copy, which meant a plugin update never reached the
+     * browser. Move any such copy aside so the bundled page wins again; the file
+     * is kept as {@code .bak} in case it was customised.
+     */
+    private void retireStalePlayerPage() {
+        File stale = new File(getDataFolder(), "web/player.html");
+        if (!stale.isFile()) {
+            return;
+        }
+        File backup = new File(getDataFolder(), "web/player.html.bak");
+        if (backup.exists() && !backup.delete()) {
+            getLogger().warning("Could not replace " + backup.getPath());
+        }
+        if (stale.renameTo(backup)) {
+            getLogger().warning("An old copy of web/player.html was shadowing the bundled player "
+                    + "page and has been moved to web/player.html.bak. The page from the jar is "
+                    + "used now. To keep your own version, rename it to web/player.custom.html.");
+        } else {
+            getLogger().severe("web/player.html could not be moved aside - it is an outdated copy "
+                    + "that will keep overriding the bundled player page. Delete it manually.");
+        }
+    }
+
+    /** Plugin version shown on the player page, so a stale tab is recognisable. */
+    public String versionLabel() {
+        // getDescription() rather than Paper's getPluginMeta() so the jar keeps
+        // working on plain Spigot.
+        return getDescription().getVersion();
+    }
+
     private String loadOrCreateSecret() {
         File file = new File(getDataFolder(), "data.yml");
         FileConfiguration data = YamlConfiguration.loadConfiguration(file);
@@ -231,5 +263,10 @@ public final class SpotifyWorldMusic extends JavaPlugin {
     /** False when the embedded HTTP listener could not be started. */
     public boolean webServerRunning() {
         return webServer != null;
+    }
+
+    /** True when a {@code web/player.custom.html} override is being served. */
+    public boolean usingCustomPage() {
+        return webServer != null && webServer.usingCustomPage();
     }
 }

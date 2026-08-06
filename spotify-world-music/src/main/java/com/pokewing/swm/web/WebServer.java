@@ -80,7 +80,11 @@ public final class WebServer {
         }
         String page = playerPage
                 .replace("%%POLL_SECONDS%%", String.valueOf(plugin.config().webPollSeconds()))
-                .replace("%%SERVER_NAME%%", escapeHtml(plugin.serverDisplayName()));
+                .replace("%%SERVER_NAME%%", escapeHtml(plugin.serverDisplayName()))
+                .replace("%%VERSION%%", escapeHtml(plugin.versionLabel()));
+        // The page changes between plugin versions, so a cached copy must never
+        // outlive an update.
+        exchange.getResponseHeaders().add("Cache-Control", "no-store");
         send(exchange, 200, "text/html; charset=utf-8", page);
     }
 
@@ -303,12 +307,19 @@ public final class WebServer {
     }
 
     /**
-     * Reads a bundled page, preferring the copy inside the plugin data folder so
-     * server owners can restyle it without rebuilding the jar.
+     * Reads the player page.
+     *
+     * <p>The bundled copy inside the jar wins by default, so updating the plugin
+     * always updates the page. A server owner who wants a restyled page opts in
+     * explicitly by creating {@code web/player.custom.html} in the data folder -
+     * an opt-in file cannot silently shadow a newer bundled page the way an
+     * auto-written copy did.
      */
     private String readResource(String name) throws IOException {
-        File override = new File(plugin.getDataFolder(), name);
+        File override = new File(plugin.getDataFolder(), customPath(name));
         if (override.isFile()) {
+            plugin.getLogger().info("Serving the custom " + customPath(name)
+                    + " instead of the bundled page.");
             return Files.readString(override.toPath(), StandardCharsets.UTF_8);
         }
         try (InputStream in = plugin.getResource(name)) {
@@ -317,6 +328,17 @@ public final class WebServer {
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    /** {@code web/player.html} -> {@code web/player.custom.html} */
+    static String customPath(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot < 0 ? name + ".custom" : name.substring(0, dot) + ".custom" + name.substring(dot);
+    }
+
+    /** True when the page currently served comes from a custom override file. */
+    public boolean usingCustomPage() {
+        return new File(plugin.getDataFolder(), customPath("web/player.html")).isFile();
     }
 
     private static Map<String, String> parseQuery(String rawQuery) {

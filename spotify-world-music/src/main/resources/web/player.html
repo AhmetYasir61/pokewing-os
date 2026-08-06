@@ -14,6 +14,9 @@
     --accent: #1db954;
   }
   * { box-sizing: border-box; }
+  /* .idle sets display:flex, which outranks the browser's [hidden] rule and
+     would leave the placeholder on screen while music plays. */
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     min-height: 100vh;
@@ -64,6 +67,7 @@
   }
   .start:hover { filter: brightness(1.08); }
   .hint { margin-top: 1rem; font-size: .75rem; color: #6f6f7a; line-height: 1.6; }
+  .ver { margin-top: .6rem; font-size: .7rem; color: #4b4b55; }
   .audio { width: 100%; height: 40px; margin-top: .5rem; }
   .idle { display: flex; align-items: center; justify-content: center; height: 152px;
           border: 1px dashed var(--line); border-radius: .9rem; color: var(--muted);
@@ -95,6 +99,7 @@
       Sunucunun kendi ses dosyalarini calan bolgeler herkeste tam uzunlukta calar.
       Spotify bagli bolgelerde ise sarkiyi tam dinlemek icin bu tarayicida Spotify
       oturumu acik olmali; degilse yaklasik 30 saniyelik onizleme calar.
+      <div class="ver">SpotifyWorldMusic v%%VERSION%%</div>
     </div>
   </div>
 
@@ -123,6 +128,7 @@
   var controller = null;
   var apiReady = false;
   var unlocked = false;          // set once the user pressed "start"
+  var sourceError = null;        // sticky, so polling does not wipe the message
   var current = null;            // { zone, uri, loop, type }
   var pendingState = null;       // state that arrived before the API was ready
   var lastPosition = 0;
@@ -142,10 +148,33 @@
     poll();
   });
 
+  function showStartButton(message) {
+    els.start.style.display = "block";
+    if (message) {
+      setStatus(message);
+    }
+  }
+
   els.audio.addEventListener("loadedmetadata", function () {
     if (current && current.kind === "audio" && isFinite(els.audio.duration)) {
       report(current.zone, Math.round(els.audio.duration * 1000));
     }
+  });
+
+  // Without this a missing or unreadable file is simply silent, which is the
+  // hardest kind of failure to diagnose from the server side.
+  els.audio.addEventListener("error", function () {
+    if (!current || current.kind !== "audio") {
+      return;
+    }
+    sourceError = "<b>Ses dosyasi yuklenemedi.</b><br>" + escapeHtml(current.source)
+      + "<br>Dosya plugins/SpotifyWorldMusic/music/ icinde mi ve config.yml'deki "
+      + "ad birebir ayni mi kontrol et.";
+    setStatus(sourceError);
+  });
+
+  els.audio.addEventListener("playing", function () {
+    els.start.style.display = "none";
   });
 
   // A local file loops natively, but keep a guard for browsers that fire
@@ -157,14 +186,28 @@
     }
   });
 
+  /**
+   * Always attempts playback. The start button is a fallback for browsers that
+   * refuse autoplay, not a precondition - gating playback on it meant nothing
+   * ever played on the browsers that would have allowed it.
+   */
   function playCurrent() {
     if (!current) {
       return;
     }
     if (current.kind === "audio") {
-      els.audio.play().catch(function () {
-        setStatus("Tarayici sesi engelledi. Sayfaya bir kez tiklayip tekrar dene.");
-      });
+      var attempt = els.audio.play();
+      if (attempt && typeof attempt.then === "function") {
+        attempt.then(function () {
+          els.start.style.display = "none";
+        }).catch(function () {
+          els.start.style.display = "block";
+          if (!sourceError) {
+            setStatus("Tarayici sesi kendiliginden baslatmiyor. "
+              + "Asagidaki yesil dugmeye bir kez bas.");
+          }
+        });
+      }
     } else if (controller) {
       controller.play();
     }
@@ -230,9 +273,11 @@
       current = null;
       lastDuration = 0;
       lastPosition = 0;
+      sourceError = null;
       els.embed.hidden = true;
       els.audio.hidden = true;
       els.idle.hidden = false;
+      els.start.style.display = "none";
       els.dot.classList.remove("live");
       stopAll();
       els.title.textContent = state.online ? "Sessiz bolge" : "Oyunda degilsin";
@@ -245,6 +290,9 @@
     var kind = state.kind === "audio" ? "audio" : "spotify";
     var source = kind === "audio" ? state.audioUrl : state.uri;
     var changed = !current || current.source !== source || current.zone !== state.zone;
+    if (changed) {
+      sourceError = null;
+    }
     current = {
       zone: state.zone,
       kind: kind,
@@ -257,13 +305,10 @@
     els.idle.hidden = true;
     els.dot.classList.add("live");
     els.title.textContent = state.zoneName || state.zone;
-    setStatus("Bolge: <b>" + escapeHtml(state.zoneName || state.zone) + "</b>"
-      + (state.loop ? " &middot; dongu acik" : "")
-      + (unlocked ? "" : " &middot; baslatmak icin dugmeye bas"));
-
-    if (!unlocked) {
-      els.start.style.display = "block";
-    }
+    // A load failure stays on screen until the zone changes; the routine status
+    // line would otherwise wipe it on the next poll a second later.
+    setStatus(sourceError || ("Bolge: <b>" + escapeHtml(state.zoneName || state.zone) + "</b>"
+      + (state.loop ? " &middot; dongu acik" : "")));
 
     if (kind === "audio") {
       applyAudioState(state, changed);
@@ -274,6 +319,14 @@
 
   function applyAudioState(state, changed) {
     els.embed.hidden = true;
+    if (!state.audioUrl) {
+      els.audio.hidden = true;
+      els.idle.hidden = false;
+      sourceError = "<b>Bu bolgenin ses dosyasi cozumlenemedi.</b> config.yml'deki url "
+        + "degerini kontrol et.";
+      setStatus(sourceError);
+      return;
+    }
     els.audio.hidden = false;
     if (controller) {
       controller.pause();
@@ -296,7 +349,7 @@
         });
       }
     }
-    if (unlocked && els.audio.paused) {
+    if (els.audio.paused && !sourceError) {
       playCurrent();
     }
   }
@@ -313,15 +366,18 @@
       lastPosition = 0;
       reportedZone = null;
       controller.loadUri(state.uri);
-      if (unlocked) {
-        controller.play();
-        if (state.seekMs > 0 && (state.type === "track" || state.type === "episode")) {
-          var seconds = Math.floor(state.seekMs / 1000);
-          setTimeout(function () { controller.seek(seconds); }, 800);
-        }
-      }
-    } else if (unlocked) {
       controller.play();
+      if (state.seekMs > 0 && (state.type === "track" || state.type === "episode")) {
+        var seconds = Math.floor(state.seekMs / 1000);
+        setTimeout(function () { controller.seek(seconds); }, 800);
+      }
+    } else {
+      controller.play();
+    }
+    // The Spotify embed gives no autoplay-rejection signal, so keep the manual
+    // start available until the user has pressed it once.
+    if (!unlocked) {
+      els.start.style.display = "block";
     }
   }
 

@@ -159,6 +159,10 @@ public final class SwmCommand implements CommandExecutor, TabCompleter {
                         ? "&acalisiyor &7(" + config.webBind() + ":" + config.webPort() + ")"
                         : "&cCALISMIYOR"));
         plugin.messages().raw(sender, " &7Public URL: &f" + config.publicUrl());
+        plugin.messages().raw(sender, " &7Surum: &f" + plugin.versionLabel()
+                + " &7| Oynatici sayfasi: &f"
+                + (plugin.usingCustomPage() ? "web/player.custom.html" : "jar icindeki")
+                + " &8(sayfanin altinda da yazar)");
 
         String apiReason = config.apiDisabledReason();
         plugin.messages().raw(sender, " &7Spotify API: "

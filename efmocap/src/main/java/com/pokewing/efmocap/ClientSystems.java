@@ -39,6 +39,7 @@ public final class ClientSystems {
         if (!loaded && mc.level != null) {
             int n = TakeLibrary.INSTANCE.loadAll();
             CameraDirector.INSTANCE.load();
+            CharacterLibrary.INSTANCE.load();
             loaded = true;
             if (n > 0 || CameraDirector.INSTANCE.keyCount() > 0) {
                 msg("§7[efmocap] " + n + " çekim, "
@@ -65,6 +66,9 @@ public final class ClientSystems {
     }
 
     private static void handleKeys() {
+        if (Keys.EDITOR != null) while (Keys.EDITOR.consumeClick()) {
+            Minecraft.getInstance().setScreen(new EditorScreen());
+        }
         if (Keys.RECORD != null) while (Keys.RECORD.consumeClick()) toggleRecord();
         if (Keys.PLAY != null) while (Keys.PLAY.consumeClick()) stageScene();
         if (Keys.CLEAR != null) while (Keys.CLEAR.consumeClick()) {
@@ -265,10 +269,11 @@ public final class ClientSystems {
             bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class Keys {
         public static net.minecraft.client.KeyMapping RECORD, PLAY, CLEAR,
-                CAM_ADD, CINEMATIC, CAM_STOP, VIDEO;
+                CAM_ADD, CINEMATIC, CAM_STOP, VIDEO, EDITOR;
 
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
+            EDITOR = key("editor", GLFW.GLFW_KEY_G);
             RECORD = key("record", GLFW.GLFW_KEY_K);
             PLAY = key("play", GLFW.GLFW_KEY_N);
             CLEAR = key("clear", GLFW.GLFW_KEY_J);
@@ -277,7 +282,7 @@ public final class ClientSystems {
             CAM_STOP = key("cam_stop", GLFW.GLFW_KEY_B);
             VIDEO = key("video", GLFW.GLFW_KEY_P);
             for (var k : new net.minecraft.client.KeyMapping[]
-                    {RECORD, PLAY, CLEAR, CAM_ADD, CINEMATIC, CAM_STOP, VIDEO}) {
+                    {EDITOR, RECORD, PLAY, CLEAR, CAM_ADD, CINEMATIC, CAM_STOP, VIDEO}) {
                 event.register(k);
             }
         }

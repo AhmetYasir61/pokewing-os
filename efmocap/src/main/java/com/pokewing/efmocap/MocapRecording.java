@@ -6,6 +6,8 @@ import java.util.List;
 /** An ordered list of {@link MocapFrame}s captured at 20 tps, plus a name. */
 public final class MocapRecording {
     public String name;
+    /** Character this take was performed as (empty = default look). */
+    public String character = "";
     public final List<MocapFrame> frames = new ArrayList<>();
 
     public MocapRecording(String name) { this.name = name; }

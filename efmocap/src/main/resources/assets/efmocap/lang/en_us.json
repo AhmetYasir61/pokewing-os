@@ -6,5 +6,6 @@
     "key.efmocap.cam_add": "Add camera keyframe",
     "key.efmocap.cinematic": "Play cinematic",
     "key.efmocap.cam_stop": "Stop camera",
-    "key.efmocap.video": "Start / stop video capture"
+    "key.efmocap.video": "Start / stop video capture",
+    "key.efmocap.editor": "Open EFMocap editor"
 }

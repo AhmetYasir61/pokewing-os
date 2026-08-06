@@ -54,7 +54,8 @@ public final class ReplayDirector {
     public boolean play(MocapRecording rec, boolean loop) {
         if (rec == null || rec.isEmpty()) return false;
         MocapFrame f0 = rec.frames.get(0);
-        CloneActor actor = CloneActor.spawn(rec.name, f0.x, f0.y, f0.z);
+        Character cast = CharacterLibrary.INSTANCE.get(rec.character);
+        CloneActor actor = CloneActor.spawn(rec.name, cast, f0.x, f0.y, f0.z);
         if (actor == null) return false;
         actor.apply(f0);
         replays.add(new Replay(actor, rec, loop));

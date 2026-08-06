@@ -6,5 +6,6 @@
     "key.efmocap.cam_add": "Kamera noktası ekle",
     "key.efmocap.cinematic": "Sinematiği oynat",
     "key.efmocap.cam_stop": "Kamerayı durdur",
-    "key.efmocap.video": "Video kaydı başlat / durdur"
+    "key.efmocap.video": "Video kaydı başlat / durdur",
+    "key.efmocap.editor": "EFMocap editörünü aç"
 }

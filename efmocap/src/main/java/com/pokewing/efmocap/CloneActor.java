@@ -16,24 +16,26 @@ import java.util.UUID;
  * is sent to the server.
  */
 public final class CloneActor {
-    private final RemotePlayer entity;
+    private final CloneEntity entity;
     private final int fakeId;
     private MocapFrame prev;
 
-    private CloneActor(RemotePlayer entity, int fakeId) {
+    private CloneActor(CloneEntity entity, int fakeId) {
         this.entity = entity;
         this.fakeId = fakeId;
     }
 
-    /** Spawn a clone at the given position, or null if no client level. */
-    public static CloneActor spawn(String name, double x, double y, double z) {
+    /** Spawn a clone cast as {@code character} (may be null for the default look). */
+    public static CloneActor spawn(String name, Character character,
+                                   double x, double y, double z) {
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
         if (level == null) return null;
 
         // Empty profile name -> no visible name tag above the clone.
         GameProfile profile = new GameProfile(UUID.randomUUID(), "");
-        RemotePlayer clone = new RemotePlayer(level, profile);
+        CloneEntity clone = new CloneEntity(level, profile);
+        clone.character = character;
         clone.setCustomNameVisible(false);
         int id = FakeIds.next();
         clone.setId(id);
@@ -96,5 +98,5 @@ public final class CloneActor {
         entity.remove(Entity.RemovalReason.DISCARDED);
     }
 
-    public RemotePlayer entity() { return entity; }
+    public CloneEntity entity() { return entity; }
 }

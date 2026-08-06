@@ -18,8 +18,10 @@ public final class MocapRecorder {
 
     public void start(String name) {
         current = new MocapRecording(name);
+        // Stamp the take with whichever character is cast in the editor.
+        current.character = CharacterLibrary.INSTANCE.active;
         recording = true;
-        EFMocap.LOG.info("[efmocap] recording '{}' started", name);
+        EFMocap.LOG.info("[efmocap] recording '{}' started as '{}'", name, current.character);
     }
 
     public MocapRecording stop() {

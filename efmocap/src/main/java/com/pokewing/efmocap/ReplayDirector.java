@@ -25,10 +25,44 @@ public final class ReplayDirector {
     }
 
     private final List<Replay> replays = new ArrayList<>();
+    private boolean paused;
 
     private ReplayDirector() {}
 
     public int activeCount() { return replays.size(); }
+
+    public boolean isPaused() { return paused; }
+    public void setPaused(boolean p) { paused = p; }
+
+    /** Longest staged take — the scene's length on the timeline. */
+    public int sceneLength() {
+        int max = 0;
+        for (Replay r : replays) max = Math.max(max, r.rec.length());
+        return max;
+    }
+
+    /** Playhead position: the furthest-along staged take. */
+    public int sceneTick() {
+        int t = 0;
+        for (Replay r : replays) t = Math.max(t, r.tick);
+        return t;
+    }
+
+    /** Jump the whole scene to a tick — used to scrub the timeline. */
+    public void seek(int tick) {
+        for (Replay r : replays) {
+            int t = Math.max(0, Math.min(tick, r.rec.length() - 1));
+            r.tick = t;
+            r.lingering = false;
+            if (r.rec.deathTick >= 0 && t >= r.rec.deathTick) {
+                r.actor.dieAt(t - r.rec.deathTick);
+            } else {
+                r.actor.revive();
+            }
+            r.actor.resetInterpolation();
+            r.actor.apply(r.rec.frameAt(t));
+        }
+    }
 
     /**
      * Stage every saved take at once, all starting from frame 0, so separately
@@ -68,6 +102,11 @@ public final class ReplayDirector {
 
     /** Advance every active replay by one frame. Call once per client tick. */
     public void tick() {
+        // Paused: hold the current frame so the scene stays posed for framing.
+        if (paused) {
+            for (Replay r : replays) r.actor.apply(r.rec.frameAt(r.tick));
+            return;
+        }
         for (Iterator<Replay> it = replays.iterator(); it.hasNext(); ) {
             Replay r = it.next();
 

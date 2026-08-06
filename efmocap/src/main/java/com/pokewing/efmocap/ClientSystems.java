@@ -69,7 +69,7 @@ public final class ClientSystems {
 
     private static void handleKeys() {
         if (Keys.EDITOR != null) while (Keys.EDITOR.consumeClick()) {
-            Minecraft.getInstance().setScreen(new EditorScreen());
+            Minecraft.getInstance().setScreen(new TakesScreen());
         }
         if (Keys.CARRY != null) while (Keys.CARRY.consumeClick()) CarrySystem.INSTANCE.toggle();
         if (Keys.RECORD != null) while (Keys.RECORD.consumeClick()) toggleRecord();

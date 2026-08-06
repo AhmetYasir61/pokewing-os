@@ -114,6 +114,13 @@ public final class CloneActor {
         EFMocap.LOG.info("[efmocap] actor died at tick, staying as a corpse");
     }
 
+    /** Kill and fast-forward the death by {@code ticks} — used when scrubbing. */
+    public void dieAt(int ticks) {
+        dead = true;
+        deathAge = Math.max(0, ticks);
+        entity.decayed = deathAge >= Settings.decayTicks;
+    }
+
     /** Bring the actor back for another run of the scene. */
     public void revive() {
         dead = false;

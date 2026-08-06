@@ -61,6 +61,8 @@ public final class CloneActor {
         entity.xOld = f.x; entity.yOld = f.y; entity.zOld = f.z;
         entity.yRotO = f.yRot; entity.xRotO = f.xRot;
 
+        ItemUtil.apply(entity, f);
+
         // Force the exact recorded animation + elapsed every tick so Epic Fight's
         // own auto living-motion on the moving clone can't override the replay.
         if (f.animId >= 0) {

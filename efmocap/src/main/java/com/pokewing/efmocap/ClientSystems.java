@@ -1,6 +1,7 @@
 package com.pokewing.efmocap;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.commands.CommandSourceStack;
@@ -16,29 +17,41 @@ import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Phase 1 client wiring: capture the local player each tick while recording,
- * advance active replays each tick, and expose record / play / clear via a
- * keybind and the {@code /efmocap} client command.
+ * Client wiring: capture the local player each tick while recording, advance
+ * active replays each tick, and expose record / stage-scene / clear via
+ * keybinds and the {@code /efmocap} client command.
  */
 @Mod.EventBusSubscriber(modid = EFMocap.MOD_ID, value = Dist.CLIENT)
 public final class ClientSystems {
     private ClientSystems() {}
 
+    private static boolean takesLoaded = false;
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
+
+        Minecraft mc = Minecraft.getInstance();
+
+        if (!takesLoaded && mc.level != null) {
+            int n = TakeLibrary.INSTANCE.loadAll();
+            takesLoaded = true;
+            if (n > 0) msg("§7[efmocap] " + n + " kayıtlı çekim yüklendi");
+        }
 
         if (Keys.RECORD != null) {
             while (Keys.RECORD.consumeClick()) toggleRecord();
         }
         if (Keys.PLAY != null) {
-            while (Keys.PLAY.consumeClick()) playLast();
+            while (Keys.PLAY.consumeClick()) stageScene();
         }
         if (Keys.CLEAR != null) {
-            while (Keys.CLEAR.consumeClick()) { ReplayDirector.INSTANCE.clearAll(); msg("§e[efmocap] klonlar temizlendi"); }
+            while (Keys.CLEAR.consumeClick()) {
+                ReplayDirector.INSTANCE.clearAll();
+                msg("§e[efmocap] klonlar temizlendi");
+            }
         }
 
-        Minecraft mc = Minecraft.getInstance();
         if (mc.isPaused()) return;
 
         // Capture the performer.
@@ -48,8 +61,7 @@ public final class ClientSystems {
                 EpicFightBridge.AnimSample anim = EFMocap.isEpicFightLoaded()
                         ? EpicFightBridge.sampleAnimation(EpicFightBridge.getPatch(p), 1.0f)
                         : new EpicFightBridge.AnimSample();
-                MocapRecorder.INSTANCE.capture(p.getX(), p.getY(), p.getZ(),
-                        p.getYRot(), p.yBodyRot, p.getXRot(), anim);
+                MocapRecorder.INSTANCE.capture(p, anim);
             }
         }
 
@@ -60,19 +72,24 @@ public final class ClientSystems {
     private static void toggleRecord() {
         if (MocapRecorder.INSTANCE.isRecording()) {
             MocapRecording rec = MocapRecorder.INSTANCE.stop();
-            msg("§a[efmocap] kayıt durdu (" + (rec == null ? 0 : rec.length()) + " kare). Oynatmak: N");
+            if (rec != null && !rec.isEmpty()) {
+                TakeLibrary.INSTANCE.add(rec);
+                msg("§a[efmocap] '" + rec.name + "' kaydedildi (" + rec.length()
+                        + " kare). Sahneyi oynat: N");
+            } else {
+                msg("§c[efmocap] boş kayıt");
+            }
         } else {
-            MocapRecorder.INSTANCE.start("take_" + System.currentTimeMillis());
+            MocapRecorder.INSTANCE.start(TakeLibrary.INSTANCE.nextName());
             msg("§a[efmocap] kayıt başladı. Dövüş! Durdurmak: K");
         }
     }
 
-    private static void playLast() {
-        MocapRecording rec = MocapRecorder.INSTANCE.last();
-        if (rec == null || rec.isEmpty()) { msg("§c[efmocap] önce kayıt al (K)"); return; }
-        boolean ok = ReplayDirector.INSTANCE.play(rec, true);
-        msg(ok ? "§a[efmocap] klon oynuyor (toplam " + ReplayDirector.INSTANCE.activeCount() + ")"
-               : "§c[efmocap] klon oluşturulamadı");
+    /** Stage all saved takes together as one scene. */
+    private static void stageScene() {
+        int n = ReplayDirector.INSTANCE.playScene(true);
+        msg(n > 0 ? "§a[efmocap] sahne oynuyor — " + n + " oyuncu"
+                  : "§c[efmocap] kayıtlı çekim yok (K ile kaydet)");
     }
 
     @SubscribeEvent
@@ -80,10 +97,42 @@ public final class ClientSystems {
         CommandDispatcher<CommandSourceStack> d = event.getDispatcher();
         d.register(Commands.literal("efmocap")
                 .then(Commands.literal("rec")
-                        .then(Commands.literal("start").executes(c -> { MocapRecorder.INSTANCE.start("take_" + System.currentTimeMillis()); msg("§akayıt başladı"); return 1; }))
-                        .then(Commands.literal("stop").executes(c -> { MocapRecorder.INSTANCE.stop(); msg("§akayıt durdu"); return 1; })))
-                .then(Commands.literal("play").executes(c -> { playLast(); return 1; }))
-                .then(Commands.literal("clear").executes(c -> { ReplayDirector.INSTANCE.clearAll(); msg("§eklonlar temizlendi"); return 1; })));
+                        .then(Commands.literal("start").executes(c -> {
+                            MocapRecorder.INSTANCE.start(TakeLibrary.INSTANCE.nextName());
+                            msg("§akayıt başladı"); return 1; }))
+                        .then(Commands.literal("stop").executes(c -> { toggleRecord(); return 1; })))
+                .then(Commands.literal("scene").executes(c -> { stageScene(); return 1; }))
+                .then(Commands.literal("restart").executes(c -> {
+                    ReplayDirector.INSTANCE.restart();
+                    msg("§asahne baştan"); return 1; }))
+                .then(Commands.literal("list").executes(c -> {
+                    java.util.List<String> names = TakeLibrary.INSTANCE.names();
+                    if (names.isEmpty()) { msg("§7kayıtlı çekim yok"); return 0; }
+                    msg("§7çekimler (" + names.size() + "):");
+                    for (String n : names) {
+                        MocapRecording r = TakeLibrary.INSTANCE.get(n);
+                        msg("§7 - " + n + " (" + (r == null ? 0 : r.length()) + " kare)");
+                    }
+                    return names.size(); }))
+                .then(Commands.literal("play")
+                        .then(Commands.argument("take", StringArgumentType.string())
+                                .executes(c -> {
+                                    String n = StringArgumentType.getString(c, "take");
+                                    MocapRecording r = TakeLibrary.INSTANCE.get(n);
+                                    if (r == null) { msg("§cçekim yok: " + n); return 0; }
+                                    boolean ok = ReplayDirector.INSTANCE.play(r, true);
+                                    msg(ok ? "§a'" + n + "' oynuyor" : "§cklon oluşturulamadı");
+                                    return ok ? 1 : 0; })))
+                .then(Commands.literal("delete")
+                        .then(Commands.argument("take", StringArgumentType.string())
+                                .executes(c -> {
+                                    String n = StringArgumentType.getString(c, "take");
+                                    boolean ok = TakeLibrary.INSTANCE.remove(n);
+                                    msg(ok ? "§e'" + n + "' silindi" : "§cçekim yok: " + n);
+                                    return ok ? 1 : 0; })))
+                .then(Commands.literal("clear").executes(c -> {
+                    ReplayDirector.INSTANCE.clearAll();
+                    msg("§eklonlar temizlendi"); return 1; })));
     }
 
     static void msg(String s) {

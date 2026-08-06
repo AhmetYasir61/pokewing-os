@@ -1,6 +1,6 @@
 {
     "key.categories.efmocap": "EFMocap",
     "key.efmocap.record": "Record / stop performance",
-    "key.efmocap.play": "Spawn clone & replay",
+    "key.efmocap.play": "Stage scene (all takes)",
     "key.efmocap.clear": "Clear all clones"
 }

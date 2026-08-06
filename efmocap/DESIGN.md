@@ -67,8 +67,29 @@ Phase 1 targets action-level for the body plus raw position/rotation replay.
   events/`AnimatorControlPacket`, or scan the animator's active layers via
   reflection. Fallback to pose-level if needed.
 
+## Controls
+
+| Key | Action |
+|-----|--------|
+| `K` | Start / stop recording (auto-saves as `takeN`) |
+| `N` | Stage the scene — every saved take plays at once, looping |
+| `J` | Clear all clones |
+
+Commands: `/efmocap rec start|stop`, `scene`, `restart`, `list`,
+`play <take>`, `delete <take>`, `clear`.
+
+**Workflow for a fight scene:** record yourself as fighter A (`K`…`K`), then
+record fighter B reacting (`K`…`K`), then press `N` — both clones play together,
+looping, so you can keep adding layers and shoot the result.
+
 ## Status
 
-Scaffold + reflection bridge in place. Phase 1 recorder/clone under construction.
+- **Phase 1 — done (in testing).** Recorder + client clone replay working:
+  clones spawn, move, hold the recorded equipment, and are force-synced each
+  tick to the recorded Epic Fight animation id + elapsed time.
+- **Phase 2 — in progress.** Named takes persisted to
+  `config/efmocap/takes/*.json`, multi-clone scene staging, per-take playback.
+- Phases 3–5 (cinematic camera, ffmpeg MP4 export, timeline UI) next.
+
 The existing `epicfight-bbs-bridge` (geo-actor path) remains a working option for
 filming in BBS while EFMocap matures.

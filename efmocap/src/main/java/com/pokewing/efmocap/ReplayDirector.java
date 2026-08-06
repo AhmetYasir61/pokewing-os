@@ -28,6 +28,27 @@ public final class ReplayDirector {
 
     public int activeCount() { return replays.size(); }
 
+    /**
+     * Stage every saved take at once, all starting from frame 0, so separately
+     * recorded performances play as one choreographed scene.
+     */
+    public int playScene(boolean loop) {
+        clearAll();
+        int n = 0;
+        for (MocapRecording rec : TakeLibrary.INSTANCE.all()) {
+            if (play(rec, loop)) n++;
+        }
+        return n;
+    }
+
+    /** Restart every active replay at frame 0 (re-syncs the scene). */
+    public void restart() {
+        for (Replay r : replays) {
+            r.tick = 0;
+            r.actor.apply(r.rec.frameAt(0));
+        }
+    }
+
     /** Spawn a clone and start replaying the recording on it. */
     public boolean play(MocapRecording rec, boolean loop) {
         if (rec == null || rec.isEmpty()) return false;

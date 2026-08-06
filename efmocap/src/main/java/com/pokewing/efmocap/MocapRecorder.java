@@ -32,10 +32,12 @@ public final class MocapRecorder {
     }
 
     /** Called each client tick while recording. */
-    public void capture(double x, double y, double z, float yRot, float yBodyRot, float xRot,
+    public void capture(net.minecraft.world.entity.LivingEntity e,
                         EpicFightBridge.AnimSample anim) {
         if (!recording || current == null) return;
-        current.frames.add(new MocapFrame(x, y, z, yRot, yBodyRot, xRot,
-                anim.animationId, anim.elapsed));
+        MocapFrame f = new MocapFrame(e.getX(), e.getY(), e.getZ(),
+                e.getYRot(), e.yBodyRot, e.getXRot(), anim.animationId, anim.elapsed);
+        ItemUtil.record(e, f);
+        current.frames.add(f);
     }
 }

@@ -1,9 +1,14 @@
 package com.pokewing.efmocap;
 
 /**
- * One recorded tick of a performer: world transform + the Epic Fight animation
- * being played. Deliberately tiny -- action-level capture (an animation id, not
- * a full pose) keeps recordings small and replays at native fidelity.
+ * One recorded tick of a performer: world transform, the Epic Fight animation
+ * being played, and the visible equipment. Deliberately tiny -- action-level
+ * capture (an animation id, not a full pose) keeps recordings small and replays
+ * at native fidelity.
+ *
+ * <p>Equipment is stored as item registry names ("minecraft:iron_sword"), empty
+ * string meaning nothing. Without it a clone would fight bare-handed, which
+ * breaks any sword scene.</p>
  */
 public final class MocapFrame {
     public double x, y, z;      // world position
@@ -12,6 +17,14 @@ public final class MocapFrame {
     public float xRot;          // pitch
     public int animId = -1;     // Epic Fight animation id playing this tick (-1 = none)
     public float elapsed;       // elapsed time within that animation
+
+    // Visible equipment (registry names; "" = empty)
+    public String mainHand = "";
+    public String offHand = "";
+    public String head = "";
+    public String chest = "";
+    public String legs = "";
+    public String feet = "";
 
     public MocapFrame() {}
 

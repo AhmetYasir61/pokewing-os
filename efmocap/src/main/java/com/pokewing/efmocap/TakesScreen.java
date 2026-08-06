@@ -88,6 +88,22 @@ public class TakesScreen extends StudioScreen {
             rebuild();
         });
 
+        py += 26;
+        // Slot a separately-recorded take into the scene without redoing it.
+        btn(px, py, 150, "Giriş: " + Theme.time(r.startOffset),
+                "Bu aktör sahneye ne kadar sonra girsin", () -> {});
+        btn(px + 156, py, 22, "−", null, () -> {
+            r.startOffset = Math.max(0, r.startOffset - 10); lib.save(r); rebuild();
+        });
+        btn(px + 180, py, 22, "+", null, () -> {
+            r.startOffset += 10; lib.save(r); rebuild();
+        });
+        btn(px + 206, py, 130, "Kafanın olduğu ana",
+                "Girişi oynatma kafasına taşı", () -> {
+            r.startOffset = Math.max(0, ReplayDirector.INSTANCE.sceneTick());
+            lib.save(r); status = "§bgiriş " + Theme.time(r.startOffset); rebuild();
+        });
+
         py += 30;
         danger(px, py, 130, "Çekimi sil", () -> {
             lib.remove(sel); sel = ""; status = "§esilindi"; rebuild();

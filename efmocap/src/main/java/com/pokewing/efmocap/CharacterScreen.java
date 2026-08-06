@@ -99,19 +99,22 @@ public class CharacterScreen extends StudioScreen {
 
         // --- attachments
         py += 28;
-        section(px, py, "EKLER  §8(kuyruk · kulak · boynuz)");
+        section(px, py, "EKLER  §8(.obj modelleri)");
         py += 14;
-        btn(px, py, 90, "+ kuyruk", null, () -> {
-            c.attachments.add(new Attachment("tail", "Torso"));
+        btn(px, py, 110, "+ Ek ekle", "Boş bir ek oluşturur, sonra modelini seç", () -> {
+            List<String> models = lib.availableModels();
+            c.attachments.add(new Attachment(models.isEmpty() ? "" : models.get(0), "Head"));
             selAttach = c.attachments.size() - 1; lib.put(c); rebuild();
         });
-        btn(px + 96, py, 90, "+ kulak", null, () -> {
-            c.attachments.add(new Attachment("ears", "Head"));
-            selAttach = c.attachments.size() - 1; lib.put(c); rebuild();
-        });
-        btn(px + 192, py, 90, "+ boynuz", null, () -> {
-            c.attachments.add(new Attachment("horns", "Head"));
-            selAttach = c.attachments.size() - 1; lib.put(c); rebuild();
+        btn(px + 116, py, 120, "Model klasörü",
+                "Blockbench/Blender'dan .obj olarak buraya at", () ->
+                net.minecraft.Util.getPlatform().openFile(
+                        CharacterLibrary.attachmentsDir().toFile()));
+        btn(px + 242, py, 100, "Modelleri yenile",
+                "Dosyaları değiştirdiysen yeniden okur", () -> {
+            lib.reloadModels();
+            status = "§b" + lib.availableModels().size() + " model bulundu";
+            rebuild();
         });
 
         py += 24;
@@ -135,13 +138,31 @@ public class CharacterScreen extends StudioScreen {
             section(px, py, "SEÇİLİ EK");
             py += 14;
 
+            btn(px, py, 170, "Model: " + (a.model.isEmpty() ? "seç" : a.model),
+                    "attachments klasöründeki .obj dosyaları arasında geçer", () -> {
+                List<String> models = lib.availableModels();
+                if (models.isEmpty()) {
+                    status = "§cattachments klasörüne .obj koy";
+                    return;
+                }
+                int i = models.indexOf(a.model) + 1;
+                a.model = models.get(i >= models.size() ? 0 : i);
+                lib.put(c); rebuild();
+            });
+            btn(px + 176, py, 140, "Doku: " + (a.texture.isEmpty() ? "karakter skini" : a.texture),
+                    "Ek için ayrı PNG kullan", () -> {
+                a.texture = cycleSkin(a.texture);
+                lib.put(c); rebuild();
+            });
+
+            py += 22;
             btn(px, py, 130, "Kemik: " + a.bone, "Hangi Epic Fight kemiğine bağlı", () -> {
                 int i = indexOf(BONES, a.bone) + 1;
                 a.bone = BONES[i >= BONES.length ? 0 : i];
                 lib.put(c); rebuild();
             });
             btn(px + 136, py, 110, String.format(Locale.ROOT, "Ölçek: %.2f", a.scale), null, () -> {
-                a.scale = a.scale >= 2.0f ? 0.25f : a.scale + 0.25f;
+                a.scale = a.scale >= 3.0f ? 0.25f : a.scale + 0.25f;
                 lib.put(c); rebuild();
             });
 
@@ -151,25 +172,9 @@ public class CharacterScreen extends StudioScreen {
             nudge(px + 216, py, "Z", a.offsetZ, v -> { a.offsetZ = v; lib.put(c); });
 
             py += 22;
-            if (!"ears".equals(a.preset) && !"horns".equals(a.preset)) {
-                btn(px, py, 100, "Parça: " + a.segments, "Kuyruk kaç bölümden oluşsun", () -> {
-                    a.segments = a.segments >= 10 ? 2 : a.segments + 1;
-                    lib.put(c); rebuild();
-                });
-                btn(px + 106, py, 110, String.format(Locale.ROOT, "Sarkma: %.0f°", a.droop), null, () -> {
-                    a.droop = a.droop >= 40 ? 0 : a.droop + 5;
-                    lib.put(c); rebuild();
-                });
-                btn(px + 222, py, 110, String.format(Locale.ROOT, "Boy: %.1f", a.segLength), null, () -> {
-                    a.segLength = a.segLength >= 8 ? 1 : a.segLength + 1;
-                    lib.put(c); rebuild();
-                });
-                py += 22;
-            }
-            btn(px, py, 110, String.format(Locale.ROOT, "Kalınlık: %.1f", a.thickness), null, () -> {
-                a.thickness = a.thickness >= 6 ? 1 : a.thickness + 1;
-                lib.put(c); rebuild();
-            });
+            spin(px, py, "dX", a.rotX, v -> { a.rotX = v; lib.put(c); });
+            spin(px + 108, py, "dY", a.rotY, v -> { a.rotY = v; lib.put(c); });
+            spin(px + 216, py, "dZ", a.rotZ, v -> { a.rotZ = v; lib.put(c); });
         }
     }
 
@@ -183,6 +188,15 @@ public class CharacterScreen extends StudioScreen {
     }
 
     /** Section captions are plain text, so they're drawn after the widgets. */
+    /** Label + −/+ pair for a rotation, in degrees. */
+    private void spin(int x, int y, String label, float value, java.util.function.Consumer<Float> set) {
+        zones.add(new Zone(x, y, 46, 18,
+                label + " " + String.format(Locale.ROOT, "%.0f", value),
+                null, () -> {}, Zone.ROW, false));
+        btn(x + 48, y, 22, "−", null, () -> { set.accept(value - 15f); rebuild(); });
+        btn(x + 72, y, 22, "+", null, () -> { set.accept(value + 15f); rebuild(); });
+    }
+
     private void section(int x, int y, String label) {
         sections.add(new int[] {x, y});
         sectionLabels.add(label);

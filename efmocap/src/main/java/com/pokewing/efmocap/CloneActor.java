@@ -25,7 +25,6 @@ public final class CloneActor {
     private final int fakeId;
     private MocapFrame prev;
     private boolean dead;
-    private int deathAge;
     private boolean carried;
 
     private CloneActor(CloneEntity entity, int fakeId) {
@@ -64,8 +63,7 @@ public final class CloneActor {
      * pins the clone for a whole tick and reads as stuttering.)
      */
     public void apply(MocapFrame f) {
-        if (dead) { tickCorpse(); return; }
-
+        dead = false;
         MocapFrame p = prev != null ? prev : f;
 
         // Previous tick state (render lerp source).
@@ -102,48 +100,27 @@ public final class CloneActor {
 
     public boolean isDead() { return dead; }
 
-    /**
-     * Kill the actor: play the death animation from where it stands, then hold
-     * the final pose. The clone is deliberately NOT removed — the body stays in
-     * frame so the death reads on camera.
-     */
-    public void die() {
-        if (dead) return;
-        dead = true;
-        deathAge = 0;
-        EFMocap.LOG.info("[efmocap] actor died at tick, staying as a corpse");
-    }
-
-    /** Kill and fast-forward the death by {@code ticks} — used when scrubbing. */
-    public void dieAt(int ticks) {
-        dead = true;
-        deathAge = Math.max(0, ticks);
-        entity.decayed = deathAge >= Settings.decayTicks;
-    }
-
     /** Bring the actor back for another run of the scene. */
     public void revive() {
         dead = false;
-        deathAge = 0;
         carried = false;
         entity.decayed = false;
         prev = null;
     }
 
     /**
-     * Advance the death animation, then freeze it. Position is held wherever the
-     * actor fell — the recording keeps running, but a corpse doesn't walk.
+     * Show the body {@code age} ticks after it fell: the death animation plays
+     * out and then freezes, and past the decay time only bones are left. The
+     * director supplies the age, so scrubbing the timeline lands on exactly the
+     * right state instead of restarting the death.
      */
-    private void tickCorpse() {
-        float prevElapsed = Math.min(deathAge, DEATH_ANIM_TICKS) * 0.05f;
-        deathAge++;
-        float elapsed = Math.min(deathAge, DEATH_ANIM_TICKS) * 0.05f;
+    public void applyCorpse(int age) {
+        dead = true;
+        float prevElapsed = Math.min(Math.max(0, age - 1), DEATH_ANIM_TICKS) * 0.05f;
+        float elapsed = Math.min(Math.max(0, age), DEATH_ANIM_TICKS) * 0.05f;
 
         // Flesh goes, bones stay.
-        if (!entity.decayed && deathAge >= Settings.decayTicks) {
-            entity.decayed = true;
-            EFMocap.LOG.info("[efmocap] a corpse decayed to bones");
-        }
+        entity.decayed = age >= Settings.decayTicks;
 
         // A carried body is positioned by the carrier, not by itself.
         if (!carried) {

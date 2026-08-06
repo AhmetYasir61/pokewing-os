@@ -14,6 +14,12 @@ public final class MocapRecording {
      * instead of being removed, so the death reads on camera every take.
      */
     public int deathTick = -1;
+    /**
+     * Ticks to wait before this actor enters. Lets a take recorded on its own
+     * be slotted into the scene later — one fighter arrives after another —
+     * without re-performing it.
+     */
+    public int startOffset = 0;
     public final List<MocapFrame> frames = new ArrayList<>();
 
     public MocapRecording(String name) { this.name = name; }

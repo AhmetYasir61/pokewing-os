@@ -215,13 +215,16 @@ public abstract class StudioScreen extends Screen {
             MocapRecording r = TakeLibrary.INSTANCE.get(name);
             if (r == null) continue;
             g.fill(tx, cy, tx + tw, cy + 12, Theme.TRACK);
+            // Clips sit where the take enters, so delays are visible at a glance.
+            int cx = tx + (int) ((r.startOffset / (double) len) * tw);
             int cw = Math.max(2, (int) ((r.length() / (double) len) * tw));
             boolean sel = name.equals(hl);
-            g.fill(tx, cy, tx + cw, cy + 12, sel ? Theme.CLIP_SEL : Theme.CLIP);
+            g.fill(cx, cy, Math.min(tx + tw, cx + cw), cy + 12,
+                    sel ? Theme.CLIP_SEL : Theme.CLIP);
             g.drawString(font, Theme.trim(font, name, 92), 8, cy + 2,
                     sel ? Theme.TEXT : Theme.TEXT_DIM, false);
             if (r.deathTick >= 0) {
-                int dx = tx + (int) ((r.deathTick / (double) len) * tw);
+                int dx = tx + (int) (((r.startOffset + r.deathTick) / (double) len) * tw);
                 g.fill(dx, cy - 1, dx + 2, cy + 13, Theme.ACCENT);
             }
             cy += 14;

@@ -1,13 +1,13 @@
 package com.pokewing.efmocap;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
- * Drives playback of recordings on clone actors. Phase 1: one clone per replay,
- * advanced one frame per client tick. Multiple replays can run at once (the
- * seed of Phase 2's layered scenes).
+ * Plays recordings back on clone actors against a single scene clock. Every
+ * staged take reads its frame from that one clock (offset by its own start
+ * delay), so actors stay in sync, scrubbing lands every actor on exactly the
+ * right frame, and a take can be made to enter late without re-recording it.
  */
 public final class ReplayDirector {
     public static final ReplayDirector INSTANCE = new ReplayDirector();
@@ -15,140 +15,134 @@ public final class ReplayDirector {
     private static final class Replay {
         final CloneActor actor;
         final MocapRecording rec;
-        int tick;
-        boolean loop;
-        /** Take is over but the body stayed behind; keep holding the corpse. */
-        boolean lingering;
-        Replay(CloneActor actor, MocapRecording rec, boolean loop) {
-            this.actor = actor; this.rec = rec; this.loop = loop;
+        Replay(CloneActor actor, MocapRecording rec) {
+            this.actor = actor; this.rec = rec;
         }
     }
 
     private final List<Replay> replays = new ArrayList<>();
+    private int clock;
     private boolean paused;
+    private boolean loop = true;
 
     private ReplayDirector() {}
 
     public int activeCount() { return replays.size(); }
-
     public boolean isPaused() { return paused; }
     public void setPaused(boolean p) { paused = p; }
+    public int sceneTick() { return clock; }
 
-    /** Longest staged take — the scene's length on the timeline. */
+    /** Scene length: the last frame any staged take reaches. */
     public int sceneLength() {
         int max = 0;
-        for (Replay r : replays) max = Math.max(max, r.rec.length());
+        for (Replay r : replays) {
+            max = Math.max(max, r.rec.startOffset + r.rec.length());
+        }
         return max;
     }
 
-    /** Playhead position: the furthest-along staged take. */
-    public int sceneTick() {
-        int t = 0;
-        for (Replay r : replays) t = Math.max(t, r.tick);
-        return t;
-    }
-
-    /** Jump the whole scene to a tick — used to scrub the timeline. */
-    public void seek(int tick) {
-        for (Replay r : replays) {
-            int t = Math.max(0, Math.min(tick, r.rec.length() - 1));
-            r.tick = t;
-            r.lingering = false;
-            if (r.rec.deathTick >= 0 && t >= r.rec.deathTick) {
-                r.actor.dieAt(t - r.rec.deathTick);
-            } else {
-                r.actor.revive();
-            }
-            r.actor.resetInterpolation();
-            r.actor.apply(r.rec.frameAt(t));
-        }
-    }
-
-    /**
-     * Stage every saved take at once, all starting from frame 0, so separately
-     * recorded performances play as one choreographed scene.
-     */
-    public int playScene(boolean loop) {
+    /** Stage every saved take together as one scene. */
+    public int playScene(boolean looping) {
         clearAll();
+        loop = looping;
         int n = 0;
         for (MocapRecording rec : TakeLibrary.INSTANCE.all()) {
-            if (play(rec, loop)) n++;
+            if (stage(rec)) n++;
         }
+        clock = 0;
+        applyAll();
         return n;
     }
 
-    /** Restart every active replay at frame 0 (re-syncs the scene). */
-    public void restart() {
-        for (Replay r : replays) {
-            r.tick = 0;
-            r.lingering = false;
-            r.actor.revive();
-            r.actor.resetInterpolation();
-            r.actor.apply(r.rec.frameAt(0));
-        }
+    /** Stage a single take on its own. */
+    public boolean play(MocapRecording rec, boolean looping) {
+        if (rec == null || rec.isEmpty()) return false;
+        loop = looping;
+        boolean ok = stage(rec);
+        if (ok) { clock = 0; applyAll(); }
+        return ok;
     }
 
-    /** Spawn a clone and start replaying the recording on it. */
-    public boolean play(MocapRecording rec, boolean loop) {
+    private boolean stage(MocapRecording rec) {
         if (rec == null || rec.isEmpty()) return false;
         MocapFrame f0 = rec.frames.get(0);
         Character cast = CharacterLibrary.INSTANCE.get(rec.character);
         CloneActor actor = CloneActor.spawn(rec.name, cast, f0.x, f0.y, f0.z);
         if (actor == null) return false;
-        actor.apply(f0);
-        replays.add(new Replay(actor, rec, loop));
+        replays.add(new Replay(actor, rec));
         return true;
     }
 
-    /** Advance every active replay by one frame. Call once per client tick. */
+    /** Restart the scene from the top. */
+    public void restart() {
+        clock = 0;
+        for (Replay r : replays) { r.actor.revive(); r.actor.resetInterpolation(); }
+        CarrySystem.INSTANCE.reset();
+        applyAll();
+    }
+
+    /** Jump the whole scene to a tick — used to scrub the timeline. */
+    public void seek(int tick) {
+        int len = Math.max(1, sceneLength());
+        clock = Math.max(0, Math.min(tick, len));
+        for (Replay r : replays) r.actor.resetInterpolation();
+        applyAll();
+    }
+
+    /** Advance the scene one tick. Call once per client tick. */
     public void tick() {
-        // Paused: hold the current frame so the scene stays posed for framing.
-        if (paused) {
-            for (Replay r : replays) r.actor.apply(r.rec.frameAt(r.tick));
-            return;
-        }
-        for (Iterator<Replay> it = replays.iterator(); it.hasNext(); ) {
-            Replay r = it.next();
-
-            // A body left behind after its take ended: keep holding the pose.
-            if (r.lingering) {
-                r.actor.apply(r.rec.frameAt(r.rec.length() - 1));
-                continue;
-            }
-
-            r.tick++;
-            if (r.tick >= r.rec.length()) {
-                if (r.loop) {
-                    r.tick = 0;
-                    // A new run of the scene: the fallen get back up.
-                    r.actor.revive();
-                    // Snap instead of sliding all the way back from the end.
-                    r.actor.resetInterpolation();
-                } else if (r.actor.isDead()) {
-                    // Don't delete the body -- the death should stay on camera.
-                    r.lingering = true;
-                    continue;
+        if (replays.isEmpty()) return;
+        if (!paused) {
+            clock++;
+            int len = sceneLength();
+            if (clock >= len) {
+                if (loop) {
+                    clock = 0;
+                    for (Replay r : replays) { r.actor.revive(); r.actor.resetInterpolation(); }
+                    CarrySystem.INSTANCE.reset();
                 } else {
-                    r.actor.despawn();
-                    it.remove();
-                    continue;
+                    clock = len;   // hold on the last frame; corpses stay put
                 }
             }
+        }
+        applyAll();
+    }
 
-            if (r.rec.deathTick >= 0 && r.tick >= r.rec.deathTick) {
-                r.actor.die();
+    /** Pose every actor for the current clock position. */
+    private void applyAll() {
+        for (Replay r : replays) {
+            int local = clock - r.rec.startOffset;
+
+            if (local < 0) {
+                // Hasn't entered yet: hold the opening pose.
+                r.actor.revive();
+                r.actor.apply(r.rec.frameAt(0));
+                continue;
             }
-            r.actor.apply(r.rec.frameAt(r.tick));
+            if (r.rec.deathTick >= 0 && local >= r.rec.deathTick) {
+                r.actor.applyCorpse(local - r.rec.deathTick);
+                continue;
+            }
+            r.actor.revive();
+            r.actor.apply(r.rec.frameAt(Math.min(local, r.rec.length() - 1)));
         }
 
         // Second pass: a performer who shouldered a body carries it here too,
-        // after every actor has been moved for this tick.
+        // once every actor has been placed for this tick.
         for (Replay r : replays) {
-            if (r.lingering) continue;
-            MocapFrame f = r.rec.frameAt(r.tick);
+            int local = clock - r.rec.startOffset;
+            if (local < 0 || local >= r.rec.length()) continue;
+            MocapFrame f = r.rec.frameAt(local);
             if (f == null || f.carrying == null || f.carrying.isEmpty()) continue;
             carryTo(f.carrying, r.actor.x(), r.actor.y(), r.actor.z(), r.actor.yaw());
         }
+    }
+
+    public void clearAll() {
+        for (Replay r : replays) r.actor.despawn();
+        replays.clear();
+        clock = 0;
+        CarrySystem.INSTANCE.reset();
     }
 
     // --- corpses ---------------------------------------------------------
@@ -192,17 +186,11 @@ public final class ReplayDirector {
         return null;
     }
 
-    /** Current playback position of a take, or -1 if it isn't staged. */
+    /** Playback position within a take, or -1 if it isn't staged. */
     public int currentTickOf(MocapRecording rec) {
         for (Replay r : replays) {
-            if (r.rec == rec) return r.tick;
+            if (r.rec == rec) return Math.max(0, clock - rec.startOffset);
         }
         return -1;
-    }
-
-    public void clearAll() {
-        for (Replay r : replays) r.actor.despawn();
-        replays.clear();
-        CarrySystem.INSTANCE.reset();
     }
 }

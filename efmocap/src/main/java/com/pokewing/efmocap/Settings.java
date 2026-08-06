@@ -33,6 +33,8 @@ public final class Settings {
     public static double videoFps = 0;
     /** x264 quality: lower is better, 18 is visually lossless, 23 is default. */
     public static int videoCrf = 18;
+    /** Global size multiplier for attached OBJ models (calibration knob). */
+    public static double attachScale = 1.0;
 
     private static Path file() {
         return FMLPaths.CONFIGDIR.get().resolve("efmocap").resolve("settings.json");
@@ -47,6 +49,7 @@ public final class Settings {
             m.put("ffmpegPath", ffmpegPath);
             m.put("videoFps", videoFps);
             m.put("videoCrf", videoCrf);
+            m.put("attachScale", attachScale);
             try (Writer w = Files.newBufferedWriter(file(), StandardCharsets.UTF_8)) {
                 GSON.toJson(m, w);
             }
@@ -67,6 +70,7 @@ public final class Settings {
                 if (m.get("ffmpegPath") instanceof String s) ffmpegPath = s;
                 if (m.get("videoFps") instanceof Number n) videoFps = n.doubleValue();
                 if (m.get("videoCrf") instanceof Number n) videoCrf = n.intValue();
+                if (m.get("attachScale") instanceof Number n) attachScale = n.doubleValue();
             }
         } catch (Exception e) {
             EFMocap.LOG.warn("[efmocap] failed to load settings", e);

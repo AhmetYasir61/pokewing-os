@@ -71,6 +71,35 @@ public final class CharacterLibrary {
         save();
     }
 
+    /** OBJ models dropped into the attachments folder. */
+    public List<String> availableModels() {
+        List<String> out = new ArrayList<>();
+        Path d = attachmentsDir();
+        if (!Files.isDirectory(d)) return out;
+        try (Stream<Path> s = Files.list(d)) {
+            s.filter(ObjModel::isObj).forEach(p -> out.add(p.getFileName().toString()));
+        } catch (Exception ignored) {}
+        out.sort(String::compareToIgnoreCase);
+        return out;
+    }
+
+    /** Parsed OBJ for a filename, loaded once and kept. */
+    public ObjModel model(String objName) {
+        if (objName == null || objName.isEmpty()) return null;
+        if (models.containsKey(objName)) return models.get(objName);
+        Path p = attachmentsDir().resolve(objName);
+        ObjModel m = Files.isRegularFile(p) ? ObjModel.load(p) : null;
+        models.put(objName, m);
+        return m;
+    }
+
+    /** Forget parsed models so edited files are picked up without a restart. */
+    public void reloadModels() {
+        models.clear();
+    }
+
+    private final Map<String, ObjModel> models = new HashMap<>();
+
     /** PNG files available to assign as skins. */
     public List<String> availableSkins() {
         List<String> out = new ArrayList<>();

@@ -84,6 +84,65 @@ public final class EpicFightBridge {
         return out;
     }
 
+    /**
+     * The transform of a named bone in the entity's current pose, as 16 floats
+     * in row-major order — {@code Armature.getBoundTransformFor(pose, joint)}
+     * read off Epic Fight's {@code OpenMatrix4f} (public m00..m33 fields).
+     * Null when Epic Fight isn't there or the bone doesn't exist on this rig.
+     */
+    public static float[] boneMatrix(Object patch, String boneName, float partialTick) {
+        if (patch == null || boneName == null || boneName.isEmpty()) return null;
+        try {
+            Object animator = tryInvoke(patch, "getClientAnimator");
+            if (animator == null) animator = tryInvoke(patch, "getAnimator");
+            if (animator == null) return null;
+
+            Object pose = animator.getClass()
+                    .getMethod("getPose", float.class).invoke(animator, partialTick);
+            Object armature = tryInvoke(patch, "getArmature");
+            if (pose == null || armature == null) return null;
+
+            Object joint = armature.getClass()
+                    .getMethod("searchJointByName", String.class).invoke(armature, boneName);
+            if (joint == null) return null;
+
+            Method bound = findBoundTransform(armature.getClass(), pose.getClass(), joint.getClass());
+            if (bound == null) return null;
+            Object mat = bound.invoke(armature, pose, joint);
+            if (mat == null) return null;
+
+            float[] out = new float[16];
+            String[] names = {
+                    "m00", "m01", "m02", "m03",
+                    "m10", "m11", "m12", "m13",
+                    "m20", "m21", "m22", "m23",
+                    "m30", "m31", "m32", "m33"
+            };
+            for (int i = 0; i < 16; i++) {
+                Object v = getField(mat, names[i]);
+                if (!(v instanceof Number n)) return null;
+                out[i] = n.floatValue();
+            }
+            return out;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** Epic Fight has spelled this both "Binded" and "Bound" across versions. */
+    private static Method findBoundTransform(Class<?> armature, Class<?> pose, Class<?> joint) {
+        for (String name : new String[] {"getBoundTransformFor", "getBindedTransformFor"}) {
+            for (Method m : armature.getMethods()) {
+                if (m.getName().equals(name) && m.getParameterCount() == 2
+                        && m.getParameterTypes()[0].isAssignableFrom(pose)
+                        && m.getParameterTypes()[1].isAssignableFrom(joint)) {
+                    return m;
+                }
+            }
+        }
+        return null;
+    }
+
     /** Walk a chain of (public or declared) fields. */
     private static Object getFieldPath(Object obj, String... fields) {
         Object cur = obj;

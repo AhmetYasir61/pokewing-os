@@ -82,6 +82,17 @@ Commands: `/efmocap rec start|stop`, `scene`, `restart`, `list`,
 record fighter B reacting (`K`…`K`), then press `N` — both clones play together,
 looping, so you can keep adding layers and shoot the result.
 
+## Attachments
+
+Cosmetic parts are Wavefront `.obj` files dropped into
+`config/efmocap/attachments` — model them in Blockbench or Blender and every
+file in that folder appears in the character editor. Each attachment picks a
+model, an optional PNG, an Epic Fight bone to ride on, and an offset/rotation/
+scale. They're drawn in world space after entities, because Epic Fight replaces
+player rendering with its own; the bone transform comes from
+`Armature.getBoundTransformFor(pose, joint)` and is rotated out of Epic Fight's
+Z-up rig space into Minecraft's Y-up.
+
 ## Status
 
 - **Phase 1 — done (in testing).** Recorder + client clone replay working:

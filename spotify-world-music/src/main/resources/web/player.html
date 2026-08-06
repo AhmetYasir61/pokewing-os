@@ -64,6 +64,7 @@
   }
   .start:hover { filter: brightness(1.08); }
   .hint { margin-top: 1rem; font-size: .75rem; color: #6f6f7a; line-height: 1.6; }
+  .audio { width: 100%; height: 40px; margin-top: .5rem; }
   .idle { display: flex; align-items: center; justify-content: center; height: 152px;
           border: 1px dashed var(--line); border-radius: .9rem; color: var(--muted);
           font-size: .9rem; text-align: center; padding: 1rem; }
@@ -82,6 +83,7 @@
     <div id="stage">
       <div class="idle" id="idle">Muzik bolgesine girdiginde sarki burada baslar.</div>
       <div id="embed" hidden></div>
+      <audio id="audio" class="audio" controls hidden></audio>
     </div>
 
     <button class="start" id="start">▶ Muzigi baslat</button>
@@ -90,8 +92,9 @@
       Bu sekmeyi acik birak. Oyunda muzikli bir bolgeye girdiginde sarki otomatik
       degisir, bolgeden ciktiginda durur. Tarayicilar kendiliginden ses calmaya
       izin vermedigi icin ilk seferde yukaridaki baslat dugmesine basman gerekir.
-      Spotify hesabinla bu tarayicida oturum acarsan sarkilar tam uzunlukta calar,
-      acmazsan yaklasik 30 saniyelik onizleme calar.
+      Sunucunun kendi ses dosyalarini calan bolgeler herkeste tam uzunlukta calar.
+      Spotify bagli bolgelerde ise sarkiyi tam dinlemek icin bu tarayicida Spotify
+      oturumu acik olmali; degilse yaklasik 30 saniyelik onizleme calar.
     </div>
   </div>
 
@@ -113,6 +116,7 @@
     status: document.getElementById("status"),
     start: document.getElementById("start"),
     embed: document.getElementById("embed"),
+    audio: document.getElementById("audio"),
     idle: document.getElementById("idle")
   };
 
@@ -134,11 +138,44 @@
   els.start.addEventListener("click", function () {
     unlocked = true;
     els.start.style.display = "none";
-    if (controller && current) {
-      controller.play();
-    }
+    playCurrent();
     poll();
   });
+
+  els.audio.addEventListener("loadedmetadata", function () {
+    if (current && current.kind === "audio" && isFinite(els.audio.duration)) {
+      report(current.zone, Math.round(els.audio.duration * 1000));
+    }
+  });
+
+  // A local file loops natively, but keep a guard for browsers that fire
+  // "ended" anyway (some do when the stream is served without a length).
+  els.audio.addEventListener("ended", function () {
+    if (current && current.kind === "audio" && current.loop) {
+      els.audio.currentTime = 0;
+      els.audio.play().catch(function () {});
+    }
+  });
+
+  function playCurrent() {
+    if (!current) {
+      return;
+    }
+    if (current.kind === "audio") {
+      els.audio.play().catch(function () {
+        setStatus("Tarayici sesi engelledi. Sayfaya bir kez tiklayip tekrar dene.");
+      });
+    } else if (controller) {
+      controller.play();
+    }
+  }
+
+  function stopAll() {
+    if (controller) {
+      controller.pause();
+    }
+    els.audio.pause();
+  }
 
   window.onSpotifyIframeApiReady = function (IFrameAPI) {
     IFrameAPI.createController(els.embed, { width: "100%", height: "152" }, function (embedController) {
@@ -194,11 +231,10 @@
       lastDuration = 0;
       lastPosition = 0;
       els.embed.hidden = true;
+      els.audio.hidden = true;
       els.idle.hidden = false;
       els.dot.classList.remove("live");
-      if (controller) {
-        controller.pause();
-      }
+      stopAll();
       els.title.textContent = state.online ? "Sessiz bolge" : "Oyunda degilsin";
       setStatus(state.online
         ? "Su an muzikli bir bolgede degilsin."
@@ -206,11 +242,19 @@
       return;
     }
 
-    var changed = !current || current.uri !== state.uri || current.zone !== state.zone;
-    current = { zone: state.zone, uri: state.uri, loop: !!state.loop, type: state.type };
+    var kind = state.kind === "audio" ? "audio" : "spotify";
+    var source = kind === "audio" ? state.audioUrl : state.uri;
+    var changed = !current || current.source !== source || current.zone !== state.zone;
+    current = {
+      zone: state.zone,
+      kind: kind,
+      source: source,
+      uri: state.uri,
+      loop: !!state.loop,
+      type: state.type
+    };
 
     els.idle.hidden = true;
-    els.embed.hidden = false;
     els.dot.classList.add("live");
     els.title.textContent = state.zoneName || state.zone;
     setStatus("Bolge: <b>" + escapeHtml(state.zoneName || state.zone) + "</b>"
@@ -221,7 +265,50 @@
       els.start.style.display = "block";
     }
 
-    if (changed && controller) {
+    if (kind === "audio") {
+      applyAudioState(state, changed);
+    } else {
+      applySpotifyState(state, changed);
+    }
+  }
+
+  function applyAudioState(state, changed) {
+    els.embed.hidden = true;
+    els.audio.hidden = false;
+    if (controller) {
+      controller.pause();
+    }
+    els.audio.loop = !!state.loop;
+    if (typeof state.volume === "number") {
+      els.audio.volume = Math.max(0, Math.min(100, state.volume)) / 100;
+    }
+    if (changed) {
+      reportedZone = null;
+      els.audio.src = state.audioUrl;
+      els.audio.load();
+      if (state.seekMs > 0) {
+        var seconds = state.seekMs / 1000;
+        els.audio.addEventListener("loadedmetadata", function seekOnce() {
+          els.audio.removeEventListener("loadedmetadata", seekOnce);
+          if (isFinite(els.audio.duration) && seconds < els.audio.duration) {
+            els.audio.currentTime = seconds;
+          }
+        });
+      }
+    }
+    if (unlocked && els.audio.paused) {
+      playCurrent();
+    }
+  }
+
+  function applySpotifyState(state, changed) {
+    els.audio.hidden = true;
+    els.audio.pause();
+    els.embed.hidden = false;
+    if (!controller) {
+      return;
+    }
+    if (changed) {
       lastDuration = 0;
       lastPosition = 0;
       reportedZone = null;
@@ -233,7 +320,7 @@
           setTimeout(function () { controller.seek(seconds); }, 800);
         }
       }
-    } else if (!changed && unlocked && controller) {
+    } else if (unlocked) {
       controller.play();
     }
   }
@@ -248,7 +335,9 @@
           return;
         }
         els.subtitle.textContent = state.playerName || "%%SERVER_NAME%%";
-        if (apiReady) {
+        // Audio zones must not wait for the Spotify iframe API: it may be slow,
+        // blocked or unreachable, and a local file does not need it at all.
+        if (apiReady || !state.playing || state.kind === "audio") {
           applyState(state);
         } else {
           pendingState = state;

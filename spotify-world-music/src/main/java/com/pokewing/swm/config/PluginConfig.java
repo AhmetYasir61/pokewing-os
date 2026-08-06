@@ -138,9 +138,12 @@ public final class PluginConfig {
         }
         String url = z.getString("url", "");
         SpotifyUri parsed = SpotifyUri.parse(url);
-        if (parsed == null) {
-            log.warning("Zone '" + id + "' has an unusable Spotify url ('" + url + "') - skipped. "
-                    + "Expected something like https://open.spotify.com/playlist/<id>");
+        String audioUrl = parsed == null ? AudioSource.resolve(url) : null;
+        if (parsed == null && audioUrl == null) {
+            log.warning("Zone '" + id + "' has an unusable url ('" + url + "') - skipped. "
+                    + "Expected a Spotify link (https://open.spotify.com/playlist/<id>), an audio "
+                    + "file placed in the plugin's music/ folder (muzik.mp3), or a direct "
+                    + "http(s) link to an audio file.");
             return null;
         }
 
@@ -156,13 +159,15 @@ public final class PluginConfig {
         }
 
         return new MusicZone(
+                parsed != null ? MusicZone.Kind.SPOTIFY : MusicZone.Kind.AUDIO,
+                audioUrl,
                 id,
                 z.getString("display-name", id),
                 world,
                 regionEnabled, cx, cy, cz, radius, ignoreY,
-                parsed.openUrl(),
-                parsed.uri(),
-                parsed.type(),
+                parsed != null ? parsed.openUrl() : url.trim(),
+                parsed != null ? parsed.uri() : null,
+                parsed != null ? parsed.type() : "audio",
                 z.getBoolean("loop", true),
                 z.getBoolean("shuffle", false),
                 clamp(z.getInt("volume", 60), 0, 100),

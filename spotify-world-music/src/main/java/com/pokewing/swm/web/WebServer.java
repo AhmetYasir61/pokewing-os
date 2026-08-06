@@ -2,6 +2,7 @@ package com.pokewing.swm.web;
 
 import com.google.gson.JsonObject;
 import com.pokewing.swm.SpotifyWorldMusic;
+import com.pokewing.swm.config.AudioSource;
 import com.pokewing.swm.config.MusicZone;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -10,6 +11,8 @@ import com.pokewing.swm.spotify.AuthService;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +51,7 @@ public final class WebServer {
         server.setExecutor(Executors.newFixedThreadPool(4, namedThreads()));
 
         server.createContext("/", this::handlePlayerPage);
+        server.createContext(AudioSource.WEB_PREFIX, this::handleMusicFile);
         server.createContext("/api/state", this::handleState);
         server.createContext("/api/report", this::handleReport);
         server.createContext("/callback", this::handleCallback);
@@ -80,6 +84,108 @@ public final class WebServer {
         send(exchange, 200, "text/html; charset=utf-8", page);
     }
 
+    /**
+     * Streams an audio file out of {@code plugins/SpotifyWorldMusic/music/}.
+     * Browsers request audio with a {@code Range} header, so partial responses
+     * are supported - without them seeking misbehaves in several browsers.
+     */
+    private void handleMusicFile(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        String requested = URLDecoder.decode(
+                path.substring(AudioSource.WEB_PREFIX.length()), StandardCharsets.UTF_8);
+        String relative = AudioSource.sanitizeRelative(requested);
+        if (relative == null || !AudioSource.hasAudioExtension(relative)) {
+            send(exchange, 404, "text/plain; charset=utf-8", "Bulunamadi");
+            return;
+        }
+
+        File root = new File(plugin.getDataFolder(), AudioSource.FOLDER);
+        File file = new File(root, relative);
+        // Belt and braces: the path was sanitized, but symlinks could still
+        // escape, so compare the resolved locations before serving anything.
+        if (!file.getCanonicalPath().startsWith(root.getCanonicalPath() + File.separator)
+                || !file.isFile()) {
+            send(exchange, 404, "text/plain; charset=utf-8", "Bulunamadi");
+            return;
+        }
+
+        long length = file.length();
+        String contentType = AudioSource.contentType(relative);
+        exchange.getResponseHeaders().add("Accept-Ranges", "bytes");
+        exchange.getResponseHeaders().add("Content-Type", contentType);
+        exchange.getResponseHeaders().add("Cache-Control", "public, max-age=3600");
+
+        long[] range = parseRange(exchange.getRequestHeaders().getFirst("Range"), length);
+        long start = range[0];
+        long end = range[1];
+        long count = end - start + 1;
+
+        if (range[2] == 1) {
+            exchange.getResponseHeaders().add("Content-Range", "bytes " + start + "-" + end + "/" + length);
+            exchange.sendResponseHeaders(206, count);
+        } else {
+            exchange.sendResponseHeaders(200, count);
+        }
+
+        if ("HEAD".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.close();
+            return;
+        }
+        try (RandomAccessFile in = new RandomAccessFile(file, "r");
+             OutputStream out = exchange.getResponseBody()) {
+            in.seek(start);
+            byte[] buffer = new byte[64 * 1024];
+            long remaining = count;
+            while (remaining > 0) {
+                int read = in.read(buffer, 0, (int) Math.min(buffer.length, remaining));
+                if (read < 0) {
+                    break;
+                }
+                out.write(buffer, 0, read);
+                remaining -= read;
+            }
+        } catch (IOException ex) {
+            // The browser aborting a stream is normal (seek, tab close).
+            plugin.getLogger().log(Level.FINE, "Audio stream ended early", ex);
+        } finally {
+            exchange.close();
+        }
+    }
+
+    /** @return {@code {start, end, isPartial}} for a Range header */
+    private static long[] parseRange(String header, long length) {
+        long last = Math.max(0, length - 1);
+        if (header == null || !header.startsWith("bytes=") || length <= 0) {
+            return new long[]{0, last, 0};
+        }
+        String spec = header.substring("bytes=".length()).split(",")[0].trim();
+        int dash = spec.indexOf('-');
+        if (dash < 0) {
+            return new long[]{0, last, 0};
+        }
+        String from = spec.substring(0, dash).trim();
+        String to = spec.substring(dash + 1).trim();
+        try {
+            long start;
+            long end;
+            if (from.isEmpty()) {
+                // "bytes=-500" means the last 500 bytes.
+                long suffix = Long.parseLong(to);
+                start = Math.max(0, length - suffix);
+                end = last;
+            } else {
+                start = Long.parseLong(from);
+                end = to.isEmpty() ? last : Math.min(Long.parseLong(to), last);
+            }
+            if (start > end || start < 0) {
+                return new long[]{0, last, 0};
+            }
+            return new long[]{start, end, 1};
+        } catch (NumberFormatException ex) {
+            return new long[]{0, last, 0};
+        }
+    }
+
     private void handleState(HttpExchange exchange) throws IOException {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         UUID uuid = plugin.webTokens().resolve(query.get("t"));
@@ -106,7 +212,9 @@ public final class WebServer {
         json.addProperty("playing", true);
         json.addProperty("zone", zone.id());
         json.addProperty("zoneName", stripColors(zone.displayName()));
+        json.addProperty("kind", zone.isAudio() ? "audio" : "spotify");
         json.addProperty("uri", zone.contextUri());
+        json.addProperty("audioUrl", zone.audioUrl());
         json.addProperty("url", zone.rawUrl());
         json.addProperty("type", zone.contextType());
         json.addProperty("loop", zone.loop());

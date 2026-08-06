@@ -162,7 +162,8 @@ public final class MusicService {
         if (zone == null || !plugin.config().webSyncPosition()) {
             return 0L;
         }
-        if (!"track".equals(zone.contextType()) && !"episode".equals(zone.contextType())) {
+        if (!"track".equals(zone.contextType()) && !"episode".equals(zone.contextType())
+                && !zone.isAudio()) {
             return 0L;
         }
         Long duration = zoneDuration.get(zone.id());
@@ -229,6 +230,12 @@ public final class MusicService {
     private void playApi(Player player, MusicZone zone) {
         SpotifyClient client = plugin.spotify();
         if (client == null || !plugin.links().isLinked(player.getUniqueId())) {
+            return;
+        }
+        if (zone.isAudio()) {
+            // A plain audio file cannot be pushed to Spotify; the browser player
+            // handles this zone, so stop whatever Spotify was playing before.
+            pauseApi(player);
             return;
         }
         UUID uuid = player.getUniqueId();

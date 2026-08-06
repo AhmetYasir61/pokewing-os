@@ -1,6 +1,7 @@
 package com.pokewing.swm;
 
 import com.pokewing.swm.command.SwmCommand;
+import com.pokewing.swm.config.AudioSource;
 import com.pokewing.swm.config.PluginConfig;
 import com.pokewing.swm.spotify.AuthService;
 import com.pokewing.swm.spotify.LinkStore;
@@ -46,6 +47,12 @@ public final class SpotifyWorldMusic extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         saveResource("web/player.html", false);
+
+        File musicFolder = new File(getDataFolder(), AudioSource.FOLDER);
+        if (!musicFolder.isDirectory() && !musicFolder.mkdirs()) {
+            getLogger().warning("Could not create the music/ folder; audio zones that reference a "
+                    + "local file will not play.");
+        }
 
         this.messages = new Messages(this);
         this.links = new LinkStore(new File(getDataFolder(), "links.yml"), getLogger());

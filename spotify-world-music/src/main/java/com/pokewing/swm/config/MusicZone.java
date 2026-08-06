@@ -9,6 +9,16 @@ import org.bukkit.Location;
  */
 public final class MusicZone {
 
+    /** Where the audio for a zone comes from. */
+    public enum Kind {
+        /** A Spotify link: browser embed, or the Web API for linked players. */
+        SPOTIFY,
+        /** A direct audio file served by this plugin or another web server. */
+        AUDIO
+    }
+
+    private final Kind kind;
+    private final String audioUrl;
     private final String id;
     private final String displayName;
     private final String worldName;
@@ -26,11 +36,13 @@ public final class MusicZone {
     private final int volume;
     private final int priority;
 
-    public MusicZone(String id, String displayName, String worldName,
+    public MusicZone(Kind kind, String audioUrl, String id, String displayName, String worldName,
                      boolean regionEnabled, double centerX, double centerY, double centerZ,
                      double radius, boolean ignoreY,
                      String rawUrl, String contextUri, String contextType,
                      boolean loop, boolean shuffle, int volume, int priority) {
+        this.kind = kind;
+        this.audioUrl = audioUrl;
         this.id = id;
         this.displayName = displayName;
         this.worldName = worldName;
@@ -68,6 +80,22 @@ public final class MusicZone {
             distanceSq += dy * dy;
         }
         return distanceSq <= radius * radius;
+    }
+
+    public Kind kind() {
+        return kind;
+    }
+
+    public boolean isAudio() {
+        return kind == Kind.AUDIO;
+    }
+
+    /**
+     * URL the browser player loads for an {@link Kind#AUDIO} zone: either
+     * absolute, or a {@code /music/...} path served by this plugin.
+     */
+    public String audioUrl() {
+        return audioUrl;
     }
 
     public String id() {

@@ -10,6 +10,37 @@ Belirli dünyalarda ve bölgelerde (spawn, hub, nether…) bir Spotify bağlant�
 /swm reload   -> config.yml'i yeniden yükle (yetkili)
 ```
 
+## Müzik kaynağı: kendi dosyan ya da Spotify
+
+`url` alanına iki tür kaynak yazılabilir.
+
+**1. Kendi ses dosyan (önerilen).** Dosyayı `plugins/SpotifyWorldMusic/music/`
+klasörüne at, config'e sadece adını yaz:
+
+```yaml
+url: "Pokémon Theme - 30th Anniversary Tribute REMIX.mp3"
+```
+
+Eklenti dosyayı kendi web sunucusundan `/music/...` altında servis eder
+(Range destekli, yani uzun dosyalarda ileri sarma da çalışır). **Süre sınırı
+yok** — 1 saatlik bir dosya da baştan sona çalar, döngü `loop: true` ile
+tarayıcının kendi native loop'u üzerinden yapılır. Spotify hesabı, Premium,
+OAuth, HTTPS gerekmez ve `volume` bu modda tarayıcıda da uygulanır.
+Desteklenen türler: `mp3, ogg, opus, wav, m4a, aac, flac, webm`.
+Başka bir sunucudaki dosyayı da verebilirsin — **doğrudan ses dosyasına** işaret
+etmesi şartıyla: `url: "https://cdn.sunucum.net/muzik/tema.mp3"`.
+
+> Panelin dosya yöneticisi adresleri (`.../files/edit/...`) çalışmaz: onlar
+> giriş isteyen HTML sayfalarıdır, ses verisi döndürmezler.
+
+**2. Spotify bağlantısı.** `https://open.spotify.com/playlist/<id>`,
+`.../track/<id>`, `spotify:album:<id>` vb.
+
+> ⚠️ Spotify'ın gömülü oynatıcısı, tarayıcısında **Spotify oturumu açık olmayan**
+> dinleyicilere yalnızca ~30 saniyelik önizleme çalar. Bu Spotify'ın kuralı,
+> hiçbir eklenti bunu aşamaz. Herkesin tam uzunlukta dinlemesini istiyorsan
+> 1. yolu kullan.
+
 ## Önce şunu bilmek gerekiyor
 
 Minecraft istemcisi Spotify sesini oyunun içinde çalamaz — Spotify'ın lisansı
@@ -121,6 +152,7 @@ bilemediği için baştan başlatılır. Kapatmak için `web.sync-position: fals
 | Dosya | İçerik |
 |-------|--------|
 | `config.yml` | Mod, web sunucusu, Spotify uygulaması ve bölgeler |
+| `music/` | Kendi ses dosyaların. Buraya atılanlar `/music/<ad>` adresinden servis edilir |
 | `links.yml` | Oyuncu UUID → Spotify refresh token. **Gizli tutulmalı** |
 | `data.yml` | Tarayıcı oynatıcı adreslerini imzalayan sunucu anahtarı |
 | `web/player.html` | Tarayıcı sayfası. Buradaki kopya düzenlenirse jar yerine o kullanılır |
@@ -131,7 +163,9 @@ bilemediği için baştan başlatılır. Kapatmak için `web.sync-position: fals
 - Tarayıcılar kullanıcı etkileşimi olmadan ses başlatmaz, bu yüzden sayfada bir
   kez "Müziği başlat" düğmesine basmak gerekir.
 - API modu Spotify Premium ister ve oyuncunun Spotify uygulamasının açık
-  (aktif cihaz) olmasını bekler; değilse eklenti oyuncuyu uyarır.
-- `volume` yalnızca API modunda uygulanır — gömülü oynatıcı ses seviyesini
-  dışarıdan ayarlamaya izin vermez.
+  (aktif cihaz) olmasını bekler; değilse eklenti oyuncuyu uyarır. Kendi ses
+  dosyanı kullanan bölgeler API'ye gönderilemez; onları her zaman tarayıcı çalar.
+- `volume`, kendi ses dosyalarında ve API modunda uygulanır; Spotify'ın gömülü
+  oynatıcısı ses seviyesini dışarıdan ayarlamaya izin vermediği için Spotify
+  bölgelerinde tarayıcı tarafında etkisizdir.
 - Folia desteklenmiyor.

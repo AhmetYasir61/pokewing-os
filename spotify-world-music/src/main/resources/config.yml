@@ -71,10 +71,27 @@ messages:
 
 # ---------------------------------------------------------------------------
 # Bolgeler. Her bolge bir dunyayi, istersen o dunyanin icinde bir kureyi kapsar.
-# url alanina normal Spotify baglantisi ya da spotify: URI'si yazabilirsin:
-#   https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
-#   https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT
-#   spotify:album:1DFixLWuPkv3KT3TnV35m3
+#
+# url alanina iki tur kaynak yazilabilir:
+#
+# 1) KENDI SES DOSYAN (onerilen - sinir yok):
+#    Dosyayi plugins/SpotifyWorldMusic/music/ klasorune at, buraya sadece adini
+#    yaz. Suresi ne olursa olsun (1 saat de olabilir) tam uzunlukta calar,
+#    herkeste calisir, Spotify hesabi/Premium gerekmez, 30 saniye siniri yoktur.
+#      url: "pokemon-theme.mp3"
+#      url: "tema/spawn.ogg"
+#    Desteklenen turler: mp3, ogg, opus, wav, m4a, aac, flac, webm.
+#    Baska bir sunucudaki dosyayi da verebilirsin (dogrudan ses dosyasi olmali):
+#      url: "https://cdn.sunucum.net/muzik/tema.mp3"
+#    Bu turde volume degeri tarayicida da uygulanir.
+#
+# 2) SPOTIFY BAGLANTISI:
+#      https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
+#      https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT
+#      spotify:album:1DFixLWuPkv3KT3TnV35m3
+#    Not: Spotify gomulu oynaticisi, tarayicida Spotify oturumu ACIK OLMAYAN
+#    dinleyicilere yalnizca ~30 saniyelik onizleme calar. Bu Spotify'in kurali,
+#    eklenti bunu asamaz. Herkesin tam dinlemesini istiyorsan (1) yolunu kullan.
 #
 # Ust uste binen bolgelerde once yuksek priority, esitlikte bolge (region)
 # tanimli olan kazanir. Yani "world" genelinde bir muzik + spawn cevresinde
@@ -95,7 +112,9 @@ zones:
       radius: 120
       # true ise yukseklik farki dikkate alinmaz (silindir gibi davranir).
       ignore-y: true
-    url: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
+    # Dosyayi plugins/SpotifyWorldMusic/music/ icine at ve adini buraya yaz.
+    # Spotify baglantisi kullanmak istersen yerine linki yapistir.
+    url: "spawn.mp3"
     loop: true
     shuffle: false
     volume: 55

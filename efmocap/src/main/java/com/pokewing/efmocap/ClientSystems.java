@@ -261,10 +261,13 @@ public final class ClientSystems {
                                             return 1; })))));
     }
 
+    /** Chat from anywhere — encoding reports come in on a background thread. */
     static void msg(String s) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) mc.player.displayClientMessage(Component.literal(s), false);
         EFMocap.LOG.info(s);
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            if (mc.player != null) mc.player.displayClientMessage(Component.literal(s), false);
+        });
     }
 
     /** Mod-bus client setup: keybinds and the invisible camera renderer. */

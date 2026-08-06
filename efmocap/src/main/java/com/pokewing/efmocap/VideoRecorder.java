@@ -137,8 +137,23 @@ public final class VideoRecorder {
 
     private void encode(Path folder, double fps) {
         Path out = folder.resolve("video.mp4");
+        String exe = resolveFfmpeg();
+
+        // Always leave a re-encode script next to the frames, so the take can be
+        // turned into a video later (or with different settings) without the mod.
+        writeEncodeScript(folder, fps, exe == null ? "ffmpeg" : exe);
+
+        if (exe == null) {
+            EFMocap.LOG.warn("[efmocap] ffmpeg not found; frames kept in {}", folder);
+            ClientSystems.msg("§e[efmocap] ffmpeg bulunamadı — PNG kareler duruyor.");
+            ClientSystems.msg("§7Klasördeki §fencode.bat§7 dosyasını çalıştır ya da "
+                    + "§f/efmocap video ffmpeg <yol>§7 ile ffmpeg'i tanıt.");
+            ClientSystems.msg("§7" + folder);
+            return;
+        }
+
         ProcessBuilder pb = new ProcessBuilder(
-                ffmpeg, "-y",
+                exe, "-y",
                 "-framerate", String.format(Locale.ROOT, "%.3f", fps),
                 "-i", folder.resolve("frame_%06d.png").toString(),
                 "-c:v", "libx264",
@@ -164,7 +179,69 @@ public final class VideoRecorder {
             }
         } catch (Exception e) {
             EFMocap.LOG.warn("[efmocap] ffmpeg could not be run", e);
-            ClientSystems.msg("§e[efmocap] ffmpeg bulunamadı. PNG kareler: " + folder);
+            ClientSystems.msg("§e[efmocap] ffmpeg çalıştırılamadı. PNG kareler: " + folder);
+        }
+    }
+
+    /**
+     * Find a usable ffmpeg: whatever was configured, then PATH, then the places
+     * the common Windows installers put it. Null if there's none.
+     */
+    private String resolveFfmpeg() {
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        if (ffmpeg != null && !ffmpeg.isBlank()) candidates.add(ffmpeg);
+        candidates.add("ffmpeg");
+
+        String local = System.getenv("LOCALAPPDATA");
+        String programFiles = System.getenv("ProgramFiles");
+        if (local != null) {
+            candidates.add(local + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe");
+        }
+        if (programFiles != null) {
+            candidates.add(programFiles + "\\ffmpeg\\bin\\ffmpeg.exe");
+        }
+        candidates.add("C:\\ffmpeg\\bin\\ffmpeg.exe");
+        candidates.add("C:\\ProgramData\\chocolatey\\bin\\ffmpeg.exe");
+        candidates.add("/usr/bin/ffmpeg");
+        candidates.add("/usr/local/bin/ffmpeg");
+        candidates.add("/opt/homebrew/bin/ffmpeg");
+
+        for (String c : candidates) {
+            if (runs(c)) {
+                if (!c.equals(ffmpeg)) {
+                    ffmpeg = c;   // remember it for next time
+                    EFMocap.LOG.info("[efmocap] found ffmpeg at {}", c);
+                }
+                return c;
+            }
+        }
+        return null;
+    }
+
+    private static boolean runs(String exe) {
+        try {
+            Process p = new ProcessBuilder(exe, "-version")
+                    .redirectErrorStream(true).start();
+            try (var in = p.getInputStream()) { in.readAllBytes(); }
+            return p.waitFor() == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Drop a one-click re-encode script beside the frames. */
+    private void writeEncodeScript(Path folder, double fps, String exe) {
+        String rate = String.format(Locale.ROOT, "%.3f", fps);
+        String args = " -y -framerate " + rate + " -i frame_%06d.png"
+                + " -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p video.mp4";
+        try {
+            Files.writeString(folder.resolve("encode.bat"),
+                    "@echo off\r\ncd /d \"%~dp0\"\r\n\"" + exe + "\"" + args
+                            + "\r\nif errorlevel 1 pause\r\n");
+            Files.writeString(folder.resolve("encode.sh"),
+                    "#!/bin/sh\ncd \"$(dirname \"$0\")\"\n\"" + exe + "\"" + args + "\n");
+        } catch (Exception e) {
+            EFMocap.LOG.warn("[efmocap] could not write encode script", e);
         }
     }
 }

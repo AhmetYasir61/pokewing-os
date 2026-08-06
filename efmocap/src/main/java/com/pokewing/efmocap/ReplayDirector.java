@@ -138,6 +138,42 @@ public final class ReplayDirector {
         }
     }
 
+    /**
+     * Pose the whole scene at an exact fractional tick. Offline rendering steps
+     * this by 20/fps per output frame, so the film advances by the same amount
+     * every frame no matter how long the frame took to write to disk.
+     */
+    public void renderAt(double tickPos) {
+        clock = (int) Math.floor(tickPos);
+        float frac = (float) (tickPos - clock);
+
+        for (Replay r : replays) {
+            double local = tickPos - r.rec.startOffset;
+            if (local < 0) {
+                r.actor.revive();
+                r.actor.applyExact(r.rec.frameAt(0), r.rec.frameAt(0), 0f);
+                continue;
+            }
+            if (r.rec.deathTick >= 0 && local >= r.rec.deathTick) {
+                r.actor.applyCorpse((int) (local - r.rec.deathTick));
+                continue;
+            }
+            int i = (int) Math.floor(local);
+            int last = r.rec.length() - 1;
+            r.actor.revive();
+            r.actor.applyExact(r.rec.frameAt(Math.min(i, last)),
+                    r.rec.frameAt(Math.min(i + 1, last)), frac);
+        }
+
+        for (Replay r : replays) {
+            int local = (int) Math.floor(tickPos - r.rec.startOffset);
+            if (local < 0 || local >= r.rec.length()) continue;
+            MocapFrame f = r.rec.frameAt(local);
+            if (f == null || f.carrying == null || f.carrying.isEmpty()) continue;
+            carryTo(f.carrying, r.actor.x(), r.actor.y(), r.actor.z(), r.actor.yaw());
+        }
+    }
+
     public void clearAll() {
         for (Replay r : replays) r.actor.despawn();
         replays.clear();

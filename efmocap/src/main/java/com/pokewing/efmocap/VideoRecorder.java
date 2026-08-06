@@ -32,6 +32,7 @@ public final class VideoRecorder {
     private long startNanos;
     private volatile boolean active;
     private boolean hidGui;
+    private boolean offline;
 
 
     private VideoRecorder() {}
@@ -44,8 +45,31 @@ public final class VideoRecorder {
         return FMLPaths.GAMEDIR.get().resolve("efmocap-render");
     }
 
-    public boolean start() {
+    /**
+     * Offline capture: the scene is stepped by exactly one output frame's worth
+     * of time before each grab, instead of following the wall clock. Writing a
+     * full-resolution PNG is far slower than a frame of gameplay, so a realtime
+     * capture only manages a handful of frames a second and the film comes out a
+     * slideshow; stepping the scene ourselves makes the result smooth at the
+     * chosen rate no matter how long each frame takes to save.
+     */
+    public boolean isOffline() { return offline && active; }
+
+    /** Scene position, in ticks, for the frame about to be rendered. */
+    public double offlineSceneTicks() {
+        return frames * 20.0 / Math.max(1.0, targetFps());
+    }
+
+    /** Frame rate an offline render aims for (and encodes at). */
+    public double targetFps() {
+        return Settings.videoFps > 0 ? Settings.videoFps : 60.0;
+    }
+
+    public boolean start() { return start(Settings.offlineRender); }
+
+    public boolean start(boolean offlineMode) {
         if (active) return false;
+        offline = offlineMode;
         try {
             dir = renderRoot().resolve("take_" + System.currentTimeMillis());
             Files.createDirectories(dir);
@@ -107,8 +131,11 @@ public final class VideoRecorder {
         mc.options.hideGui = hidGui;
 
         double seconds = (System.nanoTime() - startNanos) / 1_000_000_000.0;
-        double fps = Settings.videoFps > 0 ? Settings.videoFps
-                : (seconds > 0.1 && frames > 1 ? frames / seconds : 30.0);
+        // An offline render already knows its rate; a realtime one is measured.
+        double fps = offline ? targetFps()
+                : (Settings.videoFps > 0 ? Settings.videoFps
+                : (seconds > 0.1 && frames > 1 ? frames / seconds : 30.0));
+        offline = false;
 
         writer.shutdown();
         final int total = frames;

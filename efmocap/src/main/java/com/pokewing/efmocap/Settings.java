@@ -35,6 +35,11 @@ public final class Settings {
     public static int videoCrf = 18;
     /** Global size multiplier for attached OBJ models (calibration knob). */
     public static double attachScale = 1.0;
+    /**
+     * Step the scene by a fixed amount per captured frame instead of following
+     * the wall clock. Slower to shoot, but the film is smooth at the chosen fps.
+     */
+    public static boolean offlineRender = true;
 
     private static Path file() {
         return FMLPaths.CONFIGDIR.get().resolve("efmocap").resolve("settings.json");
@@ -50,6 +55,7 @@ public final class Settings {
             m.put("videoFps", videoFps);
             m.put("videoCrf", videoCrf);
             m.put("attachScale", attachScale);
+            m.put("offlineRender", offlineRender);
             try (Writer w = Files.newBufferedWriter(file(), StandardCharsets.UTF_8)) {
                 GSON.toJson(m, w);
             }
@@ -71,6 +77,7 @@ public final class Settings {
                 if (m.get("videoFps") instanceof Number n) videoFps = n.doubleValue();
                 if (m.get("videoCrf") instanceof Number n) videoCrf = n.intValue();
                 if (m.get("attachScale") instanceof Number n) attachScale = n.doubleValue();
+                if (m.get("offlineRender") instanceof Boolean b) offlineRender = b;
             }
         } catch (Exception e) {
             EFMocap.LOG.warn("[efmocap] failed to load settings", e);

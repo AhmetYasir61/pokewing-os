@@ -92,6 +92,7 @@ public final class CameraDirector {
     public void stop() {
         Minecraft mc = Minecraft.getInstance();
         playing = false;
+        offlineTime = null;
         if (mc.player != null) mc.setCameraEntity(mc.player);
         if (camera != null) {
             camera.discard();
@@ -129,7 +130,32 @@ public final class CameraDirector {
     /** Sub-tick sample used by the render events for angles and FOV. */
     public CameraPath.Sample sampleForRender(float partialTick) {
         if (!playing) return null;
+        // Offline rendering owns the clock; the wall-clock partialTick would
+        // otherwise nudge the camera off the frame we're trying to capture.
+        if (offlineTime != null) return path.sample(offlineTime.floatValue());
         return path.sample(Math.min(tick + partialTick, path.durationTicks()));
+    }
+
+    private Double offlineTime;
+
+    /** True once an offline render has passed the end of the path. */
+    public boolean offlineFinished() {
+        return offlineTime != null && offlineTime >= path.durationTicks();
+    }
+
+    /** Place the camera at an exact fractional tick for offline rendering. */
+    public void renderAt(double tickPos) {
+        if (camera == null) return;
+        offlineTime = tickPos;
+        CameraPath.Sample s = path.sample((float) tickPos);
+        if (s == null) return;
+        // Old == new so Minecraft's own interpolation can't move it.
+        camera.xo = s.x; camera.yo = s.y; camera.zo = s.z;
+        camera.xOld = s.x; camera.yOld = s.y; camera.zOld = s.z;
+        camera.setPos(s.x, s.y, s.z);
+        camera.yRotO = s.yaw; camera.setYRot(s.yaw);
+        camera.xRotO = s.pitch; camera.setXRot(s.pitch);
+        camera.roll = s.roll;
     }
 
     // --- persistence -----------------------------------------------------

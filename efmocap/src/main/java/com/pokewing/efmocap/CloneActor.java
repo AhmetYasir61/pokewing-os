@@ -93,6 +93,48 @@ public final class CloneActor {
         prev = f;
     }
 
+    /**
+     * Pose the actor at an exact moment between two recorded frames.
+     *
+     * <p>Used by offline rendering, where the scene is stepped by a fixed
+     * fraction of a tick per output frame. Both the "previous" and "current"
+     * sides are set to the same interpolated value so Minecraft's partialTick —
+     * which is driven by the wall clock, not by us — can't shift the result.</p>
+     */
+    public void applyExact(MocapFrame a, MocapFrame b, float f) {
+        dead = false;
+        double x = a.x + (b.x - a.x) * f;
+        double y = a.y + (b.y - a.y) * f;
+        double z = a.z + (b.z - a.z) * f;
+        float yRot = rotLerp(a.yRot, b.yRot, f);
+        float body = rotLerp(a.yBodyRot, b.yBodyRot, f);
+        float xRot = a.xRot + (b.xRot - a.xRot) * f;
+
+        entity.xo = x; entity.yo = y; entity.zo = z;
+        entity.xOld = x; entity.yOld = y; entity.zOld = z;
+        entity.setPos(x, y, z);
+        entity.yRotO = yRot; entity.setYRot(yRot);
+        entity.yHeadRotO = yRot; entity.setYHeadRot(yRot);
+        entity.yBodyRotO = body; entity.yBodyRot = body;
+        entity.xRotO = xRot; entity.setXRot(xRot);
+
+        ItemUtil.apply(entity, b);
+
+        if (b.animId >= 0) {
+            float elapsed = a.animId == b.animId ? a.elapsed + (b.elapsed - a.elapsed) * f : b.elapsed;
+            EpicFightBridge.forceAnimation(EpicFightBridge.getPatch(entity),
+                    b.animId, elapsed, elapsed);
+        }
+        prev = b;
+    }
+
+    private static float rotLerp(float a, float b, float f) {
+        float d = b - a;
+        while (d > 180f) d -= 360f;
+        while (d < -180f) d += 360f;
+        return a + d * f;
+    }
+
     /** Drop interpolation history (used when a replay loops or is re-seeked). */
     public void resetInterpolation() {
         prev = null;

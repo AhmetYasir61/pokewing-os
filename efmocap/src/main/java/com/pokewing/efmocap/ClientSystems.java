@@ -62,9 +62,11 @@ public final class ClientSystems {
             }
         }
 
-        ReplayDirector.INSTANCE.tick();
-        CarrySystem.INSTANCE.tick();
-        CameraDirector.INSTANCE.tick();
+        if (!VideoRecorder.INSTANCE.isOffline()) {
+            ReplayDirector.INSTANCE.tick();
+            CarrySystem.INSTANCE.tick();
+            CameraDirector.INSTANCE.tick();
+        }
     }
 
     private static void handleKeys() {
@@ -106,10 +108,32 @@ public final class ClientSystems {
         if (s != null && s.fov > 1) event.setFOV(s.fov);
     }
 
-    /** Grab the finished frame when capturing video. */
+    /**
+     * Offline rendering drives the film itself: before each frame is drawn the
+     * scene is posed at exactly this frame's moment, and the finished image is
+     * grabbed afterwards. Disk speed then only affects how long the shoot takes,
+     * not how smooth the result is.
+     */
     @SubscribeEvent
     public static void onRenderTick(TickEvent.RenderTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) VideoRecorder.INSTANCE.captureFrame();
+        VideoRecorder vr = VideoRecorder.INSTANCE;
+        if (event.phase == TickEvent.Phase.START) {
+            if (!vr.isOffline()) return;
+            double t = vr.offlineSceneTicks();
+            ReplayDirector.INSTANCE.renderAt(t);
+            CameraDirector.INSTANCE.renderAt(t);
+
+            // Stop on the last frame of whichever runs longer.
+            double end = Math.max(ReplayDirector.INSTANCE.sceneLength(),
+                    CameraDirector.INSTANCE.isPlaying()
+                            ? CameraDirector.INSTANCE.path().durationTicks() : 0);
+            if (end > 0 && t > end) {
+                CameraDirector.INSTANCE.stop();
+                stopVideo();
+            }
+            return;
+        }
+        vr.captureFrame();
     }
 
     // --- actions ---------------------------------------------------------

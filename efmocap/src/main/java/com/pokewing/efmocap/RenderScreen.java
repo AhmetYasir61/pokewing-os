@@ -48,10 +48,12 @@ public class RenderScreen extends StudioScreen {
 
         py += 34;
         section(px, py - 14, "VİDEO");
-        btn(px, py, 150, "FPS: " + (Settings.videoFps <= 0 ? "otomatik" : (int) Settings.videoFps),
-                "Otomatik = gerçek çekim süresinden ölçülür", () -> {
+        btn(px, py, 150, "FPS: " + (Settings.videoFps <= 0
+                        ? (Settings.offlineRender ? "60 (varsayılan)" : "otomatik")
+                        : String.valueOf((int) Settings.videoFps)),
+                "Pürüzsüz renderde hedef hız; gerçek zamanlıda ölçülür", () -> {
             Settings.videoFps = switch ((int) Settings.videoFps) {
-                case 0 -> 30; case 30 -> 60; case 60 -> 24; default -> 0;
+                case 0 -> 30; case 30 -> 60; case 60 -> 120; case 120 -> 24; default -> 0;
             };
             Settings.save(); rebuild();
         });
@@ -65,6 +67,15 @@ public class RenderScreen extends StudioScreen {
         btn(px + 312, py, 130, "Çıktı klasörü", null,
                 () -> net.minecraft.Util.getPlatform().openFile(
                         VideoRecorder.renderRoot().toFile()));
+
+        py += 22;
+        toggle(px, py, 306, Settings.offlineRender
+                        ? "Pürüzsüz render (yavaş çeker, akıcı çıkar)"
+                        : "Gerçek zamanlı çekim (hızlı ama takılabilir)",
+                Settings.offlineRender, () -> {
+            Settings.offlineRender = !Settings.offlineRender;
+            Settings.save(); rebuild();
+        });
 
         py += 34;
         section(px, py - 14, "FFMPEG");

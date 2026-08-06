@@ -37,10 +37,30 @@ Sadece tarayıcı modunu kullanacaksan Spotify Developer hesabı gerekmez —
 adım 5'i atla.
 
 5. **API modu için:** https://developer.spotify.com/dashboard adresinden bir
-   uygulama oluştur. `config.yml` içine `client-id` ve `client-secret` gir,
-   `redirect-uri` olarak `http://<public-url-hostun>:8787/callback` yaz ve
-   **aynı adresi Spotify panelindeki Redirect URIs listesine de ekle**.
-   Oyuncular `/swm link` yazıp açılan sayfada izin verir.
+   uygulama oluştur, `client-id` / `client-secret` alanlarını doldur ve
+   `redirect-uri`'yi **hem config'e hem Spotify panelindeki "Redirect URIs"
+   listesine aynı şekilde** yaz. Oyuncular `/swm link` yazıp açılan sayfada
+   izin verir.
+
+   > ⚠️ **Spotify redirect URI kuralı:** yalnızca `https://` adresleri veya açık
+   > loopback adresi (`http://127.0.0.1:PORT`, `http://[::1]:PORT`) kabul edilir.
+   > Düz `http://` ile bir IP/alan adı — örneğin `http://1.2.3.4:8787/callback` —
+   > Spotify panelinde **kaydedilemez**, `localhost` da kabul edilmez. Yani API
+   > modu için `/callback` yolunu HTTPS ile dışarı açman gerekir; pratikte bir
+   > alan adı + Nginx/Caddy ters vekil:
+   > `https://muzik.sunucum.net/callback` → `127.0.0.1:8787/callback`.
+   > Eklenti bu kuralı ihlal eden bir değeri açılışta ve `/swm status`'ta uyarır.
+
+## Sorun giderme
+
+`/swm status` (yetkiliyseysen) modu, bölge sayısını, web dinleyicisinin çalışıp
+çalışmadığını, public URL'i ve API modunun **neden** kapalı olduğunu tek ekranda
+gösterir. Aynı bilgiler sunucu açılışında ve `/swm reload` sonrasında konsola da
+yazılır.
+
+"Spotify hesap bağlama şu an kapalı" mesajının tipik sebepleri: `config.yml`
+kaydedilmeden `/swm reload` çalıştırılması, `mode: WEB` bırakılmış olması ya da
+üç Spotify alanından birinin boş olması — `/swm status` hangisi olduğunu söyler.
 
 ## Bölge tanımı
 

@@ -98,14 +98,15 @@ public final class SpotifyWorldMusic extends JavaPlugin {
             this.spotify = new SpotifyClient(config.clientId(), config.clientSecret(),
                     config.redirectUri());
             this.auth = new AuthService(spotify, links, getLogger());
+            getLogger().info("Spotify Web API mode is ON (redirect: " + config.redirectUri() + ").");
         } else {
             this.spotify = null;
             this.auth = null;
-            if (config.mode() != PluginConfig.Mode.WEB) {
-                getLogger().info("Spotify API credentials are incomplete - running with the "
-                        + "browser player only. Fill in spotify.client-id / client-secret / "
-                        + "redirect-uri in config.yml to enable /swm link.");
-            }
+            getLogger().info("Spotify Web API mode is OFF: " + config.apiDisabledReason());
+        }
+        String redirectProblem = config.redirectUriProblem();
+        if (redirectProblem != null) {
+            getLogger().warning(redirectProblem);
         }
 
         if (webServer != null) {
@@ -218,5 +219,10 @@ public final class SpotifyWorldMusic extends JavaPlugin {
     /** {@code null} when the Spotify Web API is not configured. */
     public AuthService auth() {
         return auth;
+    }
+
+    /** False when the embedded HTTP listener could not be started. */
+    public boolean webServerRunning() {
+        return webServer != null;
     }
 }

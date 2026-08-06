@@ -208,6 +208,68 @@ public final class PluginConfig {
                 && !clientId.isEmpty() && !clientSecret.isEmpty() && !redirectUri.isEmpty();
     }
 
+    /**
+     * Why the Spotify Web API mode is off, in words a server owner can act on.
+     *
+     * @return {@code null} when the API mode is configured
+     */
+    public String apiDisabledReason() {
+        if (mode == Mode.WEB) {
+            return "config.yml icinde 'mode: WEB' ayarli. API icin 'API' veya 'BOTH' yaz.";
+        }
+        List<String> missing = new ArrayList<>();
+        if (clientId.isEmpty()) {
+            missing.add("spotify.client-id");
+        }
+        if (clientSecret.isEmpty()) {
+            missing.add("spotify.client-secret");
+        }
+        if (redirectUri.isEmpty()) {
+            missing.add("spotify.redirect-uri");
+        }
+        if (!missing.isEmpty()) {
+            return "config.yml icinde su alan(lar) bos: " + String.join(", ", missing)
+                    + ". Dosyayi kaydettikten sonra /swm reload calistir.";
+        }
+        return null;
+    }
+
+    /**
+     * Spotify only accepts HTTPS redirect URIs, or an explicit loopback literal
+     * ({@code http://127.0.0.1:PORT} / {@code http://[::1]:PORT}); {@code localhost}
+     * and plain HTTP public addresses are rejected when the app is saved.
+     */
+    public static boolean isAcceptedRedirect(String uri) {
+        if (uri == null) {
+            return false;
+        }
+        String value = uri.trim().toLowerCase(Locale.ROOT);
+        return value.startsWith("https://")
+                || value.startsWith("http://127.0.0.1")
+                || value.startsWith("http://[::1]");
+    }
+
+    /**
+     * Problem with {@code spotify.redirect-uri} that will make Spotify refuse the
+     * login, or {@code null} when it looks usable.
+     */
+    public String redirectUriProblem() {
+        if (redirectUri.isEmpty()) {
+            return null;
+        }
+        if (!isAcceptedRedirect(redirectUri)) {
+            return "spotify.redirect-uri '" + redirectUri + "' Spotify tarafindan kabul edilmez. "
+                    + "Spotify yalnizca https:// adresleri veya acik loopback adresi "
+                    + "(http://127.0.0.1:PORT) kabul ediyor; 'localhost' ve duz http:// "
+                    + "genel adresler reddediliyor. API modu icin alan adi + HTTPS gerekiyor.";
+        }
+        if (!redirectUri.endsWith("/callback")) {
+            return "spotify.redirect-uri '" + redirectUri + "' /callback ile bitmeli, "
+                    + "cunku eklenti yalnizca o yolu dinliyor.";
+        }
+        return null;
+    }
+
     public boolean webUsable() {
         return webEnabled && (mode == Mode.WEB || mode == Mode.BOTH);
     }

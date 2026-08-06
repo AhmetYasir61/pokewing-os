@@ -77,9 +77,27 @@ public final class SwmCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (plugin.auth() == null) {
+            plugin.messages().send(sender, "&cSpotify hesap baglama su an kapali.");
+            if (sender.hasPermission(ADMIN_PERMISSION)) {
+                plugin.messages().send(sender, "&7Sebep: &f" + plugin.config().apiDisabledReason());
+            }
             plugin.messages().send(sender,
-                    "&cSpotify API modu ayarli degil. Sunucu sahibi config.yml icindeki "
-                            + "spotify.client-id / client-secret / redirect-uri alanlarini doldurmali.");
+                    "&7Muzigi yine de dinleyebilirsin: &e/swm player");
+            return;
+        }
+        String redirectProblem = plugin.config().redirectUriProblem();
+        if (redirectProblem != null) {
+            plugin.messages().send(sender,
+                    "&cSunucunun Spotify ayari eksik, baglanti calismayacak.");
+            if (sender.hasPermission(ADMIN_PERMISSION)) {
+                plugin.messages().send(sender, "&7" + redirectProblem);
+            }
+            return;
+        }
+        if (!plugin.webServerRunning()) {
+            plugin.messages().send(sender,
+                    "&cSunucunun web dinleyicisi calismiyor, Spotify geri donusu alinamaz. "
+                            + "Sunucu sahibi konsol kayitlarina bakmali.");
             return;
         }
         String url = plugin.auth().beginLink(player.getUniqueId(), player.getName());
@@ -105,9 +123,7 @@ public final class SwmCommand implements CommandExecutor, TabCompleter {
 
     private void statusCommand(CommandSender sender) {
         if (!(sender instanceof Player player)) {
-            plugin.messages().send(sender, "&7Mod: &f" + plugin.config().mode()
-                    + " &7| bolge: &f" + plugin.config().zones().size()
-                    + " &7| bagli hesap: &f" + plugin.links().linkedCount());
+            diagnostics(sender);
             return;
         }
         MusicZone zone = plugin.music().zoneOf(player.getUniqueId());
@@ -125,6 +141,36 @@ public final class SwmCommand implements CommandExecutor, TabCompleter {
             plugin.messages().sendLink(player, "&7Tarayici oynatici: &b[AC]",
                     plugin.webPlayerUrl(player));
         }
+        if (player.hasPermission(ADMIN_PERMISSION)) {
+            diagnostics(player);
+        }
+    }
+
+    /** Everything an admin needs to see why a mode is not working. */
+    private void diagnostics(CommandSender sender) {
+        var config = plugin.config();
+        plugin.messages().raw(sender, "&8&m                                        ");
+        plugin.messages().raw(sender, " &7Mod: &f" + config.mode()
+                + " &7| Bolge: &f" + config.zones().size()
+                + " &7| Bagli hesap: &f" + plugin.links().linkedCount());
+        plugin.messages().raw(sender, " &7Tarayici oynatici: "
+                + (config.webUsable() ? "&aacik" : "&ckapali")
+                + " &7| Dinleyici: " + (plugin.webServerRunning()
+                        ? "&acalisiyor &7(" + config.webBind() + ":" + config.webPort() + ")"
+                        : "&cCALISMIYOR"));
+        plugin.messages().raw(sender, " &7Public URL: &f" + config.publicUrl());
+
+        String apiReason = config.apiDisabledReason();
+        plugin.messages().raw(sender, " &7Spotify API: "
+                + (apiReason == null ? "&aacik" : "&ckapali"));
+        if (apiReason != null) {
+            plugin.messages().raw(sender, " &8- &7" + apiReason);
+        }
+        String redirectProblem = config.redirectUriProblem();
+        if (redirectProblem != null) {
+            plugin.messages().raw(sender, " &8- &c" + redirectProblem);
+        }
+        plugin.messages().raw(sender, "&8&m                                        ");
     }
 
     private void resyncCommand(CommandSender sender) {

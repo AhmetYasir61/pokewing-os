@@ -35,9 +35,19 @@ web:
   poll-seconds: 3
 
 spotify:
-  # https://developer.spotify.com/dashboard adresinden bir uygulama olustur.
-  # Redirect URI olarak asagidaki degeri Spotify panelinde de kaydetmelisin:
-  #   http://<public-url-hostun>:8787/callback
+  # API modu istege baglidir. Sadece tarayici oynatici kullanacaksan bu uc alani
+  # bos birak; muzik yine calar.
+  #
+  # ONEMLI - redirect URI kurali: Spotify yalnizca https:// adreslerini ya da
+  # acik loopback adresini (http://127.0.0.1:PORT veya http://[::1]:PORT) kabul
+  # eder. Duz http:// ile bir IP/alan adi (ornek: http://1.2.3.4:8787/callback)
+  # Spotify panelinde KAYDEDILEMEZ; 'localhost' de kabul edilmez.
+  # Yani API modu icin eklentinin /callback yolunu HTTPS ile disariya acman
+  # gerekir - ornegin Nginx/Caddy ters vekil ile:
+  #   https://muzik.sunucum.net/callback  ->  127.0.0.1:8787/callback
+  # Sonra ayni adresi hem buraya hem Spotify panelindeki "Redirect URIs"
+  # listesine yaz. Uygulamayi https://developer.spotify.com/dashboard adresinden
+  # olusturursun.
   client-id: ""
   client-secret: ""
   redirect-uri: ""

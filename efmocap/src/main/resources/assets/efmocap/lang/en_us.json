@@ -2,5 +2,9 @@
     "key.categories.efmocap": "EFMocap",
     "key.efmocap.record": "Record / stop performance",
     "key.efmocap.play": "Stage scene (all takes)",
-    "key.efmocap.clear": "Clear all clones"
+    "key.efmocap.clear": "Clear all clones",
+    "key.efmocap.cam_add": "Add camera keyframe",
+    "key.efmocap.cinematic": "Play cinematic",
+    "key.efmocap.cam_stop": "Stop camera",
+    "key.efmocap.video": "Start / stop video capture"
 }

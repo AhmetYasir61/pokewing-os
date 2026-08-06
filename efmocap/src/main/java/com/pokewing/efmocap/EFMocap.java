@@ -3,12 +3,12 @@ package com.pokewing.efmocap;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
 /**
  * EFMocap — Epic Fight-native machinima toolkit. See DESIGN.md for the full
- * architecture and roadmap. This class is the mod entry point; feature systems
- * (recorder, clone actors, camera, export) register themselves as they land.
+ * architecture and roadmap.
  */
 @Mod(EFMocap.MOD_ID)
 public class EFMocap {
@@ -16,8 +16,8 @@ public class EFMocap {
     public static final Logger LOG = LogUtils.getLogger();
 
     public EFMocap() {
+        ModEntities.register(FMLJavaModLoadingContext.get().getModEventBus());
         LOG.info("[efmocap] loaded. Epic Fight present: {}", isEpicFightLoaded());
-        // Phase 1 client systems are wired up in ClientSystems (Dist.CLIENT).
     }
 
     public static boolean isEpicFightLoaded() {

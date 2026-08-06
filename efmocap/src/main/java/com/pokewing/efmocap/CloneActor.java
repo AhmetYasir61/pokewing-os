@@ -7,7 +7,6 @@ import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.world.entity.Entity;
 
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A client-side clone actor: a fake {@link RemotePlayer} added to the client
@@ -17,9 +16,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * is sent to the server.
  */
 public final class CloneActor {
-    // Fake entity ids well outside the vanilla range to avoid collisions.
-    private static final AtomicInteger NEXT_ID = new AtomicInteger(1_900_000_000);
-
     private final RemotePlayer entity;
     private final int fakeId;
     private MocapFrame prev;
@@ -39,7 +35,7 @@ public final class CloneActor {
         GameProfile profile = new GameProfile(UUID.randomUUID(), "");
         RemotePlayer clone = new RemotePlayer(level, profile);
         clone.setCustomNameVisible(false);
-        int id = NEXT_ID.getAndIncrement();
+        int id = FakeIds.next();
         clone.setId(id);
         clone.setNoGravity(true);
         clone.noPhysics = true;

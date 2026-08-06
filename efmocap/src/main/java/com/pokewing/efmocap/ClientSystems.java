@@ -73,26 +73,15 @@ public final class ClientSystems {
         }
         if (Keys.CARRY != null) while (Keys.CARRY.consumeClick()) CarrySystem.INSTANCE.toggle();
         if (Keys.RECORD != null) while (Keys.RECORD.consumeClick()) toggleRecord();
-        if (Keys.PLAY != null) while (Keys.PLAY.consumeClick()) stageScene();
-        if (Keys.CLEAR != null) while (Keys.CLEAR.consumeClick()) {
-            ReplayDirector.INSTANCE.clearAll();
-            msg("§e[efmocap] klonlar temizlendi");
-        }
         if (Keys.CAM_ADD != null) while (Keys.CAM_ADD.consumeClick()) {
             boolean ok = CameraDirector.INSTANCE.addKeyframeHere();
             msg(ok ? "§b[efmocap] kamera noktası " + CameraDirector.INSTANCE.keyCount()
                     + " eklendi" : "§ceklenemedi");
         }
-        if (Keys.CINEMATIC != null) while (Keys.CINEMATIC.consumeClick()) playCinematic();
         if (Keys.CAM_STOP != null) while (Keys.CAM_STOP.consumeClick()) {
             CameraDirector.INSTANCE.stop();
             if (VideoRecorder.INSTANCE.isActive()) stopVideo();
             msg("§e[efmocap] kamera durdu");
-        }
-        if (Keys.VIDEO != null) while (Keys.VIDEO.consumeClick()) {
-            if (VideoRecorder.INSTANCE.isActive()) stopVideo();
-            else msg(VideoRecorder.INSTANCE.start()
-                    ? "§a[efmocap] video kaydı başladı" : "§cvideo başlatılamadı");
         }
     }
 
@@ -278,22 +267,20 @@ public final class ClientSystems {
     @Mod.EventBusSubscriber(modid = EFMocap.MOD_ID, value = Dist.CLIENT,
             bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class Keys {
-        public static net.minecraft.client.KeyMapping RECORD, PLAY, CLEAR,
-                CAM_ADD, CINEMATIC, CAM_STOP, VIDEO, EDITOR, CARRY;
+        public static net.minecraft.client.KeyMapping EDITOR, RECORD, CARRY,
+                CAM_ADD, CAM_STOP;
 
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
-            EDITOR = key("editor", GLFW.GLFW_KEY_G);
-            CARRY = key("carry", GLFW.GLFW_KEY_F);
+            // One way into the studio; the bottom strip moves between pages.
+            EDITOR = key("editor", GLFW.GLFW_KEY_KP_MULTIPLY);
             RECORD = key("record", GLFW.GLFW_KEY_K);
-            PLAY = key("play", GLFW.GLFW_KEY_N);
-            CLEAR = key("clear", GLFW.GLFW_KEY_J);
+            CARRY = key("carry", GLFW.GLFW_KEY_F);
+            // Kept because they're needed with no menu open.
             CAM_ADD = key("cam_add", GLFW.GLFW_KEY_C);
-            CINEMATIC = key("cinematic", GLFW.GLFW_KEY_V);
             CAM_STOP = key("cam_stop", GLFW.GLFW_KEY_B);
-            VIDEO = key("video", GLFW.GLFW_KEY_P);
             for (var k : new net.minecraft.client.KeyMapping[]
-                    {EDITOR, RECORD, PLAY, CLEAR, CAM_ADD, CINEMATIC, CAM_STOP, VIDEO, CARRY}) {
+                    {EDITOR, RECORD, CARRY, CAM_ADD, CAM_STOP}) {
                 event.register(k);
             }
         }

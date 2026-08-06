@@ -9,7 +9,7 @@ public class TakesScreen extends StudioScreen {
     public TakesScreen() { super("Çekimler & sahne"); }
 
     @Override protected String listTitle() { return "ÇEKİMLER"; }
-    @Override protected int railIndex() { return 0; }
+    @Override protected int pageIndex() { return 0; }
     @Override protected String highlightedTake() { return sel; }
 
     @Override

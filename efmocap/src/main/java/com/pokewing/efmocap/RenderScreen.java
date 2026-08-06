@@ -13,7 +13,7 @@ public class RenderScreen extends StudioScreen {
     public RenderScreen() { super("Render & ayarlar"); }
 
     @Override protected String listTitle() { return ""; }
-    @Override protected int railIndex() { return 3; }
+    @Override protected int pageIndex() { return 3; }
     @Override protected boolean usesList() { return false; }
 
     @Override

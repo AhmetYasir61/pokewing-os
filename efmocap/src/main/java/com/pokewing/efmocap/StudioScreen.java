@@ -8,20 +8,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shared chrome for every studio menu: the header, the icon rail that moves
- * between menus, the transport and timeline along the bottom, and the
- * hand-drawn widget system. Each workspace is its own screen and only has to
- * fill in the middle.
+ * Shared chrome for every studio page: the header, the transport and timeline,
+ * the page strip along the very bottom, and the hand-drawn widget system. Each
+ * workspace only has to fill in the middle.
  *
- * <p>The world is never dimmed — the scene stays watchable and scrubbable while
- * it's being directed.</p>
+ * <p>One key opens the studio and the bottom strip moves between pages, so
+ * there's a single way in rather than a keybind per workspace. The world is
+ * never dimmed and the game keeps running, so the scene stays watchable and
+ * scrubbable while it's being directed.</p>
  */
 public abstract class StudioScreen extends Screen {
 
     /** A clickable region we draw ourselves; vanilla buttons don't fit the look. */
     protected record Zone(int x, int y, int w, int h, String label, String tip,
                           Runnable action, int kind, boolean on) {
-        public static final int BUTTON = 0, RAIL = 1, ROW = 2, DANGER = 3;
+        public static final int BUTTON = 0, TAB = 1, ROW = 2, DANGER = 3;
         boolean hit(double mx, double my) {
             return mx >= x && mx < x + w && my >= y && my < y + h;
         }
@@ -31,7 +32,7 @@ public abstract class StudioScreen extends Screen {
     protected String status = "";
     private boolean draggingHead;
 
-    protected int railW, listX, listW, propX, propW, contentY, contentH, tlY, tlH;
+    protected int listX, listW, propX, propW, contentY, contentH, tlY, tlH, tabsY, tabH;
 
     protected StudioScreen(String title) {
         super(Component.literal(title));
@@ -45,17 +46,18 @@ public abstract class StudioScreen extends Screen {
     /** Build this menu's zones and widgets. */
     protected abstract void buildContent();
 
-    /** Which rail entry is lit. */
-    protected abstract int railIndex();
+    /** Which page strip entry is lit. */
+    protected abstract int pageIndex();
 
     @Override
     protected void init() {
-        railW = 34;
+        tabH = 22;
+        tabsY = height - tabH;
         tlH = Math.max(96, Math.min(150, height / 4));
         contentY = 26;
-        tlY = height - tlH;
+        tlY = tabsY - tlH;
         contentH = tlY - contentY - 4;
-        listX = railW + 4;
+        listX = 4;
         listW = Math.max(150, Math.min(230, width / 4));
         propX = listX + listW + 4;
         propW = width - propX - 4;
@@ -65,19 +67,26 @@ public abstract class StudioScreen extends Screen {
     protected void rebuild() {
         zones.clear();
         clearWidgets();
-        buildRail();
+        buildPageStrip();
         buildContent();
     }
 
-    private void buildRail() {
-        railBtn("Ç", "Çekimler & sahne", 0, contentY, () -> go(new TakesScreen()));
-        railBtn("K", "Karakter oluşturucu", 1, contentY + 38, () -> go(new CharacterScreen()));
-        railBtn("M", "Kamera", 2, contentY + 76, () -> go(new CameraScreen()));
-        railBtn("R", "Render & ayarlar", 3, contentY + 114, () -> go(new RenderScreen()));
-    }
-
-    private void railBtn(String glyph, String tip, int index, int y, Runnable r) {
-        zones.add(new Zone(2, y, railW - 4, 34, glyph, tip, r, Zone.RAIL, railIndex() == index));
+    /** The BBS-style strip along the very bottom that moves between pages. */
+    private void buildPageStrip() {
+        String[] labels = {"Çekimler & sahne", "Karakterler", "Kamera", "Render & ayarlar"};
+        Runnable[] open = {
+                () -> go(new TakesScreen()),
+                () -> go(new CharacterScreen()),
+                () -> go(new CameraScreen()),
+                () -> go(new RenderScreen())
+        };
+        int x = 0;
+        int w = Math.max(90, Math.min(190, width / labels.length));
+        for (int i = 0; i < labels.length; i++) {
+            zones.add(new Zone(x, tabsY, w, tabH, labels[i], null, open[i],
+                    Zone.TAB, pageIndex() == i));
+            x += w;
+        }
     }
 
     protected void go(Screen s) {
@@ -118,7 +127,6 @@ public abstract class StudioScreen extends Screen {
                 + CameraDirector.INSTANCE.keyCount() + " kamera";
         g.drawString(font, live, width - font.width(live) - 10, 9, Theme.TEXT_DIM, false);
 
-        g.fill(0, 26, railW, tlY, Theme.RAIL);
         if (usesList()) {
             Theme.panel(g, listX, contentY, listW, contentH, Theme.PANEL);
             g.drawString(font, "§8" + listTitle(), listX + 8, contentY + 7, Theme.TEXT_DIM, false);
@@ -130,13 +138,16 @@ public abstract class StudioScreen extends Screen {
         for (Zone z : zones) {
             boolean hov = z.hit(mouseX, mouseY);
             switch (z.kind()) {
-                case Zone.RAIL -> {
+                case Zone.TAB -> {
                     g.fill(z.x(), z.y(), z.x() + z.w(), z.y() + z.h(),
-                            z.on() ? Theme.ACCENT_D : (hov ? Theme.BTN_HOV : 0xFF1B1B20));
-                    if (z.on()) g.fill(z.x(), z.y(), z.x() + 2, z.y() + z.h(), Theme.ACCENT);
-                    g.drawString(font, z.label(),
-                            z.x() + (z.w() - font.width(z.label())) / 2, z.y() + 13,
-                            z.on() ? 0xFFFFFFFF : Theme.TEXT, false);
+                            z.on() ? 0xFF26262E : (hov ? Theme.BTN_HOV : Theme.RAIL));
+                    // Lit page carries the accent along its top edge.
+                    g.fill(z.x(), z.y(), z.x() + z.w(), z.y() + 2,
+                            z.on() ? Theme.ACCENT : Theme.LINE);
+                    g.fill(z.x() + z.w() - 1, z.y(), z.x() + z.w(), z.y() + z.h(), Theme.LINE);
+                    String t = Theme.trim(font, z.label(), z.w() - 10);
+                    g.drawString(font, t, z.x() + (z.w() - font.width(t)) / 2, z.y() + 7,
+                            z.on() ? Theme.TEXT : Theme.TEXT_DIM, false);
                 }
                 case Zone.ROW -> Theme.row(g, font, z.x(), z.y(), z.w(), z.h(),
                         z.label(), hov, z.on());
@@ -253,7 +264,7 @@ public abstract class StudioScreen extends Screen {
             if (mx >= 56 && mx < 76) { rd.setPaused(false); rd.restart(); return true; }
         }
 
-        if (my >= tlY && mx >= trackX()) {
+        if (my >= tlY && my < tabsY && mx >= trackX()) {
             draggingHead = true;
             scrubTo(mx);
             return true;

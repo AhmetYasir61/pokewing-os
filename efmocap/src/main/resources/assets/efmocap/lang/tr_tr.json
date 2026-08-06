@@ -1,12 +1,8 @@
 {
     "key.categories.efmocap": "EFMocap",
+    "key.efmocap.editor": "Stüdyoyu aç",
     "key.efmocap.record": "Performansı kaydet / durdur",
-    "key.efmocap.play": "Sahneyi oynat (tüm çekimler)",
-    "key.efmocap.clear": "Tüm klonları temizle",
+    "key.efmocap.carry": "Ceset sırtla / bırak",
     "key.efmocap.cam_add": "Kamera noktası ekle",
-    "key.efmocap.cinematic": "Sinematiği oynat",
-    "key.efmocap.cam_stop": "Kamerayı durdur",
-    "key.efmocap.video": "Video kaydı başlat / durdur",
-    "key.efmocap.editor": "EFMocap editörünü aç",
-    "key.efmocap.carry": "Ceset sırtla / bırak"
+    "key.efmocap.cam_stop": "Kamerayı durdur"
 }

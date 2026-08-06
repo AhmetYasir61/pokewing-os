@@ -28,7 +28,7 @@ public class CharacterScreen extends StudioScreen {
     public CharacterScreen() { super("Karakter oluşturucu"); }
 
     @Override protected String listTitle() { return "KARAKTERLER"; }
-    @Override protected int railIndex() { return 1; }
+    @Override protected int pageIndex() { return 1; }
 
     @Override
     protected void buildContent() {

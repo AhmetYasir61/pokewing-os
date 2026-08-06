@@ -12,7 +12,7 @@ public class CameraScreen extends StudioScreen {
     public CameraScreen() { super("Kamera"); }
 
     @Override protected String listTitle() { return "KAMERA NOKTALARI"; }
-    @Override protected int railIndex() { return 2; }
+    @Override protected int pageIndex() { return 2; }
 
     @Override
     protected void buildContent() {

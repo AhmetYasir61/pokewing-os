@@ -144,7 +144,7 @@ public final class EpicFightBridge {
      * auto-computed living motion (walk/idle) and stays frame-synced with the
      * recording.
      */
-    public static boolean forceAnimation(Object patch, int animId, float elapsed) {
+    public static boolean forceAnimation(Object patch, int animId, float prevElapsed, float elapsed) {
         if (patch == null || animId < 0) return false;
         try {
             Object animator = tryInvoke(patch, "getClientAnimator");
@@ -155,17 +155,39 @@ public final class EpicFightBridge {
             Object curAnim = player == null ? null : tryInvoke(player, "getAnimation");
             Object curId = curAnim == null ? null : tryInvoke(curAnim, "id");
 
+            boolean switched = false;
             if (!(curId instanceof Integer i) || i != animId) {
                 playById(patch, animId, 0f);
                 player = getFieldPath(animator, "baseLayer", "animationPlayer");
+                switched = true;
             }
-            if (player != null) {
-                Method set = player.getClass().getMethod("setElapsedTime", float.class);
-                set.invoke(player, elapsed);
+            if (player == null) return false;
+
+            // Epic Fight renders the pose by interpolating prevElapsedTime ->
+            // elapsedTime with the frame's partialTick. The single-arg
+            // setElapsedTime writes BOTH fields, which pins the pose for the
+            // whole tick and looks like stuttering. Feed the real previous
+            // value so the clone animates smoothly between ticks.
+            // On an animation switch prev == current, so it doesn't lerp across
+            // two different animations.
+            float prev = switched ? elapsed : prevElapsed;
+            Method set2 = findMethod(player.getClass(), "setElapsedTime", float.class, float.class);
+            if (set2 != null) {
+                set2.invoke(player, prev, elapsed);
+                return true;
+            }
+            Method set1 = findMethod(player.getClass(), "setElapsedTime", float.class);
+            if (set1 != null) {
+                set1.invoke(player, elapsed);
                 return true;
             }
         } catch (Throwable ignored) {}
         return false;
+    }
+
+    private static Method findMethod(Class<?> c, String name, Class<?>... params) {
+        try { return c.getMethod(name, params); }
+        catch (Throwable t) { return null; }
     }
 
     private static Method findPlayMethod(Class<?> patchClass, String name) {

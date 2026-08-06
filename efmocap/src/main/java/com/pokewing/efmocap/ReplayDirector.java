@@ -45,6 +45,7 @@ public final class ReplayDirector {
     public void restart() {
         for (Replay r : replays) {
             r.tick = 0;
+            r.actor.resetInterpolation();
             r.actor.apply(r.rec.frameAt(0));
         }
     }
@@ -68,6 +69,8 @@ public final class ReplayDirector {
             if (r.tick >= r.rec.length()) {
                 if (r.loop) {
                     r.tick = 0;
+                    // Snap instead of sliding all the way back from the end.
+                    r.actor.resetInterpolation();
                 } else {
                     r.actor.despawn();
                     it.remove();

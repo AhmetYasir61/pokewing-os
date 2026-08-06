@@ -152,6 +152,7 @@ public final class VideoRecorder {
                 exe, "-y",
                 "-framerate", String.format(Locale.ROOT, "%.3f", fps),
                 "-i", folder.resolve("frame_%06d.png").toString(),
+                "-vf", EVEN_SIZE,
                 "-c:v", "libx264",
                 "-preset", "medium",
                 "-crf", String.valueOf(Settings.videoCrf),
@@ -161,22 +162,45 @@ public final class VideoRecorder {
         try {
             EFMocap.LOG.info("[efmocap] encoding at {} fps -> {}", fps, out);
             Process p = pb.start();
+            String log;
             try (var in = p.getInputStream()) {
-                in.readAllBytes(); // drain so ffmpeg never blocks on a full pipe
+                log = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             }
             int code = p.waitFor();
             if (code == 0) {
                 EFMocap.LOG.info("[efmocap] video ready: {}", out);
                 ClientSystems.msg("§a[efmocap] video hazır: " + out);
             } else {
-                EFMocap.LOG.warn("[efmocap] ffmpeg exited with {}", code);
-                ClientSystems.msg("§c[efmocap] ffmpeg hata verdi (kod " + code
-                        + "). PNG kareler burada: " + folder);
+                // ffmpeg's own words are far more useful than the exit code.
+                EFMocap.LOG.warn("[efmocap] ffmpeg exited with {}:\n{}", code, log);
+                ClientSystems.msg("§c[efmocap] ffmpeg hata verdi (kod " + code + "): "
+                        + lastMeaningfulLine(log));
+                ClientSystems.msg("§7PNG kareler duruyor: " + folder);
             }
         } catch (Exception e) {
             EFMocap.LOG.warn("[efmocap] ffmpeg could not be run", e);
             ClientSystems.msg("§e[efmocap] ffmpeg çalıştırılamadı. PNG kareler: " + folder);
         }
+    }
+
+    /**
+     * libx264 refuses odd frame sizes under yuv420p, and a Minecraft window is
+     * very often an odd number of pixels wide or tall — which produced an empty
+     * .mp4 with the reason buried in ffmpeg's output. Round both down to even.
+     */
+    private static final String EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
+
+    /** Pull the line that actually explains the failure out of ffmpeg's banner. */
+    private static String lastMeaningfulLine(String log) {
+        String[] lines = log.split("\\R");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String l = lines[i].trim();
+            if (l.isEmpty()) continue;
+            if (l.startsWith("ffmpeg version") || l.startsWith("built with")
+                    || l.startsWith("configuration:") || l.startsWith("lib")) continue;
+            return l.length() > 160 ? l.substring(0, 160) + "…" : l;
+        }
+        return "(çıktı boş — log dosyasına bak)";
     }
 
     /**
@@ -242,6 +266,7 @@ public final class VideoRecorder {
     private void writeEncodeScript(Path folder, double fps, String exe) {
         String rate = String.format(Locale.ROOT, "%.3f", fps);
         String args = " -y -framerate " + rate + " -i frame_%06d.png"
+                + " -vf \"" + EVEN_SIZE + "\""
                 + " -c:v libx264 -preset medium -crf " + Settings.videoCrf
                 + " -pix_fmt yuv420p video.mp4";
         try {

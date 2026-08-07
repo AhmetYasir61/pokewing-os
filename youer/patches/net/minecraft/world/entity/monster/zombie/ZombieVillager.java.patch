@@ -1,0 +1,198 @@
+--- a/net/minecraft/world/entity/monster/zombie/ZombieVillager.java
++++ b/net/minecraft/world/entity/monster/zombie/ZombieVillager.java
+@@ -29,6 +_,7 @@
+ import net.minecraft.world.entity.EntityAttachment;
+ import net.minecraft.world.entity.EntityAttachments;
+ import net.minecraft.world.entity.EntityDimensions;
++import net.minecraft.world.entity.EntityEvent;
+ import net.minecraft.world.entity.EntitySpawnReason;
+ import net.minecraft.world.entity.EntityType;
+ import net.minecraft.world.entity.EntityTypes;
+@@ -58,6 +_,12 @@
+ import net.minecraft.world.level.storage.ValueOutput;
+ import org.jspecify.annotations.Nullable;
+ 
++// CraftBukkit start
++import net.minecraft.server.MinecraftServer;
++import org.bukkit.event.entity.CreatureSpawnEvent;
++import org.bukkit.event.entity.EntityTransformEvent;
++// CraftBukkit end
++
+ public class ZombieVillager extends Zombie implements VillagerDataHolder {
+     public static final EntityDataAccessor<Boolean> DATA_CONVERTING_ID = SynchedEntityData.defineId(ZombieVillager.class, EntityDataSerializers.BOOLEAN);
+     private static final EntityDataAccessor<VillagerData> DATA_VILLAGER_DATA = SynchedEntityData.defineId(
+@@ -80,11 +_,79 @@
+     private static final EntityDimensions BABY_DIMENSIONS = EntityDimensions.scalable(0.49F, 0.98F)
+         .withEyeHeight(0.67F)
+         .withAttachments(EntityAttachments.builder().attach(EntityAttachment.VEHICLE, 0.0F, 0.125F, 0.0F));
++    private int lastTick = MinecraftServer.currentTick; // CraftBukkit - add field
+ 
+     public ZombieVillager(EntityType<? extends ZombieVillager> type, Level level) {
+         super(type, level);
+     }
+ 
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.zombieVillagerRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.zombieVillagerRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.zombieVillagerControllable;
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.zombieVillagerMaxHealth);
++    }
++
++    @Override
++    protected void randomizeReinforcementsChance() {
++        this.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.SPAWN_REINFORCEMENTS_CHANCE).setBaseValue(this.random.nextDouble() * this.level().purpurConfig.zombieVillagerSpawnReinforcements);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Configurable jockey options
++    @Override
++    public boolean jockeyOnlyBaby() {
++        return level().purpurConfig.zombieVillagerJockeyOnlyBaby;
++    }
++
++    @Override
++    public double jockeyChance() {
++        return level().purpurConfig.zombieVillagerJockeyChance;
++    }
++
++    @Override
++    public boolean jockeyTryExistingChickens() {
++        return level().purpurConfig.zombieVillagerJockeyTryExistingChickens;
++    }
++    // Purpur end - Configurable jockey options
++
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.zombieVillagerTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.zombieVillagerAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
++    // Purpur start - Check mobGriefing Overrides
++    @Override
++    public Boolean checkEntityPickUpLootOverride() {
++        return this.level().purpurConfig.zombieVillagerCanPickUpLoot;
++    }
++    // Purpur end - Check mobGriefing Overrides
++
+     @Override
+     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+         super.defineSynchedData(entityData);
+@@ -151,23 +_,28 @@
+     public void tick() {
+         if (!this.level().isClientSide() && this.isAlive() && this.isConverting()) {
+             int amount = this.getConversionProgress();
++            // CraftBukkit start - Use wall time instead of ticks for villager conversion
++            int elapsedTicks = MinecraftServer.currentTick - this.lastTick;
++            amount *= elapsedTicks;
++            // CraftBukkit end
+             this.villagerConversionTime -= amount;
+-            if (this.villagerConversionTime <= 0) {
++            if (this.villagerConversionTime <= 0 && net.neoforged.neoforge.event.EventHooks.canLivingConvert(this, EntityTypes.VILLAGER, (timer) -> this.villagerConversionTime = timer)) {
+                 this.finishConversion((ServerLevel)this.level());
+             }
+         }
+ 
+         super.tick();
++        this.lastTick = MinecraftServer.currentTick; // CraftBukkit
+     }
+ 
+     @Override
+     public InteractionResult mobInteract(Player player, InteractionHand hand) {
+         ItemStack itemStack = player.getItemInHand(hand);
+         if (itemStack.is(Items.GOLDEN_APPLE)) {
+-            if (this.hasEffect(MobEffects.WEAKNESS)) {
++            if (this.hasEffect(MobEffects.WEAKNESS) && level().purpurConfig.zombieVillagerCureEnabled) { // Purpur - Add option to disable zombie villagers cure
+                 itemStack.consume(1, player);
+                 if (!this.level().isClientSide()) {
+-                    this.startConverting(player.getUUID(), this.random.nextInt(2401) + 3600);
++                    this.startConverting(player.getUUID(), this.random.nextInt(level().purpurConfig.zombieVillagerCuringTimeMax - level().purpurConfig.zombieVillagerCuringTimeMin + 1) + level().purpurConfig.zombieVillagerCuringTimeMin); // Purpur - Customizable Zombie Villager curing times
+                 }
+ 
+                 return InteractionResult.SUCCESS_SERVER;
+@@ -194,12 +_,20 @@
+     }
+ 
+     public void startConverting(@Nullable UUID player, int time) {
++        // Paper start - missing entity behaviour api - converting without entity event
++        this.startConverting(player, time, true);
++    }
++
++    public void startConverting(@Nullable UUID player, int time, boolean broadcastEntityEvent) {
++        // Paper end - missing entity behaviour api - converting without entity event
+         this.conversionStarter = player;
+         this.villagerConversionTime = time;
+         this.getEntityData().set(DATA_CONVERTING_ID, true);
+-        this.removeEffect(MobEffects.WEAKNESS);
+-        this.addEffect(new MobEffectInstance(MobEffects.STRENGTH, time, Math.min(this.level().getDifficulty().getId() - 1, 0)));
+-        this.level().broadcastEntityEvent(this, (byte)16);
++        // CraftBukkit start
++        this.removeEffect(MobEffects.WEAKNESS, org.bukkit.event.entity.EntityPotionEffectEvent.Cause.CONVERSION);
++        this.addEffect(new MobEffectInstance(MobEffects.STRENGTH, time, Math.min(this.level().getDifficulty().getId() - 1, 0)), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.CONVERSION);
++        // CraftBukkit end
++        if (broadcastEntityEvent) this.level().broadcastEntityEvent(this, EntityEvent.ZOMBIE_CONVERTING); // Paper - missing entity behaviour api - converting without entity event
+     }
+ 
+     @Override
+@@ -229,7 +_,8 @@
+     }
+ 
+     private void finishConversion(ServerLevel level) {
+-        this.convertTo(
++        // CraftBukkit start
++        Villager converted = this.convertTo(
+             EntityTypes.VILLAGER,
+             ConversionParams.single(this, false, false),
+             villager -> {
+@@ -256,19 +_,25 @@
+                 villager.finalizeSpawn(level, level.getCurrentDifficultyAt(villager.blockPosition()), EntitySpawnReason.CONVERSION, null);
+                 villager.refreshBrain(level);
+                 if (this.conversionStarter != null) {
+-                    Player player = level.getPlayerByUUID(this.conversionStarter);
++                    Player player = level.getGlobalPlayerByUUID(this.conversionStarter); // Paper - check global player list where appropriate
+                     if (player instanceof ServerPlayer serverPlayer) {
+                         CriteriaTriggers.CURED_ZOMBIE_VILLAGER.trigger(serverPlayer, this, villager);
+                         level.onReputationEvent(ReputationEventType.ZOMBIE_VILLAGER_CURED, player, villager);
+                     }
+                 }
+ 
+-                villager.addEffect(new MobEffectInstance(MobEffects.NAUSEA, 200, 0));
++                villager.addEffect(new MobEffectInstance(MobEffects.NAUSEA, 200, 0), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.CONVERSION); // CraftBukkit
+                 if (!this.isSilent()) {
+                     level.levelEvent(null, 1027, this.blockPosition(), 0);
+                 }
+-            }
++
++                net.neoforged.neoforge.event.EventHooks.onLivingConvert(this, villager);
++            }, EntityTransformEvent.TransformReason.CURED, CreatureSpawnEvent.SpawnReason.CURED
+         );
++        if (converted == null) {
++            ((org.bukkit.entity.ZombieVillager) getBukkitEntity()).setConversionTime(-1); // SPIGOT-5208: End conversion to stop event spam
++        }
++        // CraftBukkit end
+     }
+ 
+     @VisibleForTesting

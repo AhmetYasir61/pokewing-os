@@ -1,0 +1,99 @@
+--- a/net/minecraft/world/entity/animal/goat/Goat.java
++++ b/net/minecraft/world/entity/animal/goat/Goat.java
+@@ -52,6 +_,9 @@
+ import net.minecraft.world.level.storage.ValueInput;
+ import net.minecraft.world.level.storage.ValueOutput;
+ import net.minecraft.world.phys.Vec3;
++import org.bukkit.craftbukkit.event.CraftEventFactory;
++import org.bukkit.craftbukkit.inventory.CraftItemStack;
++import org.bukkit.event.player.PlayerBucketFillEvent;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class Goat extends Animal {
+@@ -87,6 +_,20 @@
+     private boolean isLoweringHead;
+     private int lowerHeadTick;
+ 
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.goatBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.goatAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     public Goat(EntityType<? extends Goat> type, Level level) {
+         super(type, level);
+         this.getNavigation().setCanFloat(true);
+@@ -94,6 +_,13 @@
+         this.setPathfindingMalus(PathType.ON_TOP_OF_POWDER_SNOW, -1.0F);
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.goatTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
+     public ItemStack createHorn() {
+         RandomSource random = RandomSource.createThreadLocalInstance(this.getUUID().hashCode());
+         TagKey<Instrument> key = this.isScreamingGoat() ? InstrumentTags.SCREAMING_GOAT_HORNS : InstrumentTags.REGULAR_GOAT_HORNS;
+@@ -217,18 +_,25 @@
+     public InteractionResult mobInteract(Player player, InteractionHand hand) {
+         ItemStack heldItem = player.getItemInHand(hand);
+         if (heldItem.is(Items.BUCKET) && !this.isBaby()) {
++            // CraftBukkit start - Got milk?
++            PlayerBucketFillEvent event = CraftEventFactory.callPlayerBucketFillEvent((ServerLevel) player.level(), player, this.blockPosition(), this.blockPosition(), null, heldItem, Items.MILK_BUCKET, hand);
++
++            if (event.isCancelled()) {
++                return InteractionResult.PASS;
++            }
++            // CraftBukkit end
+             player.playSound(this.getMilkingSound(), 1.0F, 1.0F);
+-            ItemStack bucketOrMilkBucket = ItemUtils.createFilledResult(heldItem, player, Items.MILK_BUCKET.getDefaultInstance());
++            ItemStack bucketOrMilkBucket = ItemUtils.createFilledResult(heldItem, player, CraftItemStack.asNMSCopy(event.getItemStack())); // CraftBukkit
+             player.setItemInHand(hand, bucketOrMilkBucket);
+             return InteractionResult.SUCCESS;
+-        }
+-
+-        InteractionResult interactionResult = super.mobInteract(player, hand);
+-        if (interactionResult.consumesAction() && this.isFood(heldItem)) {
+-            this.playEatingSound();
+-        }
+-
+-        return interactionResult;
++        } else {
++            InteractionResult interactionResult = super.mobInteract(player, hand);
++            if (interactionResult.consumesAction() && this.isFood(heldItem)) {
++                this.playEatingSound();
++            }
++
++            return interactionResult;
++        }
+     }
+ 
+     @Override
+@@ -357,4 +_,16 @@
+     ) {
+         return level.getBlockState(pos.below()).is(BlockTags.GOATS_SPAWNABLE_ON) && isBrightEnoughToSpawn(level, pos);
+     }
++
++    // Paper start - Goat ram API
++    public void ram(net.minecraft.world.entity.LivingEntity entity) {
++        if(!new org.purpurmc.purpur.event.entity.GoatRamEntityEvent((org.bukkit.entity.Goat) getBukkitEntity(), entity.getBukkitLivingEntity()).callEvent()) return; // Purpur - Added goat ram event
++        Brain<Goat> brain = this.getBrain();
++        brain.setMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.RAM_TARGET, entity.position());
++        brain.eraseMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.RAM_COOLDOWN_TICKS);
++        brain.eraseMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.BREED_TARGET);
++        brain.eraseMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.TEMPTING_PLAYER);
++        brain.setActiveActivityIfPossible(net.minecraft.world.entity.schedule.Activity.RAM);
++    }
++    // Paper end - Goat ram API
+ }

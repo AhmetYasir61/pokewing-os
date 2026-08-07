@@ -1,0 +1,47 @@
+--- a/net/minecraft/world/item/component/BlocksAttacks.java
++++ b/net/minecraft/world/item/component/BlocksAttacks.java
+@@ -85,11 +_,15 @@
+             );
+     }
+ 
+-    public void disable(ServerLevel level, LivingEntity user, float baseSeconds, ItemStack blockingWith) {
++    public void disable(ServerLevel level, LivingEntity user, float baseSeconds, ItemStack blockingWith, LivingEntity attacker) { // Paper
+         int cooldownTicks = this.disableBlockingForTicks(baseSeconds);
+         if (cooldownTicks > 0) {
+             if (user instanceof Player player) {
+-                player.getCooldowns().addCooldown(blockingWith, cooldownTicks);
++                // Paper start
++                final io.papermc.paper.event.player.PlayerShieldDisableEvent shieldDisableEvent = new io.papermc.paper.event.player.PlayerShieldDisableEvent((org.bukkit.entity.Player) player.getBukkitEntity(), attacker.getBukkitEntity(), cooldownTicks);
++                if (!shieldDisableEvent.callEvent()) return;
++                player.getCooldowns().addCooldown(blockingWith, shieldDisableEvent.getCooldown());
++                // Paper end
+             }
+ 
+             user.stopUsingItem();
+@@ -110,14 +_,23 @@
+     }
+ 
+     public void hurtBlockingItem(Level level, ItemStack item, LivingEntity user, InteractionHand hand, float damage) {
++        this.hurtBlockingItem(level, item, user, hand, damage, -1);
++    }
++
++    public void hurtBlockingItem(Level level, ItemStack item, LivingEntity user, InteractionHand hand, float damage, int fixedDamage) {
+         if (user instanceof Player player) {
+             if (!level.isClientSide()) {
+                 player.awardStat(Stats.ITEM_USED.get(item.getItem()));
+             }
+ 
+-            int itemDamage = this.itemDamage.apply(damage);
+-            if (itemDamage > 0) {
+-                item.hurtAndBreak(itemDamage, user, hand.asEquipmentSlot());
++            int itemDamage = fixedDamage < 0 ? this.itemDamage.apply(damage) : fixedDamage;
++            if (itemDamage > 0 && level instanceof ServerLevel serverLevel) {
++                ItemStack original = item.copy();
++                item.hurtAndBreak(itemDamage, serverLevel, user, it -> {
++                    user.onEquippedItemBroken(it, hand.asEquipmentSlot());
++                    net.neoforged.neoforge.event.EventHooks.onPlayerDestroyItem(player, original, hand);
++                    player.stopUsingItem(); // Neo: Fix MC-168573 ("After breaking a shield, the player's off-hand can't finish using some items")
++                });
+             }
+         }
+     }

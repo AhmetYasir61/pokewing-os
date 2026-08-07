@@ -1,0 +1,47 @@
+--- a/net/minecraft/world/level/levelgen/FlatLevelSource.java
++++ b/net/minecraft/world/level/levelgen/FlatLevelSource.java
+@@ -30,19 +_,27 @@
+         i -> i.group(FlatLevelGeneratorSettings.CODEC.fieldOf("settings").forGetter(FlatLevelSource::settings)).apply(i, i.stable(FlatLevelSource::new))
+     );
+     private final FlatLevelGeneratorSettings settings;
++    // Neo: Store the memoized generation settings getter, so the cache can be cleared later
++    private final net.neoforged.neoforge.common.util.MemoizedFunction<Holder<net.minecraft.world.level.biome.Biome>, net.minecraft.world.level.biome.BiomeGenerationSettings> generationSettingsGetter;
+ 
+     public FlatLevelSource(FlatLevelGeneratorSettings generatorSettings) {
+-        super(new FixedBiomeSource(generatorSettings.getBiome()), Util.memoize(generatorSettings::adjustGenerationSettings));
++        // CraftBukkit start
++        this(generatorSettings, new FixedBiomeSource(generatorSettings.getBiome()));
++    }
++
++    public FlatLevelSource(FlatLevelGeneratorSettings generatorSettings, net.minecraft.world.level.biome.BiomeSource biomesource) {
++        super(biomesource, this.generationSettingsGetter = net.neoforged.neoforge.common.util.MemoizedFunction.of(generatorSettings::adjustGenerationSettings));
++        // CraftBukkit end
+         this.settings = generatorSettings;
+     }
+ 
+     @Override
+-    public ChunkGeneratorStructureState createState(HolderLookup<StructureSet> structureSets, RandomState randomState, long levelSeed) {
++    public ChunkGeneratorStructureState createState(HolderLookup<StructureSet> structureSets, RandomState randomState, long levelSeed, final org.spigotmc.SpigotWorldConfig conf) { // Spigot
+         Stream<Holder<StructureSet>> structures = this.settings
+             .structureOverrides()
+             .map(HolderSet::stream)
+             .orElseGet(() -> structureSets.listElements().map(e -> (Holder<StructureSet>)e));
+-        return ChunkGeneratorStructureState.createForFlat(randomState, levelSeed, this.biomeSource, structures);
++        return ChunkGeneratorStructureState.createForFlat(randomState, levelSeed, this.biomeSource, structures, conf); // Spigot
+     }
+ 
+     @Override
+@@ -142,5 +_,13 @@
+     @Override
+     public int getSeaLevel() {
+         return -63;
++    }
++
++    // Neo: clear the cache for the generation settings getter on refresh
++    @Override
++    public void refreshFeaturesPerStep() {
++        super.refreshFeaturesPerStep();
++        this.generationSettingsGetter.clear();
++        this.settings.updateLayers();
+     }
+ }

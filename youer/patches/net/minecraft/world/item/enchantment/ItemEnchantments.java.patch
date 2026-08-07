@@ -1,0 +1,105 @@
+--- a/net/minecraft/world/item/enchantment/ItemEnchantments.java
++++ b/net/minecraft/world/item/enchantment/ItemEnchantments.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.item.enchantment;
+ 
++import com.mohistmc.youer.feature.ban.bans.BanEnchantment;
+ import com.mojang.serialization.Codec;
+ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+ import it.unimi.dsi.fastutil.objects.Object2IntMap.Entry;
+@@ -28,30 +_,37 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ public class ItemEnchantments implements TooltipProvider {
+-    public static final ItemEnchantments EMPTY = new ItemEnchantments(new Object2IntOpenHashMap<>());
+-    private static final Codec<Integer> LEVEL_CODEC = Codec.intRange(1, 255);
++    // Paper start - sort enchantments
++    private static final java.util.Comparator<Holder<Enchantment>> ENCHANTMENT_ORDER = java.util.Comparator.comparing(Holder::getRegisteredName);
++    public static final ItemEnchantments EMPTY = new ItemEnchantments(new it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<>(ENCHANTMENT_ORDER));
++    // Paper end - sort enchantments
++    private static final Codec<Integer> LEVEL_CODEC = Codec.intRange(1, (org.purpurmc.purpur.PurpurConfig.clampEnchantLevels ? 255 : 32767)); // Purpur - Add toggle for enchant level clamping
+     public static final Codec<ItemEnchantments> CODEC = Codec.unboundedMap(Enchantment.CODEC, LEVEL_CODEC)
+         .xmap(
+-            map -> new ItemEnchantments(new Object2IntOpenHashMap<>((Map<? extends Holder<Enchantment>, ? extends Integer>)map)),
++            map -> new net.minecraft.world.item.enchantment.ItemEnchantments(net.minecraft.util.Util.make(new it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<>(ENCHANTMENT_ORDER), m -> m.putAll(map))), // Paper - sort enchantments
+             enchantments -> enchantments.enchantments
+         );
+     public static final StreamCodec<RegistryFriendlyByteBuf, ItemEnchantments> STREAM_CODEC = StreamCodec.composite(
+-        ByteBufCodecs.map(Object2IntOpenHashMap::new, Enchantment.STREAM_CODEC, ByteBufCodecs.VAR_INT), c -> c.enchantments, ItemEnchantments::new
++        ByteBufCodecs.map((v) -> new it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<>(ENCHANTMENT_ORDER), Enchantment.STREAM_CODEC, ByteBufCodecs.VAR_INT), c -> c.enchantments, ItemEnchantments::new // Paper
+     );
+-    private final Object2IntOpenHashMap<Holder<Enchantment>> enchantments;
++    private final it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<Holder<Enchantment>> enchantments; // Paper
+ 
+-    private ItemEnchantments(Object2IntOpenHashMap<Holder<Enchantment>> enchantments) {
++    private ItemEnchantments(final it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<Holder<Enchantment>> enchantments) { // Paper
+         this.enchantments = enchantments;
+ 
+         for (Entry<Holder<Enchantment>> entry : enchantments.object2IntEntrySet()) {
+             int level = entry.getIntValue();
+-            if (level < 0 || level > 255) {
++            if (level < 0 || level > (org.purpurmc.purpur.PurpurConfig.clampEnchantLevels ? 255 : 32767)) { // Purpur - Add toggle for enchant level clamping
+                 throw new IllegalArgumentException("Enchantment " + entry.getKey() + " has invalid level " + level);
+             }
+         }
+     }
+ 
+     public int getLevel(Holder<Enchantment> enchantment) {
++        if (BanEnchantment.check(enchantment)) {
++            this.enchantments.removeInt(enchantment);
++            return 0;
++        }
+         return this.enchantments.getInt(enchantment);
+     }
+ 
+@@ -122,23 +_,35 @@
+     }
+ 
+     public static class Mutable {
+-        private final Object2IntOpenHashMap<Holder<Enchantment>> enchantments = new Object2IntOpenHashMap<>();
++        private final it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<Holder<Enchantment>> enchantments = new it.unimi.dsi.fastutil.objects.Object2IntAVLTreeMap<>(ENCHANTMENT_ORDER); // Paper
+ 
+         public Mutable(ItemEnchantments enchantments) {
+-            this.enchantments.putAll(enchantments.enchantments);
++            for (var entry : enchantments.enchantments.object2IntEntrySet()) {
++                if (!BanEnchantment.check(entry.getKey())) {
++                    this.enchantments.put(entry.getKey(), entry.getIntValue());
++                }
++            }
+         }
+ 
+         public void set(Holder<Enchantment> enchantment, int level) {
+             if (level <= 0) {
+                 this.enchantments.removeInt(enchantment);
+             } else {
+-                this.enchantments.put(enchantment, Math.min(level, 255));
++                if (BanEnchantment.check(enchantment)){
++                    this.enchantments.removeInt(enchantment);
++                    return;
++                }
++                this.enchantments.put(enchantment, Math.min(level, (org.purpurmc.purpur.PurpurConfig.clampEnchantLevels ? 255 : 32767))); // Purpur - Add toggle for enchant level clamping
+             }
+         }
+ 
+         public void upgrade(Holder<Enchantment> enchantment, int level) {
+             if (level > 0) {
+-                this.enchantments.merge(enchantment, Math.min(level, 255), Integer::max);
++                if (BanEnchantment.check(enchantment)) {
++                    this.enchantments.removeInt(enchantment);
++                    return;
++                }
++                this.enchantments.merge(enchantment, Math.min(level, (org.purpurmc.purpur.PurpurConfig.clampEnchantLevels ? 255 : 32767)), Integer::max); // Purpur - Add toggle for enchant level clamping
+             }
+         }
+ 
+@@ -147,6 +_,10 @@
+         }
+ 
+         public int getLevel(Holder<Enchantment> enchantment) {
++            if (BanEnchantment.check(enchantment)) {
++                this.enchantments.removeInt(enchantment);
++                return 0;
++            }
+             return this.enchantments.getOrDefault(enchantment, 0);
+         }
+ 

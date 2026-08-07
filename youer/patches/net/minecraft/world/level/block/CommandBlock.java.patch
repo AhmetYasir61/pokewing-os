@@ -1,0 +1,23 @@
+--- a/net/minecraft/world/level/block/CommandBlock.java
++++ b/net/minecraft/world/level/block/CommandBlock.java
+@@ -70,6 +_,11 @@
+     private void setPoweredAndUpdate(Level level, BlockPos pos, CommandBlockEntity commandBlock, boolean isPowered) {
+         boolean wasPowered = commandBlock.isPowered();
+         if (isPowered != wasPowered) {
++            // Paper start - Call BlockRedstoneEvent
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, isPowered)) {
++                return;
++            }
++            // Paper end - Call BlockRedstoneEvent
+             commandBlock.setPowered(isPowered);
+             if (isPowered) {
+                 if (commandBlock.isAutomatic() || commandBlock.getMode() == CommandBlockEntity.Mode.SEQUENCE) {
+@@ -124,7 +_,7 @@
+ 
+     @Override
+     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+-        if (level.getBlockEntity(pos) instanceof CommandBlockEntity commandBlockEntity && player.canUseGameMasterBlocks()) {
++        if (level.getBlockEntity(pos) instanceof CommandBlockEntity commandBlockEntity && (player.canUseGameMasterBlocks() || (player.isCreative() && player.getBukkitEntity().hasPermission("minecraft.commandblock")))) { // Paper - command block permission
+             player.openCommandBlock(commandBlockEntity);
+             return InteractionResult.SUCCESS;
+         } else {

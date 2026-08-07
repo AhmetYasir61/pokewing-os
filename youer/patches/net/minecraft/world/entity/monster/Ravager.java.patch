@@ -1,0 +1,88 @@
+--- a/net/minecraft/world/entity/monster/Ravager.java
++++ b/net/minecraft/world/entity/monster/Ravager.java
+@@ -70,10 +_,33 @@
+         this.setPathfindingMalus(PathType.LEAVES, 0.0F);
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.ravagerTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.ravagerMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.ravagerScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.ravagerAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
+         super.registerGoals();
+         this.goalSelector.addGoal(0, new FloatGoal(this));
++        if (level().purpurConfig.ravagerAvoidRabbits) this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.AvoidEntityGoal<>(this, net.minecraft.world.entity.animal.rabbit.Rabbit.class, 6.0F, 1.0D, 1.2D)); // Purpur - option to make ravagers afraid of rabbits
+         this.goalSelector.addGoal(4, new MeleeAttackGoal(this, 1.0, true));
+         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.4));
+         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 6.0F));
+@@ -143,7 +_,7 @@
+                 this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(Mth.lerp(0.1, baseValue, maxSpeed));
+             }
+ 
+-            if (this.level() instanceof ServerLevel serverLevel && this.horizontalCollision && serverLevel.getGameRules().get(GameRules.MOB_GRIEFING)) {
++            if (this.level() instanceof ServerLevel serverLevel && this.horizontalCollision && net.neoforged.neoforge.event.EventHooks.canEntityGrief(serverLevel, this)) {
+                 boolean destroyedBlock = false;
+                 AABB bb = this.getBoundingBox().inflate(0.2);
+ 
+@@ -152,13 +_,20 @@
+                 )) {
+                     BlockState state = serverLevel.getBlockState(pos);
+                     Block block = state.getBlock();
+-                    if (block instanceof LeavesBlock) {
++                    if (this.level().purpurConfig.ravagerGriefableBlocks.contains(block)) { // Purpur - Configurable ravager griefable blocks list
++                        // CraftBukkit start
++                        if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityChangeBlockEvent(this, pos, state.getFluidState().createLegacyBlock())) { // Paper - fix wrong block state
++                            continue;
++                        }
++                        // CraftBukkit end
+                         destroyedBlock = serverLevel.destroyBlock(pos, true, this) || destroyedBlock;
+                     }
+                 }
+ 
+                 if (!destroyedBlock && this.onGround()) {
++                    if (new com.destroystokyo.paper.event.entity.EntityJumpEvent(getBukkitLivingEntity()).callEvent()) { // Paper - Entity Jump API
+                     this.jumpFromGround();
++                    } else { this.setJumping(false); } // Paper - Entity Jump API; setJumping(false) stops a potential loop
+                 }
+             }
+ 
+@@ -222,9 +_,9 @@
+ 
+     private void roar() {
+         if (this.isAlive() && this.level() instanceof ServerLevel level) {
+-            Predicate<Entity> targetSelector = level.getGameRules().get(GameRules.MOB_GRIEFING) ? ROAR_TARGET_WITH_GRIEFING : ROAR_TARGET_WITHOUT_GRIEFING;
++            Predicate<Entity> predicate = net.neoforged.neoforge.event.EventHooks.canEntityGrief(level, this) ? ROAR_TARGET_WITH_GRIEFING : ROAR_TARGET_WITHOUT_GRIEFING;
+ 
+-            for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(4.0), targetSelector)) {
++            for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(4.0), predicate)) {
+                 if (!(entity instanceof AbstractIllager)) {
+                     entity.hurtServer(level, this.damageSources().mobAttack(this), 6.0F);
+                 }
+@@ -249,7 +_,7 @@
+         double xd = entity.getX() - this.getX();
+         double zd = entity.getZ() - this.getZ();
+         double dd = Math.max(xd * xd + zd * zd, 0.001);
+-        entity.push(xd / dd * 4.0, 0.2, zd / dd * 4.0);
++        entity.push(xd / dd * 4.0, 0.2, zd / dd * 4.0, this); // Paper - Add EntityKnockbackByEntityEvent and EntityPushedByEntityAttackEvent
+     }
+ 
+     @Override

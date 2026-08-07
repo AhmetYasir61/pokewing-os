@@ -1,0 +1,30 @@
+--- a/net/minecraft/world/entity/animal/frog/Frog.java
++++ b/net/minecraft/world/entity/animal/frog/Frog.java
+@@ -84,6 +_,13 @@
+     public final AnimationState tongueAnimationState = new AnimationState();
+     public final AnimationState swimIdleAnimationState = new AnimationState();
+ 
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.frogBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
+     public Frog(EntityType<? extends Animal> type, Level level) {
+         super(type, level);
+         this.lookControl = new Frog.FrogLookControl(this);
+@@ -254,7 +_,12 @@
+ 
+     @Override
+     public void spawnChildFromBreeding(ServerLevel level, Animal partner) {
+-        this.finalizeSpawnChildFromBreeding(level, partner, null);
++        // Paper start - Add EntityFertilizeEggEvent event
++        final io.papermc.paper.event.entity.EntityFertilizeEggEvent result = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityFertilizeEggEvent(this, partner);
++        if (result.isCancelled()) return;
++
++        this.finalizeSpawnChildFromBreeding(level, partner, null, result.getExperience()); // Paper - use craftbukkit call that takes experience amount
++        // Paper end - Add EntityFertilizeEggEvent event
+         this.getBrain().setMemory(MemoryModuleType.IS_PREGNANT, Unit.INSTANCE);
+     }
+ 

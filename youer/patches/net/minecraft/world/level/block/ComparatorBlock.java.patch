@@ -1,0 +1,40 @@
+--- a/net/minecraft/world/level/block/ComparatorBlock.java
++++ b/net/minecraft/world/level/block/ComparatorBlock.java
+@@ -168,8 +_,18 @@
+             boolean sourceOn = this.shouldTurnOn(level, pos, state);
+             boolean isOn = state.getValue(POWERED);
+             if (isOn && !sourceOn) {
++                // Paper start - Call BlockRedstoneEvent
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, false)) {
++                    return;
++                }
++                // Paper end - Call BlockRedstoneEvent
+                 level.setBlock(pos, state.setValue(POWERED, false), 2);
+             } else if (!isOn && sourceOn) {
++                // Paper start - Call BlockRedstoneEvent
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, true)) {
++                    return;
++                }
++                // Paper end - Call BlockRedstoneEvent
+                 level.setBlock(pos, state.setValue(POWERED, true), 2);
+             }
+ 
+@@ -197,5 +_,18 @@
+     @Override
+     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+         builder.add(FACING, MODE, POWERED);
++    }
++
++    @Override
++    public boolean getWeakChanges(BlockState state, net.minecraft.world.level.LevelReader world, BlockPos pos) {
++        return state.is(Blocks.COMPARATOR);
++    }
++
++    @Override
++    public void onNeighborChange(BlockState state, net.minecraft.world.level.LevelReader levelReader, BlockPos pos, BlockPos neighbor) {
++        if (pos.getY() == neighbor.getY() && levelReader instanceof Level level && !levelReader.isClientSide()) {
++            // TODO porting: check this still works as expected
++            state.handleNeighborChanged(level, pos, levelReader.getBlockState(neighbor).getBlock(), null, false);
++        }
+     }
+ }

@@ -1,0 +1,60 @@
+--- a/net/minecraft/world/level/block/DetectorRailBlock.java
++++ b/net/minecraft/world/level/block/DetectorRailBlock.java
+@@ -25,6 +_,7 @@
+ import net.minecraft.world.level.block.state.properties.Property;
+ import net.minecraft.world.level.block.state.properties.RailShape;
+ import net.minecraft.world.phys.AABB;
++import org.bukkit.event.block.BlockRedstoneEvent;
+ 
+ public class DetectorRailBlock extends BaseRailBlock {
+     public static final MapCodec<DetectorRailBlock> CODEC = simpleCodec(DetectorRailBlock::new);
+@@ -39,6 +_,10 @@
+ 
+     public DetectorRailBlock(BlockBehaviour.Properties properties) {
+         super(true, properties);
++        this.registerDefaultState();
++    }
++
++    protected void registerDefaultState() {
+         this.registerDefaultState(this.stateDefinition.any().setValue(POWERED, false).setValue(SHAPE, RailShape.NORTH_SOUTH).setValue(WATERLOGGED, false));
+     }
+ 
+@@ -54,6 +_,7 @@
+ 
+     @Override
+     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
++        if (!new io.papermc.paper.event.entity.EntityInsideBlockEvent(entity.getBukkitEntity(), org.bukkit.craftbukkit.block.CraftBlock.at(level, pos)).callEvent()) { return; } // Paper - Add EntityInsideBlockEvent
+         if (!level.isClientSide()) {
+             if (!state.getValue(POWERED)) {
+                 this.checkPressed(level, pos, state);
+@@ -79,6 +_,7 @@
+ 
+     private void checkPressed(Level level, BlockPos pos, BlockState state) {
+         if (this.canSurvive(state, level, pos)) {
++            if (!state.is(this)) { return; } // Paper - Fix some rails connecting improperly
+             boolean wasPressed = state.getValue(POWERED);
+             boolean shouldBePressed = false;
+             List<AbstractMinecart> entities = this.getInteractingMinecartOfType(level, pos, AbstractMinecart.class, e -> true);
+@@ -86,6 +_,14 @@
+                 shouldBePressed = true;
+             }
+ 
++            // Paper start - Call BlockRedstoneEvent
++            if (wasPressed != shouldBePressed) {
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, shouldBePressed)) {
++                    return;
++                }
++            }
++            // Paper end - Call BlockRedstoneEvent
++
+             if (shouldBePressed && !wasPressed) {
+                 BlockState newState = state.setValue(POWERED, true);
+                 level.setBlock(pos, newState, 3);
+@@ -183,6 +_,6 @@
+ 
+     @Override
+     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+-        builder.add(SHAPE, POWERED, WATERLOGGED);
++        builder.add(getShapeProperty(), POWERED, WATERLOGGED);
+     }
+ }

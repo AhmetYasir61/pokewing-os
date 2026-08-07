@@ -1,0 +1,67 @@
+--- a/net/minecraft/world/entity/monster/Ghast.java
++++ b/net/minecraft/world/entity/monster/Ghast.java
+@@ -52,6 +_,28 @@
+         this.moveControl = new Ghast.GhastMoveControl<>(this, false, () -> false);
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.ghastTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.ghastMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.ghastScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.ghastAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
+         this.goalSelector.addGoal(5, new Ghast.RandomFloatAroundGoal(this));
+@@ -73,6 +_,12 @@
+         return this.explosionPower;
+     }
+ 
++    // Paper start
++    public void setExplosionPower(int explosionPower) {
++        this.explosionPower = explosionPower;
++    }
++    // Paper end
++
+     private static boolean isReflectedFireball(DamageSource source) {
+         return source.getDirectEntity() instanceof LargeFireball && source.getEntity() instanceof Player;
+     }
+@@ -146,7 +_,12 @@
+         return 5.0F;
+     }
+ 
+-    public static boolean checkGhastSpawnRules(EntityType<Ghast> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random) {
++    public static boolean checkGhastSpawnRules(EntityType<? extends Ghast> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random) {
++        // Purpur start - Config to disable hostile mob spawn on ice
++        if (net.minecraft.world.entity.monster.Monster.canSpawnInBlueAndPackedIce(level, pos)) {
++            return false;
++        }
++        // Purpur end - Config to disable hostile mob spawn on ice
+         return level.getDifficulty() != Difficulty.PEACEFUL && random.nextInt(20) == 0 && checkMobSpawnRules(type, level, spawnReason, pos, random);
+     }
+ 
+@@ -367,6 +_,8 @@
+                         }
+ 
+                         LargeFireball entity = new LargeFireball(level, this.ghast, direction.normalize(), this.ghast.getExplosionPower());
++                        // CraftBukkit - set bukkitYield when setting explosionpower
++                        entity.bukkitYield = entity.explosionPower = this.ghast.getExplosionPower();
+                         entity.setPos(this.ghast.getX() + viewVector.x * 4.0, this.ghast.getY(0.5) + 0.5, entity.getZ() + viewVector.z * 4.0);
+                         level.addFreshEntity(entity);
+                         this.chargeTime = -40;

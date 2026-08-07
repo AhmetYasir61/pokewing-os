@@ -1,0 +1,466 @@
+--- a/net/minecraft/server/level/ServerPlayerGameMode.java
++++ b/net/minecraft/server/level/ServerPlayerGameMode.java
+@@ -1,5 +_,7 @@
+ package net.minecraft.server.level;
+ 
++import com.mohistmc.youer.feature.ban.bans.BanBlock;
++import com.mohistmc.youer.feature.ban.bans.BanItem;
+ import com.mojang.logging.LogUtils;
+ import java.util.List;
+ import java.util.Objects;
+@@ -22,12 +_,16 @@
+ import net.minecraft.world.level.GameType;
+ import net.minecraft.world.level.Level;
+ import net.minecraft.world.level.block.Block;
++import net.minecraft.world.level.block.Blocks;
++import net.minecraft.world.level.block.CakeBlock;
+ import net.minecraft.world.level.block.GameMasterBlock;
+ import net.minecraft.world.level.block.entity.BlockEntity;
+ import net.minecraft.world.level.block.state.BlockState;
+ import net.minecraft.world.phys.BlockHitResult;
+ import net.minecraft.world.phys.Vec3;
+ import net.minecraft.world.phys.shapes.VoxelShape;
++import org.bukkit.event.Event;
++import org.bukkit.event.player.PlayerInteractEvent;
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
+ 
+@@ -42,21 +_,41 @@
+     private int destroyProgressStart;
+     private BlockPos destroyPos = BlockPos.ZERO;
+     private int gameTicks;
+-    private boolean hasDelayedDestroy;
++    public boolean hasDelayedDestroy;
+     private BlockPos delayedDestroyPos = BlockPos.ZERO;
+     private int delayedTickStart;
+     private int lastSentState = -1;
++    public boolean captureSentBlockEntities = false; // Paper - Send block entities after destroy prediction
++    public boolean capturedBlockEntity = false; // Paper - Send block entities after destroy prediction
+ 
+     public ServerPlayerGameMode(ServerPlayer player) {
+         this.player = player;
+         this.level = player.level();
+     }
+ 
++    @Deprecated @io.papermc.paper.annotation.DoNotUse // Paper
+     public boolean changeGameModeForPlayer(GameType gameModeForPlayer) {
++        // Paper start - Expand PlayerGameModeChangeEvent
++        org.bukkit.event.player.PlayerGameModeChangeEvent event = this.changeGameModeForPlayer(gameModeForPlayer, org.bukkit.event.player.PlayerGameModeChangeEvent.Cause.UNKNOWN, null);
++        return event != null && !event.isCancelled();
++    }
++
++    public org.bukkit.event.player.@Nullable PlayerGameModeChangeEvent changeGameModeForPlayer(final GameType gameModeForPlayer, final org.bukkit.event.player.PlayerGameModeChangeEvent.Cause playerGameModeChangeCause, final net.kyori.adventure.text.@Nullable Component cancelMessage) {
++        // Paper end - Expand PlayerGameModeChangeEvent
+         if (gameModeForPlayer == this.gameModeForPlayer) {
+-            return false;
+-        }
+-
++            return null; // Paper - Expand PlayerGameModeChangeEvent
++        }
++        // CraftBukkit start
++        org.bukkit.event.player.PlayerGameModeChangeEvent event = new org.bukkit.event.player.PlayerGameModeChangeEvent(
++                this.player.getBukkitEntity(),
++                org.bukkit.GameMode.getByValue(gameModeForPlayer.getId()),
++                playerGameModeChangeCause,
++                cancelMessage
++        );
++        if (!event.callEvent()) {
++            return event; // Paper - Expand PlayerGameModeChangeEvent
++        }
++        // CraftBukkit end
+         Abilities abilities = this.player.getAbilities();
+         this.setGameModeForPlayer(gameModeForPlayer, this.gameModeForPlayer);
+         if (abilities.flying && gameModeForPlayer != GameType.SPECTATOR && this.isInRangeOfGround()) {
+@@ -67,20 +_,23 @@
+         this.level
+             .getServer()
+             .getPlayerList()
+-            .broadcastAll(new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, this.player));
++            .broadcastAll(new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, this.player), this.player); // CraftBukkit
+         this.level.updateSleepingPlayerList();
+         if (gameModeForPlayer == GameType.CREATIVE) {
+             this.player.resetCurrentImpulseContext();
+         }
+ 
+-        return true;
++        return event; // Paper - Expand PlayerGameModeChangeEvent
+     }
+ 
+     protected void setGameModeForPlayer(GameType gameModeForPlayer, @Nullable GameType previousGameModeForPlayer) {
+         this.previousGameModeForPlayer = previousGameModeForPlayer;
+         this.gameModeForPlayer = gameModeForPlayer;
+         Abilities abilities = this.player.getAbilities();
++        // Neo: preserve flying state, removed on tick if Attribute or ability no longer applies
++        boolean wasFlying = abilities.flying;
+         gameModeForPlayer.updatePlayerAbilities(abilities);
++        abilities.flying = wasFlying || abilities.flying;
+     }
+ 
+     private boolean isInRangeOfGround() {
+@@ -105,10 +_,11 @@
+     }
+ 
+     public void tick() {
+-        this.gameTicks++;
++        // this.gameTicks = net.minecraft.server.MinecraftServer.currentTick; // CraftBukkit
++        this.gameTicks = (int) this.level.getLagCompensationTick(); // Paper - lag compensate eating
+         if (this.hasDelayedDestroy) {
+-            BlockState blockState = this.level.getBlockState(this.delayedDestroyPos);
+-            if (blockState.isAir()) {
++            BlockState blockState = this.level.getBlockStateIfLoaded(this.delayedDestroyPos); // Paper - Don't allow digging into unloaded chunks
++            if (blockState == null || blockState.isAir()) { // Paper - Don't allow digging into unloaded chunks
+                 this.hasDelayedDestroy = false;
+             } else {
+                 float destroyProgress = this.incrementDestroyProgress(blockState, this.delayedDestroyPos, this.delayedTickStart);
+@@ -118,7 +_,13 @@
+                 }
+             }
+         } else if (this.isDestroyingBlock) {
+-            BlockState blockState = this.level.getBlockState(this.destroyPos);
++            // Paper start - Don't allow digging into unloaded chunks; don't want to do same logic as above, return instead
++            BlockState blockState = this.level.getBlockStateIfLoaded(this.destroyPos);
++            if (blockState == null) {
++                this.isDestroyingBlock = false;
++                return;
++            }
++            // Paper end - Don't allow digging into unloaded chunks
+             if (blockState.isAir()) {
+                 this.level.destroyBlockProgress(this.player.getId(), this.destroyPos, -1);
+                 this.lastSentState = -1;
+@@ -148,7 +_,12 @@
+     }
+ 
+     public void handleBlockBreakAction(BlockPos pos, ServerboundPlayerActionPacket.Action action, Direction direction, int maxY, int sequence) {
++        net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event = net.neoforged.neoforge.common.CommonHooks.onLeftClickBlock(player, pos, direction, action);
++        if (event.isCanceled()) {
++            return;
++        }
+         if (!this.player.isWithinBlockInteractionRange(pos, 1.0)) {
++            if (true) return; // Paper - Don't allow digging into unloaded chunks; Don't notify if unreasonably far away
+             this.debugLogging(pos, false, sequence, "too far");
+         } else if (pos.getY() > maxY) {
+             this.player.connection.send(new ClientboundBlockUpdatePacket(pos, this.level.getBlockState(pos)));
+@@ -162,16 +_,35 @@
+                 }
+ 
+                 if (!this.level.mayInteract(this.player, pos)) {
++                    // CraftBukkit start - fire PlayerInteractEvent
++                    org.bukkit.craftbukkit.event.CraftEventFactory.callPlayerInteractEvent(this.player, org.bukkit.event.block.Action.LEFT_CLICK_BLOCK, pos, direction, this.player.getInventory().getSelectedItem(), InteractionHand.MAIN_HAND);
+                     this.player.connection.send(new ClientboundBlockUpdatePacket(pos, this.level.getBlockState(pos)));
+                     this.debugLogging(pos, false, sequence, "may not interact");
+-                    return;
+-                }
++                    this.capturedBlockEntity = true; // Paper - Send block entities after destroy prediction
++                    // CraftBukkit end
++                    return;
++                }
++
++                // CraftBukkit start
++                org.bukkit.event.player.PlayerInteractEvent bukkit_event = org.bukkit.craftbukkit.event.CraftEventFactory.callPlayerInteractEvent(this.player, org.bukkit.event.block.Action.LEFT_CLICK_BLOCK, pos, direction, this.player.getInventory().getSelectedItem(), InteractionHand.MAIN_HAND);
++                if (bukkit_event.isCancelled()) {
++                    this.capturedBlockEntity = true; // Paper - Send block entities after destroy prediction
++                    return;
++                }
++                // CraftBukkit end
+ 
+                 if (this.player.getAbilities().instabuild) {
+                     this.destroyAndAck(pos, sequence, "creative destroy");
+                     return;
+                 }
+ 
++                // Spigot start - handle debug stick left click for non-creative
++                if (this.player.getMainHandItem().is(net.minecraft.world.item.Items.DEBUG_STICK)
++                        && ((net.minecraft.world.item.DebugStickItem) net.minecraft.world.item.Items.DEBUG_STICK).handleInteraction(this.player, this.level.getBlockState(pos), this.level, pos, false, this.player.getMainHandItem())) {
++                    return;
++                }
++                // Spigot end
++
+                 if (this.player.blockActionRestricted(this.level, pos, this.gameModeForPlayer)) {
+                     this.player.connection.send(new ClientboundBlockUpdatePacket(pos, this.level.getBlockState(pos)));
+                     this.debugLogging(pos, false, sequence, "block action restricted");
+@@ -181,7 +_,7 @@
+                 this.destroyProgressStart = this.gameTicks;
+                 float progress = 1.0F;
+                 BlockState blockState = this.level.getBlockState(pos);
+-                if (!blockState.isAir()) {
++                if (bukkit_event.useInteractedBlock() != org.bukkit.event.Event.Result.DENY && !blockState.isAir()) { // Paper
+                     EnchantmentHelper.onHitBlock(
+                         this.level,
+                         this.player.getMainHandItem(),
+@@ -192,10 +_,28 @@
+                         blockState,
+                         item -> this.player.onEquippedItemBroken(item, EquipmentSlot.MAINHAND)
+                     );
++                    if (event.getUseBlock() != net.minecraft.util.TriState.FALSE)
+                     blockState.attack(this.level, pos, this.player);
+                     progress = blockState.getDestroyProgress(this.player, this.player.level(), pos);
+                 }
+ 
++                // CraftBukkit start
++                // Note that we don't need to resync blocks, block acks will handle it properly for everything but block entities already
++                if (bukkit_event.useItemInHand() == org.bukkit.event.Event.Result.DENY) {
++                    return;
++                }
++
++                org.bukkit.event.block.BlockDamageEvent blockEvent = org.bukkit.craftbukkit.event.CraftEventFactory.callBlockDamageEvent(this.player, pos, direction, this.player.getInventory().getSelectedItem(), progress >= 1.0f); // Paper - Add BlockFace to BlockDamageEvent
++
++                if (blockEvent.isCancelled()) {
++                    return;
++                }
++
++                if (blockEvent.getInstaBreak()) {
++                    progress = 2.0f;
++                }
++                // CraftBukkit end
++
+                 if (!blockState.isAir() && progress >= 1.0F) {
+                     this.destroyAndAck(pos, sequence, "insta mine");
+                 } else {
+@@ -236,16 +_,25 @@
+                 this.debugLogging(pos, true, sequence, "stopped destroying");
+             } else if (action == ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK) {
+                 this.isDestroyingBlock = false;
+-                if (!Objects.equals(this.destroyPos, pos)) {
+-                    LOGGER.warn("Mismatch in destroy block pos: {} {}", this.destroyPos, pos);
+-                    this.level.destroyBlockProgress(this.player.getId(), this.destroyPos, -1);
+-                    this.debugLogging(pos, true, sequence, "aborted mismatched destroying");
++                // Paper start - Don't allow digging into unloaded chunks
++                if (!Objects.equals(this.destroyPos, pos) && !BlockPos.ZERO.equals(this.destroyPos)) { // Paper
++                    ServerPlayerGameMode.LOGGER.debug("Mismatch in destroy block pos: {} {}", this.destroyPos, pos); // CraftBukkit - SPIGOT-5457 sent by client when interact event cancelled
++                    BlockState destroyState = this.level.getBlockStateIfLoaded(this.destroyPos); // Don't load unloaded chunks for stale records here
++                    if (destroyState != null) {
++                        this.level.destroyBlockProgress(this.player.getId(), this.destroyPos, -1);
++                        this.debugLogging(pos, true, sequence, "aborted mismatched destroying");
++                    }
++                    this.destroyPos = BlockPos.ZERO;
++                    // Paper end - Don't allow digging into unloaded chunks
+                 }
+ 
+                 this.level.destroyBlockProgress(this.player.getId(), pos, -1);
+                 this.debugLogging(pos, true, sequence, "aborted destroying");
++
++                org.bukkit.craftbukkit.event.CraftEventFactory.callBlockDamageAbortEvent(this.player, pos, this.player.getInventory().getSelectedItem()); // CraftBukkit
+             }
+         }
++        this.level.chunkPacketBlockController.onPlayerLeftClickBlock(this.level, pos, action, direction, maxY, sequence); // Paper - Anti-Xray
+     }
+ 
+     public void destroyAndAck(BlockPos pos, int sequence, String exitId) {
+@@ -258,8 +_,12 @@
+     }
+ 
+     public boolean destroyBlock(BlockPos pos) {
++        // Neo: Fire the BlockBreakEvent, and ignore the original ItemStack#canDestroyBlock check since the break event manages the status of it.
+         BlockState state = this.level.getBlockState(pos);
+-        if (!this.player.getMainHandItem().canDestroyBlock(state, this.level, pos, this.player)) {
++        if (BanBlock.check(state)) return false; // Youer
++        if (BanItem.check(this.player)) return false; // Youer
++        var event = net.neoforged.neoforge.common.CommonHooks.fireBlockBreak(level, gameModeForPlayer, player, pos, state);
++        if (event.isCanceled()) {
+             return false;
+         }
+ 
+@@ -275,28 +_,44 @@
+         }
+ 
+         BlockState adjustedState = block.playerWillDestroy(this.level, pos, state, this.player);
+-        boolean changed = this.level.removeBlock(pos, false);
+-        if (SharedConstants.DEBUG_BLOCK_BREAK) {
+-            LOGGER.info("server broke {} {} -> {}", pos, adjustedState, this.level.getBlockState(pos));
+-        }
+-
+-        if (changed) {
+-            block.destroy(this.level, pos, adjustedState);
+-        }
+ 
+         if (this.player.preventsBlockDrops()) {
++            removeBlock(pos, adjustedState, false, player.getMainHandItem().copy());
+             return true;
+         }
+ 
+         ItemStack itemStack = this.player.getMainHandItem();
+         ItemStack destroyedWith = itemStack.copy();
+-        boolean canDestroy = this.player.hasCorrectToolForDrops(adjustedState);
++        boolean canDestroy = adjustedState.canHarvestBlock(this.level, pos, this.player); // previously player.hasCorrectToolForDrops(blockstate)
+         itemStack.mineBlock(this.level, adjustedState, pos, this.player);
++        boolean changed = removeBlock(pos, adjustedState, canDestroy, destroyedWith.copy());
++
+         if (changed && canDestroy) {
+             block.playerDestroy(this.level, this.player, pos, adjustedState, blockEntity, destroyedWith);
+         }
+ 
++        // Neo: Fire the PlayerDestroyItemEvent if the tool was broken at any point during the break process
++        if (itemStack.isEmpty() && !destroyedWith.isEmpty()) {
++            net.neoforged.neoforge.event.EventHooks.onPlayerDestroyItem(this.player, destroyedWith, InteractionHand.MAIN_HAND);
++        }
++
+         return true;
++    }
++
++    /**
++     * Neo: Patched-in method that handles actual removal of blocks for {@link #destroyBlock(BlockPos)}.
++     *
++     * @param pos The block pos of the destroyed block
++     * @param state The state of the destroyed block
++     * @param canHarvest If the player breaking the block can harvest the drops of the block
++     * @param toolStack The players main-hand prior to destroying the block and applying damage to the tool.
++     * @return If the block was removed, as reported by {@link BlockState#onDestroyedByPlayer}.
++     */
++    private boolean removeBlock(BlockPos pos, BlockState state, boolean canHarvest, ItemStack toolStack) {
++        boolean removed = state.onDestroyedByPlayer(this.level, pos, this.player, toolStack, canHarvest, this.level.getFluidState(pos));
++        if (removed)
++            state.getBlock().destroy(this.level, pos, state);
++        return removed;
+     }
+ 
+     public InteractionResult useItem(ServerPlayer player, Level level, ItemStack itemStack, InteractionHand hand) {
+@@ -308,8 +_,12 @@
+             return InteractionResult.PASS;
+         }
+ 
++        InteractionResult cancelResult = net.neoforged.neoforge.common.CommonHooks.onItemRightClick(player, hand);
++        if (cancelResult != null) return cancelResult;
++
+         int oldCount = itemStack.getCount();
+         int oldDamage = itemStack.getDamageValue();
++        final ItemStack stackBeforeUse = itemStack.copy(); // Paper - Store stack before use for interact prediction check
+         InteractionResult result = itemStack.use(level, player, hand);
+         ItemStack resultStack;
+         if (result instanceof InteractionResult.Success success) {
+@@ -338,32 +_,75 @@
+         }
+ 
+         if (!player.isUsingItem()) {
+-            player.inventoryMenu.sendAllDataToRemote();
++            // Paper start - Optimize sendAllDataToRemote calls
++            // This is a weird one where the Vanilla behavior is from an ancient version, but also isn't calling startUsingItem on certain instant-use items
++            // TODO Check up on this proper, possibly remove all and move into more specific places
++            if (io.papermc.paper.util.MCUtil.clientPredictsInteraction(player, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), stackBeforeUse)) {
++                player.inventoryMenu.forceHeldSlot(hand);
++            }
++            player.inventoryMenu.broadcastChanges();
++            // Paper end - Optimize sendAllDataToRemote calls
+         }
+ 
+         return result;
+     }
+ 
++
++    // CraftBukkit start - whole method
++    public boolean interactResult = false;
++    public boolean firedInteract = false;
++    public BlockPos interactPosition;
++    public InteractionHand interactHand;
++    public ItemStack interactItemStack;
+     public InteractionResult useItemOn(ServerPlayer player, Level level, ItemStack itemStack, InteractionHand hand, BlockHitResult hitResult) {
++        if (BanItem.checkMoShou(player, itemStack)) {
++            player.setItemInHand(hand, ItemStack.EMPTY);
++            return InteractionResult.FAIL;
++        }
++        if (BanItem.check(player, itemStack)) return InteractionResult.FAIL;
++        if (shiftClickMended(itemStack)) return InteractionResult.SUCCESS; // Purpur - Shift right click to use exp for mending
+         BlockPos pos = hitResult.getBlockPos();
+         BlockState state = level.getBlockState(pos);
++        if (BanBlock.check(state) || BanItem.check(player, state.getBlock().asItem().getDefaultInstance())) {
++            callUseItemOn(state); // Youer
++            return InteractionResult.FAIL;
++        }
++        boolean cancelledBlock = false;
++        boolean cancelledItem = false; // Paper - correctly handle items on cooldown
+         if (!state.getBlock().isEnabled(level.enabledFeatures())) {
+             return InteractionResult.FAIL;
+         }
+ 
+-        if (this.gameModeForPlayer == GameType.SPECTATOR) {
++        net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock event = net.neoforged.neoforge.common.CommonHooks.onRightClickBlock(player, hand, pos, hitResult);
++        if (event.isCanceled()) return event.getCancellationResult();
++
++        PlayerInteractEvent bukkitevent = org.bukkit.craftbukkit.event.CraftEventFactory.callPlayerInteractEvent(player, org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK, pos, hitResult.getDirection(), itemStack, cancelledBlock, cancelledItem, hand, hitResult.getLocation()); // Paper - correctly handle items on cooldown
++        this.firedInteract = true;
++        this.interactResult = bukkitevent.useItemInHand() == org.bukkit.event.Event.Result.DENY;
++        this.interactPosition = pos.immutable();
++        this.interactHand = hand;
++        this.interactItemStack = itemStack.copy();
++
++        if (bukkitevent.useInteractedBlock() == Event.Result.DENY) {
++            callUseItemOn(state); // Youer
++            return (bukkitevent.useItemInHand() != Event.Result.ALLOW) ? InteractionResult.SUCCESS : InteractionResult.PASS;
++        } else if (this.gameModeForPlayer == GameType.SPECTATOR) {
+             MenuProvider menuProvider = state.getMenuProvider(level, pos);
+-            if (menuProvider != null) {
+-                player.openMenu(menuProvider);
+-                return InteractionResult.CONSUME;
++            if (menuProvider != null && player.openMenu(menuProvider).isPresent()) { // Paper - Fix InventoryOpenEvent cancellation
++                return InteractionResult.SUCCESS;
+             } else {
+                 return InteractionResult.PASS;
+             }
+         } else {
++            UseOnContext context = new UseOnContext(player, hand, hitResult);
++            if (event.getUseItem() != net.minecraft.util.TriState.FALSE) {
++                InteractionResult result = itemStack.onItemUseFirst(context);
++                if (result != InteractionResult.PASS) return result;
++            }
+             boolean haveSomethingInOurHands = !player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty();
+-            boolean suppressUsingBlock = player.isSecondaryUseActive() && haveSomethingInOurHands;
++            boolean suppressUsingBlock = (player.isSecondaryUseActive() && haveSomethingInOurHands) && !(player.getMainHandItem().doesSneakBypassUse(level, pos, player) && player.getOffhandItem().doesSneakBypassUse(level, pos, player));
+             ItemStack usedItemStack = itemStack.copy();
+-            if (!suppressUsingBlock) {
++            if (event.getUseBlock().isTrue() || (event.getUseBlock().isDefault() && (!suppressUsingBlock || (player.level().purpurConfig.composterBulkProcess && state.is(net.minecraft.world.level.block.Blocks.COMPOSTER))))) { // Purpur - Sneak to bulk process composter
+                 InteractionResult itemUse = state.useItemOn(player.getItemInHand(hand), level, player, hand, hitResult);
+                 if (itemUse.consumesAction()) {
+                     CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger(player, pos, usedItemStack);
+@@ -379,8 +_,8 @@
+                 }
+             }
+ 
+-            if (!itemStack.isEmpty() && !player.getCooldowns().isOnCooldown(itemStack)) {
+-                UseOnContext context = new UseOnContext(player, hand, hitResult);
++            if (event.getUseItem().isTrue() || (!itemStack.isEmpty() && !this.interactResult)) { // add !interactResult SPIGOT-764
++                if (event.getUseItem().isFalse()) return InteractionResult.PASS;
+                 InteractionResult success;
+                 if (player.hasInfiniteMaterials()) {
+                     int count = itemStack.getCount();
+@@ -396,6 +_,11 @@
+ 
+                 return success;
+             } else {
++                // Paper start - Properly cancel usable items; Cancel only if cancelled + if the interact result is different from default response
++                if (this.interactResult && this.interactResult != cancelledItem) {
++                    this.player.resyncUsingItem(this.player);
++                }
++                // Paper end - Properly cancel usable items
+                 return InteractionResult.PASS;
+             }
+         }
+@@ -404,4 +_,30 @@
+     public void setLevel(ServerLevel newLevel) {
+         this.level = newLevel;
+     }
++
++    public void callUseItemOn(BlockState blockstate) {
++        // Paper start - Don't resync blocks
++        if (blockstate.getBlock() instanceof CakeBlock) {
++            player.getBukkitEntity().sendHealthUpdate(); // SPIGOT-1341 - reset health for cake
++        } else if (blockstate.is(Blocks.JIGSAW) || blockstate.is(Blocks.STRUCTURE_BLOCK) || blockstate.getBlock() instanceof net.minecraft.world.level.block.CommandBlock) {
++            player.connection.send(new net.minecraft.network.protocol.game.ClientboundContainerClosePacket(this.player.containerMenu.containerId));
++        }
++        // Paper end - extend Player Interact cancellation
++        player.getBukkitEntity().updateInventory(); // SPIGOT-2867
++        this.player.resyncUsingItem(this.player); // Paper - Properly cancel usable items
++    }
++
++    // Purpur start - Shift right click to use exp for mending
++    public boolean shiftClickMended(ItemStack itemstack) {
++        if (this.player.level().purpurConfig.shiftRightClickRepairsMendingPoints > 0 && this.player.isShiftKeyDown() && this.player.getBukkitEntity().hasPermission("purpur.mending_shift_click")) {
++            int points = Math.min(this.player.totalExperience, this.player.level().purpurConfig.shiftRightClickRepairsMendingPoints);
++            if (points > 0 && itemstack.isDamaged() && net.minecraft.world.item.enchantment.EnchantmentHelper.getItemEnchantmentLevel(net.minecraft.world.item.enchantment.Enchantments.MENDING, itemstack) > 0) {
++                this.player.giveExperiencePoints(itemstack.getDamageValue() == 1 ? -2 : -points);
++                this.player.level().addFreshEntity(new net.minecraft.world.entity.ExperienceOrb(this.player.level(), this.player.getX(), this.player.getY(), this.player.getZ(), itemstack.getDamageValue() == 1 ? 1 : points, org.bukkit.entity.ExperienceOrb.SpawnReason.UNKNOWN, this.player, this.player));
++                return true;
++            }
++        }
++        return false;
++    }
++    // Purpur end - Shift right click to use exp for mending
+ }

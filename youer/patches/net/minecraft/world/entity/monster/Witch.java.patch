@@ -1,0 +1,141 @@
+--- a/net/minecraft/world/entity/monster/Witch.java
++++ b/net/minecraft/world/entity/monster/Witch.java
+@@ -57,6 +_,28 @@
+         super(type, level);
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.witchTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.witchAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.witchMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.witchScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
+     @Override
+     protected void registerGoals() {
+         super.registerGoals();
+@@ -123,8 +_,14 @@
+                     ItemStack itemStack = this.getMainHandItem();
+                     this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+                     PotionContents potion = itemStack.get(DataComponents.POTION_CONTENTS);
++                    // Paper start - WitchConsumePotionEvent
++                    if (itemStack.is(Items.POTION)) {
++                        com.destroystokyo.paper.event.entity.WitchConsumePotionEvent event = new com.destroystokyo.paper.event.entity.WitchConsumePotionEvent((org.bukkit.entity.Witch) this.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemStack));
++                        potion = event.callEvent() ? org.bukkit.craftbukkit.inventory.CraftItemStack.unwrap(event.getPotion()).get(DataComponents.POTION_CONTENTS) : null;
++                    }
++                    // Paper end - WitchConsumePotionEvent
+                     if (itemStack.is(Items.POTION) && potion != null) {
+-                        potion.forEachEffect(this::addEffect, itemStack.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0F));
++                        potion.forEachEffect(effect -> this.addEffect(effect, org.bukkit.event.entity.EntityPotionEffectEvent.Cause.ATTACK), itemStack.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0F)); // CraftBukkit
+                     }
+ 
+                     this.gameEvent(GameEvent.DRINK);
+@@ -132,7 +_,7 @@
+                 }
+             } else {
+                 Holder<Potion> potion = null;
+-                if (this.random.nextFloat() < 0.15F && this.isEyeInFluid(FluidTags.WATER) && !this.hasEffect(MobEffects.WATER_BREATHING)) {
++                if (this.random.nextFloat() < 0.15F && this.getFluidInteraction().isEyeInFluidMatching(this, (entity, type, _) -> entity.canDrownInFluidType(type)) && !this.hasEffect(MobEffects.WATER_BREATHING)) {
+                     potion = Potions.WATER_BREATHING;
+                 } else if (this.random.nextFloat() < 0.15F
+                     && (this.isOnFire() || this.getLastDamageSource() != null && this.getLastDamageSource().is(DamageTypeTags.IS_FIRE))
+@@ -148,26 +_,7 @@
+                 }
+ 
+                 if (potion != null) {
+-                    this.setItemSlot(EquipmentSlot.MAINHAND, PotionContents.createItemStack(Items.POTION, potion));
+-                    this.usingTime = this.getMainHandItem().getUseDuration(this);
+-                    this.setUsingItem(true);
+-                    if (!this.isSilent()) {
+-                        this.level()
+-                            .playSound(
+-                                null,
+-                                this.getX(),
+-                                this.getY(),
+-                                this.getZ(),
+-                                SoundEvents.WITCH_DRINK,
+-                                this.getSoundSource(),
+-                                1.0F,
+-                                0.8F + this.random.nextFloat() * 0.4F
+-                            );
+-                    }
+-
+-                    AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
+-                    speed.removeModifier(SPEED_MODIFIER_DRINKING_ID);
+-                    speed.addTransientModifier(SPEED_MODIFIER_DRINKING);
++                    this.setDrinkingPotion(PotionContents.createItemStack(Items.POTION, potion)); // Paper - logic moved into setDrinkingPotion, copy exact impl into the method and then comment out
+                 }
+             }
+ 
+@@ -179,6 +_,23 @@
+         super.aiStep();
+     }
+ 
++    // Paper start - moved to its own method
++    public void setDrinkingPotion(ItemStack potion) {
++        potion = org.bukkit.craftbukkit.event.CraftEventFactory.handleWitchReadyPotionEvent(this, potion);
++        this.setItemSlot(EquipmentSlot.MAINHAND, potion);
++        this.usingTime = this.getMainHandItem().getUseDuration(this);
++        this.setUsingItem(true);
++        if (!this.isSilent()) {
++            this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.WITCH_DRINK, this.getSoundSource(), 1.0F, 0.8F + this.random.nextFloat() * 0.4F);
++        }
++
++        AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
++
++        speed.removeModifier(Witch.SPEED_MODIFIER_DRINKING_ID);
++        speed.addTransientModifier(Witch.SPEED_MODIFIER_DRINKING);
++    }
++    // Paper end
++
+     @Override
+     public SoundEvent getCelebrateSound() {
+         return SoundEvents.WITCH_CELEBRATE;
+@@ -205,13 +_,14 @@
+     }
+ 
+     @Override
+-    protected float getDamageAfterMagicAbsorb(DamageSource damageSource, float damage) {
++    public float getDamageAfterMagicAbsorb(DamageSource damageSource, float damage) {
+         damage = super.getDamageAfterMagicAbsorb(damageSource, damage);
+         if (damageSource.getEntity() == this) {
++            this.damageContainers.peek().setReduction(net.neoforged.neoforge.common.damagesource.DamageContainer.Reduction.INNATE_RESISTANCE, damage);
+             damage = 0.0F;
+-        }
+-
+-        if (damageSource.is(DamageTypeTags.WITCH_RESISTANT_TO)) {
++            // Neo: Join the two ifs; if the first one runs (reducing damage to 0), the second one (reducing damage by 15%) effectively does nothing
++        } else if (damageSource.is(DamageTypeTags.WITCH_RESISTANT_TO)) {
++            this.damageContainers.peek().setReduction(net.neoforged.neoforge.common.damagesource.DamageContainer.Reduction.INNATE_RESISTANCE, damage * 0.85F);
+             damage *= 0.15F;
+         }
+ 
+@@ -245,6 +_,13 @@
+ 
+             if (this.level() instanceof ServerLevel serverLevel) {
+                 ItemStack itemStack = PotionContents.createItemStack(Items.SPLASH_POTION, potion);
++                // Paper start - WitchThrowPotionEvent
++                com.destroystokyo.paper.event.entity.WitchThrowPotionEvent event = new com.destroystokyo.paper.event.entity.WitchThrowPotionEvent((org.bukkit.entity.Witch) this.getBukkitEntity(), (org.bukkit.entity.LivingEntity) target.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemStack));
++                if (!event.callEvent()) {
++                    return;
++                }
++                itemStack = org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(event.getPotion());
++                // Paper end - WitchThrowPotionEven
+                 Projectile.spawnProjectileUsingShoot(
+                     ThrownSplashPotion::new, serverLevel, itemStack, this, xd, yd + dist * 0.2, zd, dist <= 2.0 ? 0.45F : 0.75F, 8.0F
+                 );

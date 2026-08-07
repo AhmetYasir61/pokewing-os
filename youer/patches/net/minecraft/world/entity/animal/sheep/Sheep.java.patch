@@ -1,0 +1,141 @@
+--- a/net/minecraft/world/entity/animal/sheep/Sheep.java
++++ b/net/minecraft/world/entity/animal/sheep/Sheep.java
+@@ -53,6 +_,7 @@
+ import net.minecraft.world.level.storage.ValueInput;
+ import net.minecraft.world.level.storage.ValueOutput;
+ import net.minecraft.world.level.storage.loot.BuiltInLootTables;
++import org.bukkit.event.entity.SheepRegrowWoolEvent;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class Sheep extends Animal implements Shearable {
+@@ -66,10 +_,39 @@
+     private int eatAnimationTick;
+     private EatBlockGoal eatBlockGoal;
+ 
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.sheepBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
+     public Sheep(EntityType<? extends Sheep> type, Level level) {
+         super(type, level);
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.sheepTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.sheepMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.sheepScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.sheepAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
+         this.eatBlockGoal = new EatBlockGoal(this);
+@@ -145,9 +_,17 @@
+     @Override
+     public InteractionResult mobInteract(Player player, InteractionHand hand) {
+         ItemStack itemStack = player.getItemInHand(hand);
+-        if (itemStack.is(Items.SHEARS)) {
++        if (false && itemStack.is(Items.SHEARS)) { // Neo: Shear logic is handled by IShearable
+             if (this.level() instanceof ServerLevel level && this.readyForShearing()) {
+-                this.shear(level, SoundSource.PLAYERS, itemStack);
++                // Paper start - call PlayerShearEntityEvent
++                java.util.List<ItemStack> drops = this.generateDefaultDrops(level, itemStack);
++                org.bukkit.event.player.PlayerShearEntityEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.handlePlayerShearEntityEvent(player, this, itemStack, hand, drops);
++                if (event.isCancelled()) {
++                    return InteractionResult.PASS;
++                }
++                drops = org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(event.getDrops());
++                this.shear(level, SoundSource.PLAYERS, itemStack, drops);
++                // Paper end - call PlayerShearEntityEvent
+                 this.gameEvent(GameEvent.SHEAR, player);
+                 itemStack.hurtAndBreak(1, player, hand.asEquipmentSlot());
+                 return InteractionResult.SUCCESS_SERVER;
+@@ -160,27 +_,39 @@
+     }
+ 
+     @Override
+-    public void shear(ServerLevel level, SoundSource soundSource, ItemStack tool) {
++    public void shear(final ServerLevel level, final SoundSource soundSource, final ItemStack tool) {
++        // Paper start - custom shear drops
++        this.shear(level, soundSource, tool, this.generateDefaultDrops(level, tool));
++    }
++
++    @Override
++    public java.util.List<ItemStack> generateDefaultDrops(final ServerLevel level, final ItemStack tool) {
++        final java.util.List<ItemStack> drops = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>();
++        this.dropFromShearingLootTable(level, BuiltInLootTables.SHEAR_SHEEP, tool, (ignored, stack) -> {
++            for (int i = 0; i < stack.getCount(); ++i) drops.add(stack.copyWithCount(1));
++        });
++        return drops;
++    }
++
++    @Override
++    public void shear(final ServerLevel level, final SoundSource soundSource, final ItemStack tool, final java.util.List<ItemStack> drops) {
++        // Paper end - custom shear drops
+         level.playSound(null, this, SoundEvents.SHEEP_SHEAR, soundSource, 1.0F, 1.0F);
+-        this.dropFromShearingLootTable(
+-            level,
+-            BuiltInLootTables.SHEAR_SHEEP,
+-            tool,
+-            (l, drop) -> {
+-                for (int i = 0; i < drop.getCount(); i++) {
+-                    ItemEntity entity = this.spawnAtLocation(l, drop.copyWithCount(1), 1.0F);
+-                    if (entity != null) {
+-                        entity.setDeltaMovement(
+-                            entity.getDeltaMovement()
+-                                .add(
+-                                    (this.random.nextFloat() - this.random.nextFloat()) * 0.1F,
+-                                    this.random.nextFloat() * 0.05F,
+-                                    (this.random.nextFloat() - this.random.nextFloat()) * 0.1F
+-                                )
+-                        );
++        drops.forEach(itemStack -> { // Paper - custom drops - loop in generated default drops
++                    { // Paper - custom drops - loop in generated default drops
++                        ItemEntity entity = this.spawnAtLocation(level, itemStack, 1.0F); // Paper - custom drops - copy already done above
++                        if (entity != null) {
++                            entity.setDeltaMovement(
++                                    entity.getDeltaMovement()
++                                            .add(
++                                                    (this.random.nextFloat() - this.random.nextFloat()) * 0.1F,
++                                                    this.random.nextFloat() * 0.05F,
++                                                    (this.random.nextFloat() - this.random.nextFloat()) * 0.1F
++                                            )
++                            );
++                        }
+                     }
+                 }
+-            }
+         );
+         this.setSheared(true);
+     }
+@@ -290,6 +_,12 @@
+ 
+     @Override
+     public void ate() {
++        // CraftBukkit start
++        SheepRegrowWoolEvent event = new SheepRegrowWoolEvent((org.bukkit.entity.Sheep) this.getBukkitEntity());
++        this.level().getCraftServer().getPluginManager().callEvent(event);
++
++        if (event.isCancelled()) return;
++        // CraftBukkit end
+         super.ate();
+         this.setSheared(false);
+         if (this.canAgeUp()) {

@@ -1,0 +1,113 @@
+--- a/net/minecraft/world/level/block/CactusBlock.java
++++ b/net/minecraft/world/level/block/CactusBlock.java
+@@ -22,7 +_,7 @@
+ import net.minecraft.world.phys.shapes.CollisionContext;
+ import net.minecraft.world.phys.shapes.VoxelShape;
+ 
+-public class CactusBlock extends Block {
++public class CactusBlock extends Block implements BonemealableBlock { // Purpur - bonemealable cactus
+     public static final MapCodec<CactusBlock> CODEC = simpleCodec(CactusBlock::new);
+     public static final IntegerProperty AGE = BlockStateProperties.AGE_15;
+     public static final int MAX_AGE = 15;
+@@ -45,6 +_,7 @@
+ 
+     @Override
+     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
++        if (!level.isAreaLoaded(pos, 1)) return; // Forge: prevent growing cactus from loading unloaded chunks with block update
+         if (!state.canSurvive(level, pos)) {
+             level.destroyBlock(pos, true);
+         }
+@@ -57,19 +_,20 @@
+             int height = 1;
+             int age = state.getValue(AGE);
+ 
++            if(net.neoforged.neoforge.common.CommonHooks.canCropGrow(level, above, state, true)) {
+             while (level.getBlockState(pos.below(height)).is(this)) {
+-                if (++height == 3 && age == 15) {
++                if (++height == level.paperConfig().maxGrowthHeight.cactus && age == 15) { // Paper - Configurable cactus/bamboo/reed growth height
+                     return;
+                 }
+             }
+ 
+             if (age == 8 && this.canSurvive(this.defaultBlockState(), level, pos.above())) {
+-                double chanceToGrowFlower = height >= 3 ? 0.25 : 0.1;
++                double chanceToGrowFlower = height >= level.paperConfig().maxGrowthHeight.cactus ? 0.25 : 0.1; // Paper - Configurable cactus/bamboo/reed growth height
+                 if (random.nextDouble() <= chanceToGrowFlower) {
+-                    level.setBlockAndUpdate(above, Blocks.CACTUS_FLOWER.defaultBlockState());
++                    org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockGrowEvent(level, above, Blocks.CACTUS_FLOWER.defaultBlockState(), Block.UPDATE_ALL); // Paper - block grow event
+                 }
+-            } else if (age == 15 && height < 3) {
+-                level.setBlockAndUpdate(above, this.defaultBlockState());
++            } else if (age == 15 && height < level.paperConfig().maxGrowthHeight.cactus) { // Paper - Configurable cactus/bamboo/reed growth height
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockGrowEvent(level, above, this.defaultBlockState(), Block.UPDATE_ALL)) return; // Paper - block grow event
+                 BlockState aboveBlock = state.setValue(AGE, 0);
+                 level.setBlock(pos, aboveBlock, 260);
+                 level.neighborChanged(aboveBlock, above, this, null, false);
+@@ -78,6 +_,8 @@
+             if (age < 15) {
+                 level.setBlock(pos, state.setValue(AGE, age + 1), 260);
+             }
++            net.neoforged.neoforge.common.CommonHooks.fireCropGrowPost(level, pos, state);
++            }
+         }
+     }
+ 
+@@ -113,18 +_,21 @@
+     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
+         for (Direction direction : Direction.Plane.HORIZONTAL) {
+             BlockState neighbor = level.getBlockState(pos.relative(direction));
+-            if (neighbor.isSolid() || level.getFluidState(pos.relative(direction)).is(FluidTags.LAVA)) {
++            if ((level.getWorldBorder().world == null || level.getWorldBorder().world.purpurConfig.cactusBreaksFromSolidNeighbors) && neighbor.isSolid() || level.getFluidState(pos.relative(direction)).is(FluidTags.LAVA)) { // Purpur - Cactus breaks from solid neighbors config
+                 return false;
+             }
+         }
+ 
+         BlockState belowState = level.getBlockState(pos.below());
++        var soilDecision = belowState.canSustainPlant(level, pos.below(), Direction.UP, state);
++        if (!soilDecision.isDefault()) return soilDecision.isTrue();
+         return (belowState.is(this) || belowState.is(BlockTags.SUPPORTS_CACTUS)) && !level.getBlockState(pos.above()).liquid();
+     }
+ 
+     @Override
+     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
+-        entity.hurt(level.damageSources().cactus(), 1.0F);
++        if (!new io.papermc.paper.event.entity.EntityInsideBlockEvent(entity.getBukkitEntity(), org.bukkit.craftbukkit.block.CraftBlock.at(level, pos)).callEvent()) { return; } // Paper - Add EntityInsideBlockEvent
++        entity.hurt(level.damageSources().cactus().eventBlockDamager(level, pos), 1.0F); // CraftBukkit
+     }
+ 
+     @Override
+@@ -136,4 +_,34 @@
+     protected boolean isPathfindable(BlockState state, PathComputationType type) {
+         return false;
+     }
++
++    // Purpur start - bonemealable cactus
++    @Override
++    public boolean isValidBonemealTarget(final LevelReader world, final BlockPos pos, final BlockState state) {
++        if (!((Level) world).purpurConfig.cactusAffectedByBonemeal || !world.isEmptyBlock(pos.above())) return false;
++
++        int cactusHeight = 0;
++        while (world.getBlockState(pos.below(cactusHeight)).is(this)) {
++            cactusHeight++;
++        }
++
++        return cactusHeight < ((Level) world).paperConfig().maxGrowthHeight.cactus;
++    }
++
++    @Override
++    public boolean isBonemealSuccess(Level world, RandomSource random, BlockPos pos, BlockState state) {
++        return true;
++    }
++
++    @Override
++    public void performBonemeal(ServerLevel world, RandomSource random, BlockPos pos, BlockState state) {
++        int cactusHeight = 0;
++        while (world.getBlockState(pos.below(cactusHeight)).is(this)) {
++            cactusHeight++;
++        }
++        for (int i = 0; i <= world.paperConfig().maxGrowthHeight.cactus - cactusHeight; i++) {
++            world.setBlockAndUpdate(pos.above(i), state.setValue(CactusBlock.AGE, 0));
++        }
++    }
++    // Purpur end - bonemealable cactus
+ }

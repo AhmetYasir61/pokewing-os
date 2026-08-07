@@ -1,0 +1,63 @@
+--- a/net/minecraft/world/item/FireChargeItem.java
++++ b/net/minecraft/world/item/FireChargeItem.java
+@@ -12,12 +_,8 @@
+ import net.minecraft.world.item.context.UseOnContext;
+ import net.minecraft.world.level.Level;
+ import net.minecraft.world.level.block.BaseFireBlock;
+-import net.minecraft.world.level.block.CampfireBlock;
+-import net.minecraft.world.level.block.CandleBlock;
+-import net.minecraft.world.level.block.CandleCakeBlock;
+ import net.minecraft.world.level.block.DispenserBlock;
+ import net.minecraft.world.level.block.state.BlockState;
+-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+ import net.minecraft.world.level.gameevent.GameEvent;
+ import net.minecraft.world.phys.Vec3;
+ 
+@@ -32,17 +_,34 @@
+         BlockPos pos = context.getClickedPos();
+         BlockState blockState = level.getBlockState(pos);
+         boolean used = false;
+-        if (!CampfireBlock.canLight(blockState) && !CandleBlock.canLight(blockState) && !CandleCakeBlock.canLight(blockState)) {
++        BlockState blockstate2 = blockState.getToolModifiedState(context, net.neoforged.neoforge.common.ItemAbilities.FIRESTARTER_LIGHT, false);
++        if (blockstate2 == null) {
+             pos = pos.relative(context.getClickedFace());
+             if (BaseFireBlock.canBePlacedAt(level, pos, context.getHorizontalDirection())) {
++                // CraftBukkit start - fire BlockIgniteEvent
++                if (org.bukkit.craftbukkit.event.CraftEventFactory.callBlockIgniteEvent(level, pos, org.bukkit.event.block.BlockIgniteEvent.IgniteCause.FIREBALL, context.getPlayer()).isCancelled()) {
++                    if (!context.getPlayer().getAbilities().instabuild) {
++                        context.getItemInHand().shrink(1);
++                    }
++                    return InteractionResult.PASS;
++                }
++                // CraftBukkit end
+                 this.playSound(level, pos);
+                 level.setBlockAndUpdate(pos, BaseFireBlock.getState(level, pos));
+                 level.gameEvent(context.getPlayer(), GameEvent.BLOCK_PLACE, pos);
+                 used = true;
+             }
+         } else {
++            // CraftBukkit start - fire BlockIgniteEvent
++            if (org.bukkit.craftbukkit.event.CraftEventFactory.callBlockIgniteEvent(level, pos, org.bukkit.event.block.BlockIgniteEvent.IgniteCause.FIREBALL, context.getPlayer()).isCancelled()) {
++                if (!context.getPlayer().getAbilities().instabuild) {
++                    context.getItemInHand().shrink(1);
++                }
++                return InteractionResult.PASS;
++            }
++            // CraftBukkit end
+             this.playSound(level, pos);
+-            level.setBlockAndUpdate(pos, blockState.setValue(BlockStateProperties.LIT, true));
++            level.setBlockAndUpdate(pos, blockstate2);
+             level.gameEvent(context.getPlayer(), GameEvent.BLOCK_CHANGE, pos);
+             used = true;
+         }
+@@ -84,5 +_,10 @@
+             .power(1.0F)
+             .overrideDispenseEvent(1018)
+             .build();
++    }
++
++    @Override
++    public boolean canPerformAction(ItemInstance stack, net.neoforged.neoforge.common.ItemAbility itemAbility) {
++        return net.neoforged.neoforge.common.ItemAbilities.DEFAULT_FIRECHARGE_ACTIONS.contains(itemAbility);
+     }
+ }

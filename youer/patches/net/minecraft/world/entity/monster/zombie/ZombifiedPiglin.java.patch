@@ -1,0 +1,156 @@
+--- a/net/minecraft/world/entity/monster/zombie/ZombifiedPiglin.java
++++ b/net/minecraft/world/entity/monster/zombie/ZombifiedPiglin.java
+@@ -61,18 +_,82 @@
+     private static final int ALERT_RANGE_Y = 10;
+     private static final UniformInt ALERT_INTERVAL = TimeUtil.rangeOfSeconds(4, 6);
+     private int ticksUntilNextAlert;
++    private HurtByTargetGoal hurtByTargetGoal; // Paper - fix PigZombieAngerEvent cancellation
+ 
+     public ZombifiedPiglin(EntityType<? extends ZombifiedPiglin> type, Level level) {
+         super(type, level);
+         this.setPathfindingMalus(PathType.LAVA, 8.0F);
+     }
+ 
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.zombifiedPiglinRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.zombifiedPiglinRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.zombifiedPiglinControllable;
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.zombifiedPiglinMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.zombifiedPiglinScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Configurable jockey options
++    @Override
++    public boolean jockeyOnlyBaby() {
++        return level().purpurConfig.zombifiedPiglinJockeyOnlyBaby;
++    }
++
++    @Override
++    public double jockeyChance() {
++        return level().purpurConfig.zombifiedPiglinJockeyChance;
++    }
++
++    @Override
++    public boolean jockeyTryExistingChickens() {
++        return level().purpurConfig.zombifiedPiglinJockeyTryExistingChickens;
++    }
++    // Purpur end - Configurable jockey options
++
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.zombifiedPiglinTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.zombifiedPiglinAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
++    // Purpur start - Check mobGriefing Overrides
++    @Override
++    public Boolean checkEntityPickUpLootOverride() {
++        return this.level().purpurConfig.zombifiedPiglinCanPickUpLoot;
++    }
++    // Purpur end - Check mobGriefing Overrides
++
+     @Override
+     protected void addBehaviourGoals() {
+         this.goalSelector.addGoal(1, new SpearUseGoal<>(this, 1.0, 1.0, 10.0F, 2.0F));
+         this.goalSelector.addGoal(2, new ZombieAttackGoal(this, 1.0, false));
+         this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0));
+-        this.targetSelector.addGoal(1, new HurtByTargetGoal(this).setAlertOthers());
++        this.targetSelector.addGoal(1, this.hurtByTargetGoal = (new HurtByTargetGoal(this)).setAlertOthers()); // Paper - fix PigZombieAngerEvent cancellation
+         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false, this::isAngryAt));
+         this.targetSelector.addGoal(3, new ResetUniversalAngerTargetGoal<>(this, true));
+     }
+@@ -112,6 +_,12 @@
+             this.maybeAlertOthers();
+         }
+ 
++        // Purpur start - Toggle for Zombified Piglin death always counting as player kill when angry
++        if (this.isAngry() && this.level().purpurConfig.zombifiedPiglinCountAsPlayerKillWhenAngry) {
++            this.lastHurtByPlayerMemoryTime = this.tickCount;
++        }
++        // Purpur end - Toggle for Zombified Piglin death always counting as player kill when angry
++
+         super.customServerAiStep(level);
+     }
+ 
+@@ -145,7 +_,7 @@
+             .filter(other -> other != this)
+             .filter(other -> other.getTarget() == null)
+             .filter(other -> !other.isAlliedTo(this.getTarget()))
+-            .forEach(other -> other.setTarget(this.getTarget()));
++            .forEach(other -> other.setTarget(this.getTarget(), org.bukkit.event.entity.EntityTargetEvent.TargetReason.TARGET_ATTACKED_NEARBY_ENTITY)); // CraftBukkit
+     }
+ 
+     private void playAngerSound() {
+@@ -153,23 +_,43 @@
+     }
+ 
+     @Override
+-    public void setTarget(@Nullable LivingEntity target) {
++    public boolean setTarget(final @Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) { // CraftBukkit - signature
+         if (this.getTarget() == null && target != null) {
+             this.playFirstAngerSoundIn = FIRST_ANGER_SOUND_DELAY.sample(this.random);
+             this.ticksUntilNextAlert = ALERT_INTERVAL.sample(this.random);
+         }
+ 
+-        super.setTarget(target);
++        // Purpur start - Toggle for Zombified Piglin death always counting as player kill when angry
++        if (target instanceof Player player && this.level().purpurConfig.zombifiedPiglinCountAsPlayerKillWhenAngry) {
++            this.setLastHurtByPlayer(player, this.tickCount);
++        }
++        // Purpur end - Toggle for Zombified Piglin death always counting as player kill when angry
++
++        return super.setTarget(target, reason); // CraftBukkit
+     }
+ 
+     @Override
+     public void startPersistentAngerTimer() {
+-        this.setTimeToRemainAngry(PERSISTENT_ANGER_TIME.sample(this.random));
++        // CraftBukkit start
++        net.minecraft.world.entity.Entity entity = EntityReference.getLivingEntity(this.getPersistentAngerTarget(), this.level());
++        org.bukkit.event.entity.PigZombieAngerEvent event = new org.bukkit.event.entity.PigZombieAngerEvent((org.bukkit.entity.PigZombie) this.getBukkitEntity(), (entity == null) ? null : entity.getBukkitEntity(), PERSISTENT_ANGER_TIME.sample(this.random));
++        if (!event.callEvent()) {
++            this.setPersistentAngerTarget(null);
++            this.hurtByTargetGoal.stop();
++            return;
++        }
++        this.setTimeToRemainAngry(event.getNewAnger());
++        // CraftBukkit end
+     }
+ 
+     public static boolean checkZombifiedPiglinSpawnRules(
+-        EntityType<ZombifiedPiglin> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random
++        EntityType<? extends ZombifiedPiglin> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random
+     ) {
++        // Purpur start - Config to disable hostile mob spawn on ice
++        if (canSpawnInBlueAndPackedIce(level, pos)) {
++            return false;
++        }
++        // Purpur end - Config to disable hostile mob spawn on ice
+         return level.getDifficulty() != Difficulty.PEACEFUL && !level.getBlockState(pos.below()).is(Blocks.NETHER_WART_BLOCK);
+     }
+ 

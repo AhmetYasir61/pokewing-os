@@ -1,0 +1,45 @@
+--- a/net/minecraft/server/packs/repository/ServerPacksSource.java
++++ b/net/minecraft/server/packs/repository/ServerPacksSource.java
+@@ -48,7 +_,7 @@
+     public static VanillaPackResources createVanillaPackSource() {
+         return new VanillaPackResourcesBuilder()
+             .setMetadata(BUILT_IN_METADATA)
+-            .exposeNamespace("minecraft")
++            .exposeNamespace("minecraft", Identifier.PAPER_NAMESPACE) // Paper
+             .applyDevelopmentConfig()
+             .pushJarResources()
+             .build(VANILLA_PACK_INFO);
+@@ -66,15 +_,30 @@
+ 
+     @Override
+     protected @Nullable Pack createBuiltinPack(String id, Pack.ResourcesSupplier resources, Component name) {
+-        return Pack.readMetaAndCreate(createBuiltInPackLocation(id, name), resources, PackType.SERVER_DATA, FEATURE_SELECTION_CONFIG);
++        // Paper start - custom built-in pack
++        final PackLocationInfo info;
++        final PackSelectionConfig packConfig;
++        if ("paper".equals(id)) {
++            info = new PackLocationInfo(id, name, PackSource.BUILT_IN, Optional.empty());
++            packConfig = new PackSelectionConfig(true, Pack.Position.TOP, true);
++        } else {
++            info = createBuiltInPackLocation(id, name);
++            packConfig = FEATURE_SELECTION_CONFIG;
++        }
++        return Pack.readMetaAndCreate(info, resources, PackType.SERVER_DATA, packConfig);
++        // Paper end - custom built-in pack
+     }
+ 
+     public static PackRepository createPackRepository(Path datapackDir, DirectoryValidator validator) {
+-        return new PackRepository(new ServerPacksSource(validator), new FolderRepositorySource(datapackDir, PackType.SERVER_DATA, PackSource.WORLD, validator));
++        final PackRepository packRepository = new PackRepository(new ServerPacksSource(validator), new FolderRepositorySource(datapackDir, PackType.SERVER_DATA, PackSource.WORLD, validator)).validate(validator);
++        net.neoforged.neoforge.resource.ResourcePackLoader.populatePackRepository(packRepository, PackType.SERVER_DATA, false);
++        return packRepository;
+     }
+ 
+     public static PackRepository createVanillaTrustedRepository() {
+-        return new PackRepository(new ServerPacksSource(new DirectoryValidator(path -> true)));
++        final PackRepository packRepository = new PackRepository(new DirectoryValidator(path -> true), new ServerPacksSource(new DirectoryValidator(path -> true)));
++        net.neoforged.neoforge.resource.ResourcePackLoader.populatePackRepository(packRepository, PackType.SERVER_DATA, true);
++        return packRepository;
+     }
+ 
+     public static PackRepository createPackRepository(LevelStorageSource.LevelStorageAccess levelSourceAccess) {

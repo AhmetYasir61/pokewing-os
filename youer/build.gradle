@@ -1,0 +1,46 @@
+plugins {
+    id 'net.neoforged.gradleutils' version '5.1.0'
+}
+
+project.version = project.neoforge_version
+
+// Print version, generally useful to know - also appears on CI
+System.out.println("NeoForge version ${project.version}")
+System.out.println("Java version ${project.java_version}")
+
+allprojects {
+    version = rootProject.version
+    group = 'net.neoforged'
+
+    apply plugin: 'java'
+
+    java.toolchain.languageVersion.set(JavaLanguageVersion.of(project.java_version))
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.warnings = false
+        options.compilerArgs.addAll([
+                '--add-modules=jdk.incubator.vector'
+        ])
+        options.compilerArgs += "-Xlint:-removal"
+    }
+}
+
+// Remove src/ sources from the root project. They are used in the neoforge subproject.
+sourceSets {
+    main {
+        java {
+            srcDirs = []
+        }
+        resources {
+            srcDirs = []
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.warnings = false
+    options.compilerArgs << '-Xmaxerrs' << '10000'
+    options.compilerArgs += "-Xlint:-removal"
+}

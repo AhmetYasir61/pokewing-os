@@ -1,0 +1,59 @@
+--- a/net/minecraft/world/item/FlintAndSteelItem.java
++++ b/net/minecraft/world/item/FlintAndSteelItem.java
+@@ -10,11 +_,7 @@
+ import net.minecraft.world.item.context.UseOnContext;
+ import net.minecraft.world.level.Level;
+ import net.minecraft.world.level.block.BaseFireBlock;
+-import net.minecraft.world.level.block.CampfireBlock;
+-import net.minecraft.world.level.block.CandleBlock;
+-import net.minecraft.world.level.block.CandleCakeBlock;
+ import net.minecraft.world.level.block.state.BlockState;
+-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+ import net.minecraft.world.level.gameevent.GameEvent;
+ 
+ public class FlintAndSteelItem extends Item {
+@@ -28,9 +_,16 @@
+         Level level = context.getLevel();
+         BlockPos pos = context.getClickedPos();
+         BlockState state = level.getBlockState(pos);
+-        if (!CampfireBlock.canLight(state) && !CandleBlock.canLight(state) && !CandleCakeBlock.canLight(state)) {
++        BlockState blockstate2 = state.getToolModifiedState(context, net.neoforged.neoforge.common.ItemAbilities.FIRESTARTER_LIGHT, false);
++        if (blockstate2 == null) {
+             BlockPos relativePos = pos.relative(context.getClickedFace());
+             if (BaseFireBlock.canBePlacedAt(level, relativePos, context.getHorizontalDirection())) {
++                // CraftBukkit start - Store the clicked block
++                if (org.bukkit.craftbukkit.event.CraftEventFactory.callBlockIgniteEvent(level, relativePos, org.bukkit.event.block.BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL, player).isCancelled()) {
++                    context.getItemInHand().hurtAndBreak(1, player, context.getHand().asEquipmentSlot());
++                    return InteractionResult.PASS;
++                }
++                // CraftBukkit end
+                 level.playSound(player, relativePos, SoundEvents.FLINTANDSTEEL_USE, SoundSource.BLOCKS, 1.0F, level.getRandom().nextFloat() * 0.4F + 0.8F);
+                 BlockState fireState = BaseFireBlock.getState(level, relativePos);
+                 level.setBlock(relativePos, fireState, 11);
+@@ -46,8 +_,14 @@
+                 return InteractionResult.FAIL;
+             }
+         } else {
++            // CraftBukkit start - Store the clicked block
++            if (org.bukkit.craftbukkit.event.CraftEventFactory.callBlockIgniteEvent(level, pos, org.bukkit.event.block.BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL, player).isCancelled()) {
++                context.getItemInHand().hurtAndBreak(1, player, context.getHand().asEquipmentSlot());
++                return InteractionResult.PASS;
++            }
++            // CraftBukkit end
+             level.playSound(player, pos, SoundEvents.FLINTANDSTEEL_USE, SoundSource.BLOCKS, 1.0F, level.getRandom().nextFloat() * 0.4F + 0.8F);
+-            level.setBlock(pos, state.setValue(BlockStateProperties.LIT, true), 11);
++            level.setBlock(pos, blockstate2, 11);
+             level.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
+             if (player != null) {
+                 context.getItemInHand().hurtAndBreak(1, player, context.getHand().asEquipmentSlot());
+@@ -55,5 +_,10 @@
+ 
+             return InteractionResult.SUCCESS;
+         }
++    }
++
++    @Override
++    public boolean canPerformAction(ItemInstance stack, net.neoforged.neoforge.common.ItemAbility itemAbility) {
++        return net.neoforged.neoforge.common.ItemAbilities.DEFAULT_FLINT_ACTIONS.contains(itemAbility);
+     }
+ }

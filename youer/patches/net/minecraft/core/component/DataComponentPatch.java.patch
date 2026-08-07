@@ -1,0 +1,106 @@
+--- a/net/minecraft/core/component/DataComponentPatch.java
++++ b/net/minecraft/core/component/DataComponentPatch.java
+@@ -104,6 +_,11 @@
+                     output.writeVarInt(0);
+                     output.writeVarInt(0);
+                 } else {
++                    // Paper start - data sanitization for items
++                    final io.papermc.paper.util.sanitizer.ItemObfuscationSession itemObfuscationSession = patch.map.isEmpty()
++                            ? null // Avoid thread local lookup of current session if it won't be needed anyway.
++                            : io.papermc.paper.util.sanitizer.ItemObfuscationSession.currentSession();
++                    // Paper end - data sanitization for items
+                     int positiveCount = 0;
+                     int negativeCount = 0;
+ 
+@@ -111,7 +_,7 @@
+                         patch.map
+                     )) {
+                         if (entry.getValue().isPresent()) {
+-                            positiveCount++;
++                            if (!io.papermc.paper.util.sanitizer.ItemComponentSanitizer.shouldDrop(itemObfuscationSession, entry.getKey())) positiveCount++; // Paper - data sanitization for items
+                         } else {
+                             negativeCount++;
+                         }
+@@ -124,6 +_,7 @@
+                         patch.map
+                     )) {
+                         Optional<?> value = entry.getValue();
++                        value = io.papermc.paper.util.sanitizer.ItemComponentSanitizer.override(itemObfuscationSession, entry.getKey(), entry.getValue()); // Paper - data sanitization for items
+                         if (value.isPresent()) {
+                             DataComponentType<?> type = entry.getKey();
+                             DataComponentType.STREAM_CODEC.encode(output, type);
+@@ -143,7 +_,13 @@
+             }
+ 
+             private <T> void encodeComponent(RegistryFriendlyByteBuf output, DataComponentType<T> type, Object value) {
+-                codecGetter.apply(type).encode(output, (T)value);
++                // Paper start - codec errors of random anonymous classes are useless
++                try {
++                    codecGetter.apply(type).encode(output, (T)value);
++                } catch (final Exception e) {
++                    throw new RuntimeException("Error encoding component " + type, e);
++                }
++                // Paper end - codec errors of random anonymous classes are useless
+             }
+         };
+     }
+@@ -156,6 +_,14 @@
+         return new DataComponentPatch.Builder();
+     }
+ 
++    /**
++     * {@return the patch stored for the given component type, null if no patch is stored}
++     */
++    @SuppressWarnings("unchecked")
++    public <T> @Nullable Optional<T> getPatch(DataComponentType<? extends T> type) {
++        return (Optional<T>) this.map.get(type);
++    }
++
+     public <T> @Nullable T get(DataComponentGetter prototype, DataComponentType<? extends T> type) {
+         return getFromPatchAndPrototype(this.map, prototype, type);
+     }
+@@ -254,7 +_,44 @@
+         private Builder() {
+         }
+ 
++        // CraftBukkit start
++        public void copy(DataComponentPatch orig) {
++            this.map.putAll(orig.map);
++        }
++
++        public void clear(DataComponentType<?> type) {
++            this.map.remove(type);
++        }
++
++        public boolean isSet(DataComponentType<?> type) {
++            return map.containsKey(type);
++        }
++
++        public boolean isEmpty() {
++            return this.map.isEmpty();
++        }
++
++        @Override
++        public boolean equals(Object object) {
++            if (this == object) {
++                return true;
++            }
++
++            if (object instanceof DataComponentPatch.Builder patch) {
++                return this.map.equals(patch.map);
++            }
++
++            return false;
++        }
++
++        @Override
++        public int hashCode() {
++            return this.map.hashCode();
++        }
++        // CraftBukkit end
++
+         public <T> DataComponentPatch.Builder set(DataComponentType<T> type, T value) {
++            net.neoforged.neoforge.common.CommonHooks.validateComponent(value);
+             this.map.put(type, Optional.of(value));
+             return this;
+         }

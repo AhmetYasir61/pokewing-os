@@ -1,0 +1,73 @@
+--- a/net/minecraft/world/inventory/PlayerEnderChestContainer.java
++++ b/net/minecraft/world/inventory/PlayerEnderChestContainer.java
+@@ -8,14 +_,37 @@
+ import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
+ import net.minecraft.world.level.storage.ValueInput;
+ import net.minecraft.world.level.storage.ValueOutput;
++import org.bukkit.Location;
++import org.bukkit.craftbukkit.util.CraftLocation;
++import org.bukkit.inventory.InventoryHolder;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class PlayerEnderChestContainer extends SimpleContainer {
+     private @Nullable EnderChestBlockEntity activeChest;
+-
+-    public PlayerEnderChestContainer() {
+-        super(27);
+-    }
++    // CraftBukkit start
++    private Player owner;
++
++    public InventoryHolder getOwner() {
++        return owner.getBukkitEntity();
++    }
++
++    @Override
++    public Location getLocation() {
++        return this.activeChest != null ? CraftLocation.toBukkit(this.activeChest.getBlockPos(), this.activeChest.getLevel().getWorld()) : null;
++    }
++
++    public PlayerEnderChestContainer(Player owner) {
++        super(org.purpurmc.purpur.PurpurConfig.enderChestSixRows ? 54 : 27); // Purpur - Barrels and enderchests 6 rows
++        this.owner = owner;
++        // CraftBukkit end
++    }
++
++    // Purpur start - Barrels and enderchests 6 rows
++    @Override
++    public int getContainerSize() {
++        return owner == null || owner.sixRowEnderchestSlotCount < 0 ? super.getContainerSize() : owner.sixRowEnderchestSlotCount;
++    }
++    // Purpur end - Barrels and enderchests 6 rows
+ 
+     public void setActiveChest(EnderChestBlockEntity activeChest) {
+         this.activeChest = activeChest;
+@@ -26,19 +_,25 @@
+     }
+ 
+     public void fromSlots(ValueInput.TypedInputList<ItemStackWithSlot> list) {
+-        for (int i = 0; i < this.getContainerSize(); i++) {
++        // Purpur start - Barrels and enderchests 6 rows
++        int storageSlotCount = org.purpurmc.purpur.PurpurConfig.enderChestSixRows && org.purpurmc.purpur.PurpurConfig.enderChestPersistHiddenRows ? 54 : this.getContainerSize();
++        for (int i = 0; i < storageSlotCount; i++) {
++            // Purpur end - Barrels and enderchests 6 rows
+             this.setItem(i, ItemStack.EMPTY);
+         }
+ 
+         for (ItemStackWithSlot item : list) {
+-            if (item.isValidInContainer(this.getContainerSize())) {
++            if (item.isValidInContainer(storageSlotCount)) { // Purpur - Barrels and enderchests 6 rows
+                 this.setItem(item.slot(), item.stack());
+             }
+         }
+     }
+ 
+     public void storeAsSlots(ValueOutput.TypedOutputList<ItemStackWithSlot> output) {
+-        for (int i = 0; i < this.getContainerSize(); i++) {
++        // Purpur start - Barrels and enderchests 6 rows
++        int storageSlotCount = org.purpurmc.purpur.PurpurConfig.enderChestSixRows && org.purpurmc.purpur.PurpurConfig.enderChestPersistHiddenRows ? 54 : this.getContainerSize(); // Purpur - Barrels and enderchests 6 rows
++        for (int i = 0; i < storageSlotCount; i++) {
++            // Purpur end - Barrels and enderchests 6 rows
+             ItemStack itemStack = this.getItem(i);
+             if (!itemStack.isEmpty()) {
+                 output.add(new ItemStackWithSlot(i, itemStack));

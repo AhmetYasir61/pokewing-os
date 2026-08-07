@@ -1,0 +1,134 @@
+--- a/net/minecraft/world/entity/animal/panda/Panda.java
++++ b/net/minecraft/world/entity/animal/panda/Panda.java
+@@ -3,6 +_,7 @@
+ import com.mojang.serialization.Codec;
+ import java.util.EnumSet;
+ import java.util.List;
++import java.util.Objects;
+ import java.util.function.IntFunction;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.particles.ItemParticleOption;
+@@ -70,6 +_,7 @@
+ import net.minecraft.world.level.storage.ValueOutput;
+ import net.minecraft.world.level.storage.loot.BuiltInLootTables;
+ import net.minecraft.world.phys.Vec3;
++import org.bukkit.event.entity.EntityRemoveEvent;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class Panda extends Animal {
+@@ -104,6 +_,13 @@
+     private float rollAmountO;
+     private Panda.PandaLookAtPlayerGoal lookAtPlayerGoal;
+ 
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.pandaBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
+     public Panda(EntityType<? extends Panda> type, Level level) {
+         super(type, level);
+         this.moveControl = new Panda.PandaMoveControl<>(this);
+@@ -112,6 +_,20 @@
+         }
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.pandaTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.pandaAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected boolean canDispenserEquipIntoSlot(EquipmentSlot slot) {
+         return slot == EquipmentSlot.MAINHAND && this.canPickUpLoot();
+@@ -134,6 +_,7 @@
+     }
+ 
+     public void sit(boolean value) {
++        if (!new io.papermc.paper.event.entity.EntityToggleSitEvent(this.getBukkitEntity(), value).callEvent()) return; // Paper - Add EntityToggleSitEvent
+         this.setFlag(8, value);
+     }
+ 
+@@ -518,7 +_,9 @@
+ 
+         for (Panda panda : level.getEntitiesOfClass(Panda.class, this.getBoundingBox().inflate(10.0))) {
+             if (!panda.isBaby() && panda.onGround() && !panda.isInWater() && panda.canPerformAction()) {
++                if (new com.destroystokyo.paper.event.entity.EntityJumpEvent(getBukkitLivingEntity()).callEvent()) { // Paper - Entity Jump API
+                 panda.jumpFromGround();
++                } else { this.setJumping(false); } // Paper - Entity Jump API; setJumping(false) stops a potential loop
+             }
+         }
+ 
+@@ -529,13 +_,13 @@
+ 
+     @Override
+     protected void pickUpItem(ServerLevel level, ItemEntity entity) {
+-        if (this.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty() && canPickUpAndEat(entity)) {
++        if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityPickupItemEvent(this, entity, 0, !(this.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty() && canPickUpAndEat(entity))).isCancelled()) { // CraftBukkit
+             this.onItemPickup(entity);
+             ItemStack itemStack = entity.getItem();
+             this.setItemSlot(EquipmentSlot.MAINHAND, itemStack);
+             this.setGuaranteedDrop(EquipmentSlot.MAINHAND);
+             this.take(entity, itemStack.getCount());
+-            entity.discard();
++            entity.discard(EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
+         }
+     }
+ 
+@@ -592,7 +_,10 @@
+ 
+     public void setAttributes() {
+         if (this.isWeak()) {
+-            this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(10.0);
++            // Purpur start - Configurable entity base attributes
++            net.minecraft.world.entity.ai.attributes.AttributeInstance maxHealth = this.getAttribute(Attributes.MAX_HEALTH);
++            maxHealth.setBaseValue(maxHealth.getValue() / 2);
++            // Purpur end - Configurable entity base attributes
+         }
+ 
+         if (this.isLazy()) {
+@@ -600,6 +_,14 @@
+         }
+     }
+ 
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.pandaMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.pandaScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
+     private void tryToSit() {
+         if (!this.isInWater()) {
+             this.setZza(0.0F);
+@@ -634,8 +_,9 @@
+                 }
+ 
+                 if (!this.level().isClientSide() && this.getAge() == 0 && this.canFallInLove()) {
++                    final ItemStack breedCopy = interactionItemStack.copy(); // Paper - Fix EntityBreedEvent copying
+                     this.usePlayerItem(player, hand, interactionItemStack);
+-                    this.setInLove(player);
++                    this.setInLove(player, breedCopy); // Paper - Fix EntityBreedEvent copying
+                 } else {
+                     if (!(this.level() instanceof ServerLevel level) || this.isSitting() || this.isInWater()) {
+                         return InteractionResult.PASS;
+@@ -867,7 +_,7 @@
+         @Override
+         protected void alertOther(Mob other, LivingEntity hurtByMob) {
+             if (other instanceof Panda && other.isAggressive()) {
+-                other.setTarget(hurtByMob);
++                other.setTarget(hurtByMob, org.bukkit.event.entity.EntityTargetEvent.TargetReason.TARGET_ATTACKED_ENTITY); // CraftBukkit
+             }
+         }
+     }

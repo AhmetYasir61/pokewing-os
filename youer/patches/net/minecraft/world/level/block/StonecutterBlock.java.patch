@@ -1,0 +1,29 @@
+--- a/net/minecraft/world/level/block/StonecutterBlock.java
++++ b/net/minecraft/world/level/block/StonecutterBlock.java
+@@ -48,8 +_,9 @@
+     @Override
+     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+         if (!level.isClientSide()) {
+-            player.openMenu(state.getMenuProvider(level, pos));
+-            player.awardStat(Stats.INTERACT_WITH_STONECUTTER);
++            if (player.openMenu(state.getMenuProvider(level, pos)).isPresent()) { // Paper - Fix InventoryOpenEvent cancellation
++                player.awardStat(Stats.INTERACT_WITH_STONECUTTER);
++            } // Paper - Fix InventoryOpenEvent cancellation
+         }
+ 
+         return InteractionResult.SUCCESS;
+@@ -91,4 +_,14 @@
+     protected boolean isPathfindable(BlockState state, PathComputationType type) {
+         return false;
+     }
++
++    // Purpur start - Stonecutter damage
++    @Override
++    public void stepOn(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.Entity entity) {
++        if (level.purpurConfig.stonecutterDamage > 0.0F && entity instanceof net.minecraft.world.entity.LivingEntity) {
++            entity.hurtServer((net.minecraft.server.level.ServerLevel) level, entity.damageSources().stonecutter().eventBlockDamager(level, pos), level.purpurConfig.stonecutterDamage);
++        }
++        super.stepOn(level, pos, state, entity);
++    }
++    // Purpur end - Stonecutter damage
+ }

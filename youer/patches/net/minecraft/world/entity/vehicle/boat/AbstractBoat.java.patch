@@ -1,0 +1,187 @@
+--- a/net/minecraft/world/entity/vehicle/boat/AbstractBoat.java
++++ b/net/minecraft/world/entity/vehicle/boat/AbstractBoat.java
+@@ -81,6 +_,15 @@
+     private Leashable.@Nullable LeashData leashData;
+     private final Supplier<Item> dropItem;
+ 
++    // CraftBukkit start
++    // PAIL: Some of these haven't worked since a few updates, and since 1.9 they are less and less applicable.
++    public double maxSpeed = 0.4D;
++    public double occupiedDeceleration = 0.2D;
++    public double unoccupiedDeceleration = -1;
++    public boolean landBoats = false;
++    private org.bukkit.Location lastLocation;
++    // CraftBukkit end
++
+     public AbstractBoat(EntityType<? extends AbstractBoat> type, Level level, Supplier<Item> dropItem) {
+         super(type, level);
+         this.dropItem = dropItem;
+@@ -122,7 +_,7 @@
+     }
+ 
+     @Override
+-    public boolean isPushable() {
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+         return true;
+     }
+ 
+@@ -177,11 +_,30 @@
+ 
+     @Override
+     public void push(Entity entity) {
++        if (!this.level().paperConfig().collisions.allowVehicleCollisions && this.level().paperConfig().collisions.onlyPlayersCollide && !(entity instanceof Player)) return; // Paper - Collision option for requiring a player participant
+         if (entity instanceof AbstractBoat) {
+             if (entity.getBoundingBox().minY < this.getBoundingBox().maxY) {
++                // CraftBukkit start
++                if (!this.isPassengerOfSameVehicle(entity)) {
++                    org.bukkit.event.vehicle.VehicleEntityCollisionEvent event = new org.bukkit.event.vehicle.VehicleEntityCollisionEvent(
++                        (org.bukkit.entity.Vehicle) this.getBukkitEntity(),
++                        entity.getBukkitEntity()
++                    );
++                    if (!event.callEvent()) return;
++                }
++                // CraftBukkit end
+                 super.push(entity);
+             }
+         } else if (entity.getBoundingBox().minY <= this.getBoundingBox().minY) {
++            // CraftBukkit start
++            if (!this.isPassengerOfSameVehicle(entity)) {
++                org.bukkit.event.vehicle.VehicleEntityCollisionEvent event = new org.bukkit.event.vehicle.VehicleEntityCollisionEvent(
++                    (org.bukkit.entity.Vehicle) this.getBukkitEntity(),
++                    entity.getBukkitEntity()
++                );
++                if (!event.callEvent()) return;
++            }
++            // CraftBukkit end
+             super.push(entity);
+         }
+     }
+@@ -248,6 +_,18 @@
+             this.setDeltaMovement(Vec3.ZERO);
+         }
+ 
++        // CraftBukkit start
++        org.bukkit.Location to = org.bukkit.craftbukkit.util.CraftLocation.toBukkit(this.position(), this.level(), this.getYRot(), this.getXRot());
++        org.bukkit.entity.Vehicle vehicle = (org.bukkit.entity.Vehicle) this.getBukkitEntity();
++
++        new org.bukkit.event.vehicle.VehicleUpdateEvent(vehicle).callEvent();
++
++        if (this.lastLocation != null && !this.lastLocation.equals(to)) {
++            org.bukkit.event.vehicle.VehicleMoveEvent event = new org.bukkit.event.vehicle.VehicleMoveEvent(vehicle, this.lastLocation, to);
++            event.callEvent();
++        }
++        this.lastLocation = vehicle.getLocation();
++        // CraftBukkit end
+         this.applyEffectsFromBlocks();
+         this.applyEffectsFromBlocks();
+         this.tickBubbleColumn();
+@@ -393,6 +_,7 @@
+             float friction = this.getGroundFriction();
+             if (friction > 0.0F) {
+                 this.landFriction = friction;
++                if (level().purpurConfig.boatEjectPlayersOnLand) ejectPassengers(); // Purpur - Add option for boats to eject players on land
+                 return AbstractBoat.Status.ON_LAND;
+             } else {
+                 return AbstractBoat.Status.IN_AIR;
+@@ -418,7 +_,7 @@
+                 for (int z = minZ; z < maxZ; z++) {
+                     pos.set(x, y, z);
+                     FluidState fluidState = this.level().getFluidState(pos);
+-                    if (fluidState.is(FluidTags.WATER)) {
++                    if (this.canBoatInFluid(fluidState)) {
+                         blockHeight = Math.max(blockHeight, fluidState.getHeight(this.level(), pos));
+                     }
+ 
+@@ -460,7 +_,7 @@
+                             BlockState blockState = this.level().getBlockState(blockPos);
+                             if (!(blockState.getBlock() instanceof LilyPadBlock)
+                                 && Shapes.joinIsNotEmpty(blockState.getCollisionShape(this.level(), blockPos).move(blockPos), boatShape, BooleanOp.AND)) {
+-                                friction += blockState.getBlock().getFriction();
++                                friction += blockState.getFriction(this.level(), blockPos, this);
+                                 count++;
+                             }
+                         }
+@@ -489,7 +_,7 @@
+                 for (int z = minZ; z < maxZ; z++) {
+                     pos.set(x, y, z);
+                     FluidState fluidState = this.level().getFluidState(pos);
+-                    if (fluidState.is(FluidTags.WATER)) {
++                    if (this.canBoatInFluid(fluidState)) {
+                         float height = y + fluidState.getHeight(this.level(), pos);
+                         this.waterLevel = Math.max(height, this.waterLevel);
+                         inWater |= bb.minY < height;
+@@ -518,7 +_,7 @@
+                 for (int z = z0; z < z1; z++) {
+                     pos.set(x, y, z);
+                     FluidState fluidState = this.level().getFluidState(pos);
+-                    if (fluidState.is(FluidTags.WATER) && maxY < pos.getY() + fluidState.getHeight(this.level(), pos)) {
++                    if (this.canBoatInFluid(fluidState) && maxY < pos.getY() + fluidState.getHeight(this.level(), pos)) {
+                         if (!fluidState.isSource()) {
+                             return AbstractBoat.Status.UNDER_FLOWING_WATER;
+                         }
+@@ -545,7 +_,7 @@
+             this.waterLevel = this.getY(1.0);
+             double targetY = this.getWaterLevelAbove() - this.getBbHeight() + 0.101;
+             if (this.level().noCollision(this, this.getBoundingBox().move(0.0, targetY - this.getY(), 0.0))) {
+-                this.setPos(this.getX(), targetY, this.getZ());
++                this.move(MoverType.SELF, new Vec3(0.0, targetY - this.getY(), 0.0)); // Paper - Fix some exploit with boats // TODO Still needed?
+                 this.setDeltaMovement(this.getDeltaMovement().multiply(1.0, 0.0, 1.0));
+                 this.lastYd = 0.0;
+             }
+@@ -713,12 +_,20 @@
+     }
+ 
+     @Override
+-    public void remove(Entity.RemovalReason reason) {
++    public void remove(final Entity.RemovalReason reason, org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause eventCause) { // CraftBukkit - add Bukkit remove cause
+         if (!this.level().isClientSide() && reason.shouldDestroy() && this.isLeashed()) {
+-            this.dropLeash();
++            // Paper start - Fire EntityUnleashEvent on boat destruction
++            final org.bukkit.event.entity.EntityUnleashEvent event = new org.bukkit.event.entity.EntityUnleashEvent(this.getBukkitEntity(), org.bukkit.event.entity.EntityUnleashEvent.UnleashReason.LEASHED_GONE, true);
++            event.callEvent();
++            if (event.isDropLeash()) {
++                this.dropLeash();
++            } else {
++                this.removeLeash();
++            }
++            // Paper end - Fire EntityUnleashEvent on boat destruction
+         }
+ 
+-        super.remove(reason);
++        super.remove(reason, eventCause); // CraftBukkit - add Bukkit remove cause
+     }
+ 
+     @Override
+@@ -727,7 +_,7 @@
+         if (!this.isPassenger()) {
+             if (onGround) {
+                 this.resetFallDistance();
+-            } else if (!this.level().getFluidState(this.blockPosition().below()).is(FluidTags.WATER) && ya < 0.0) {
++            } else if (!this.canBoatInFluid(this.level().getFluidState(this.blockPosition().below())) && ya < 0.0) {
+                 this.fallDistance -= (float)ya;
+             }
+         }
+@@ -751,7 +_,7 @@
+ 
+     @Override
+     protected boolean canAddPassenger(Entity passenger) {
+-        return this.getPassengers().size() < this.getMaxPassengers() && !this.isEyeInFluid(FluidTags.WATER);
++        return this.getPassengers().size() < this.getMaxPassengers() && !this.getFluidInteraction().isEyeInFluidMatching(this, (entity, type, _) -> entity.canBoatInFluid(type));
+     }
+ 
+     protected int getMaxPassengers() {
+@@ -782,7 +_,13 @@
+ 
+     @Override
+     public final ItemStack getPickResult() {
+-        return new ItemStack(this.dropItem.get());
++        // Purpur start - Apply display names from item forms of entities to entities and vice versa
++        final ItemStack boat = new ItemStack(this.dropItem.get());
++        if (!this.level().purpurConfig.persistentDroppableEntityDisplayNames) {
++            boat.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, null);
++        }
++        return boat;
++        // Purpur end - Apply display names from item forms of entities to entities and vice versa
+     }
+ 
+     @Override

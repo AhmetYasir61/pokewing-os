@@ -1,0 +1,54 @@
+--- a/net/minecraft/world/entity/projectile/hurtingprojectile/LargeFireball.java
++++ b/net/minecraft/world/entity/projectile/hurtingprojectile/LargeFireball.java
+@@ -14,6 +_,8 @@
+ import net.minecraft.world.phys.EntityHitResult;
+ import net.minecraft.world.phys.HitResult;
+ import net.minecraft.world.phys.Vec3;
++import org.bukkit.event.entity.EntityRemoveEvent;
++import org.bukkit.event.entity.ExplosionPrimeEvent;
+ 
+ public class LargeFireball extends Fireball {
+     private static final byte DEFAULT_EXPLOSION_POWER = 1;
+@@ -21,20 +_,30 @@
+ 
+     public LargeFireball(EntityType<? extends LargeFireball> type, Level level) {
+         super(type, level);
++        isIncendiary = (level instanceof ServerLevel serverlevel) && serverlevel.getGameRules().get(GameRules.MOB_GRIEFING); // CraftBukkit
+     }
+ 
+     public LargeFireball(Level level, LivingEntity mob, Vec3 direction, int explosionPower) {
+         super(EntityTypes.FIREBALL, mob, direction, level);
+         this.explosionPower = explosionPower;
++        isIncendiary = (level instanceof ServerLevel serverlevel) && serverlevel.getGameRules().get(GameRules.MOB_GRIEFING); // CraftBukkit
+     }
+ 
+     @Override
+     protected void onHit(HitResult hitResult) {
+         super.onHit(hitResult);
+         if (this.level() instanceof ServerLevel serverLevel) {
+-            boolean grief = serverLevel.getGameRules().get(GameRules.MOB_GRIEFING);
+-            this.level().explode(this, this.getX(), this.getY(), this.getZ(), this.explosionPower, grief, Level.ExplosionInteraction.MOB);
+-            this.discard();
++            // TODO 1.19.3: The creation of Level.ExplosionInteraction means this code path will fire EntityMobGriefingEvent twice. Should we try and fix it? -SS
++            boolean grief = net.neoforged.neoforge.event.EventHooks.canEntityGrief(serverLevel, this.getOwner());
++            // CraftBukkit start - fire ExplosionPrimeEvent
++            ExplosionPrimeEvent event = new ExplosionPrimeEvent(this.getBukkitEntity(), this.explosionPower, grief);
++            this.level().getCraftServer().getPluginManager().callEvent(event);
++
++            if (!event.isCancelled()) {
++                this.level().explode(this, this.getX(), this.getY(), this.getZ(), event.getRadius(), event.getFire(), Level.ExplosionInteraction.MOB);
++            }
++            // CraftBukkit end
++            this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
+         }
+     }
+ 
+@@ -59,6 +_,7 @@
+     @Override
+     protected void readAdditionalSaveData(ValueInput input) {
+         super.readAdditionalSaveData(input);
+-        this.explosionPower = input.getByteOr("ExplosionPower", (byte)1);
++        // CraftBukkit - set bukkitYield when setting explosionpower
++        bukkitYield = this.explosionPower = input.getByteOr("ExplosionPower", (byte)1);
+     }
+ }

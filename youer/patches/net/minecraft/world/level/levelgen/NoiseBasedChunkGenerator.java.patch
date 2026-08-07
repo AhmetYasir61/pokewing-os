@@ -1,0 +1,59 @@
+--- a/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
++++ b/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
+@@ -56,7 +_,7 @@
+             .apply(i, i.stable(NoiseBasedChunkGenerator::new))
+     );
+     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
+-    public final Holder<NoiseGeneratorSettings> settings;
++    private final Holder<NoiseGeneratorSettings> settings;
+     private final Supplier<Aquifer.FluidPicker> globalFluidPicker;
+ 
+     public NoiseBasedChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
+@@ -74,7 +_,10 @@
+             if (SharedConstants.DEBUG_DISABLE_FLUID_GENERATION) {
+                 return emptyStatus;
+             } else {
+-                return y < Math.min(-54, seaLevel) ? lavaStatus : seaStatus;
++                // C2ME: Optimize world gen math
++                final int min = Math.min(-54, seaLevel);
++                return y < min ? lavaStatus : seaStatus;
++                // C2ME: Optimize world gen math
+             }
+         };
+     }
+@@ -84,7 +_,7 @@
+         return CompletableFuture.supplyAsync(() -> {
+             this.doCreateBiomes(blender, randomState, structureManager, protoChunk);
+             return protoChunk;
+-        }, Util.backgroundExecutor().forName("init_biomes"));
++        }, Runnable::run); // Paper - rewrite chunk system
+     }
+ 
+     private void doCreateBiomes(Blender blender, RandomState randomState, StructureManager structureManager, ChunkAccess protoChunk) {
+@@ -263,7 +_,7 @@
+     @Override
+     public void buildSurface(WorldGenRegion region, StructureManager structureManager, RandomState randomState, ChunkAccess protoChunk) {
+         if (!SharedConstants.debugVoidTerrain(protoChunk.getPos()) && !SharedConstants.DEBUG_DISABLE_SURFACE) {
+-            WorldGenerationContext context = new WorldGenerationContext(this, region);
++            WorldGenerationContext context = new WorldGenerationContext(this, region, region.getMinecraftWorld()); // Paper - Flat bedrock generator settings
+             Set<Holder<Biome>> possibleBiomes = collectPossibleBiomes(region, 1);
+             this.buildSurface(protoChunk, context, randomState, structureManager, region.getBiomeManager(), Blender.of(region), possibleBiomes);
+         }
+@@ -312,7 +_,7 @@
+             NoiseChunk noiseChunk = chunk.getOrCreateNoiseChunk(c -> this.createNoiseChunk(c, structureManager, Blender.of(region), randomState));
+             Aquifer aquifer = noiseChunk.aquifer();
+             CarvingContext context = new CarvingContext(
+-                this, region.registryAccess(), chunk.getHeightAccessorForGeneration(), noiseChunk, randomState, this.settings.value().surfaceRule()
++                this, region.registryAccess(), chunk.getHeightAccessorForGeneration(), noiseChunk, randomState, this.settings.value().surfaceRule(), region.getMinecraftWorld() // Paper - Flat bedrock generator settings
+             );
+             CarvingMask mask = ((ProtoChunk)chunk).getOrCreateCarvingMask();
+ 
+@@ -369,7 +_,7 @@
+                     section.release();
+                 }
+             }
+-        }, Util.backgroundExecutor().forName("wgen_fill_noise"));
++        }, Runnable::run); // Paper - rewrite chunk system
+     }
+ 
+     private ChunkAccess doFill(

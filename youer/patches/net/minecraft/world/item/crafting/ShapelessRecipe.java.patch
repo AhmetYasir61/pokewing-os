@@ -1,0 +1,89 @@
+--- a/net/minecraft/world/item/crafting/ShapelessRecipe.java
++++ b/net/minecraft/world/item/crafting/ShapelessRecipe.java
+@@ -13,6 +_,10 @@
+ import net.minecraft.world.item.crafting.display.ShapelessCraftingRecipeDisplay;
+ import net.minecraft.world.item.crafting.display.SlotDisplay;
+ import net.minecraft.world.level.Level;
++import org.bukkit.NamespacedKey;
++import org.bukkit.craftbukkit.inventory.CraftItemStack;
++import org.bukkit.craftbukkit.inventory.CraftRecipe;
++import org.bukkit.craftbukkit.inventory.CraftShapelessRecipe;
+ 
+ public class ShapelessRecipe extends NormalCraftingRecipe {
+     public static final MapCodec<ShapelessRecipe> MAP_CODEC = RecordCodecBuilder.mapCodec(
+@@ -20,7 +_,7 @@
+                 Recipe.CommonInfo.MAP_CODEC.forGetter(o -> o.commonInfo),
+                 CraftingRecipe.CraftingBookInfo.MAP_CODEC.forGetter(o -> o.bookInfo),
+                 ItemStackTemplate.CODEC.fieldOf("result").forGetter(o -> o.result),
+-                Ingredient.CODEC.listOf(1, 9).fieldOf("ingredients").forGetter(o -> o.ingredients)
++                com.mojang.serialization.Codec.lazyInitialized(() -> Ingredient.CODEC.listOf(1, ShapedRecipePattern.maxHeight * ShapedRecipePattern.maxWidth)).fieldOf("ingredients").forGetter(o -> o.ingredients)
+             )
+             .apply(i, ShapelessRecipe::new)
+     );
+@@ -38,12 +_,29 @@
+     public static final RecipeSerializer<ShapelessRecipe> SERIALIZER = new RecipeSerializer<>(MAP_CODEC, STREAM_CODEC);
+     private final ItemStackTemplate result;
+     private final List<Ingredient> ingredients;
++    private final boolean isSimple;
+ 
+     public ShapelessRecipe(Recipe.CommonInfo commonInfo, CraftingRecipe.CraftingBookInfo bookInfo, ItemStackTemplate result, List<Ingredient> ingredients) {
+         super(commonInfo, bookInfo);
+         this.result = result;
+         this.ingredients = ingredients;
+-    }
++        this.isSimple = ingredients.stream().allMatch(Ingredient::isSimple);
++    }
++
++    // CraftBukkit start
++    @Override
++    public org.bukkit.inventory.ShapelessRecipe toBukkitRecipe(org.bukkit.NamespacedKey id) {
++        org.bukkit.craftbukkit.inventory.CraftItemStack result = org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(this.result.create());
++        org.bukkit.craftbukkit.inventory.CraftShapelessRecipe recipe = new org.bukkit.craftbukkit.inventory.CraftShapelessRecipe(id, result, this);
++        recipe.setGroup(this.group());
++        recipe.setCategory(org.bukkit.craftbukkit.inventory.CraftRecipe.getCategory(this.category()));
++
++        for (Ingredient ingredient : this.ingredients) {
++            recipe.addIngredient(org.bukkit.craftbukkit.inventory.CraftRecipe.toChoice(ingredient));
++        }
++        return recipe;
++    }
++    // CraftBukkit end
+ 
+     @Override
+     public RecipeSerializer<ShapelessRecipe> getSerializer() {
+@@ -56,13 +_,32 @@
+     }
+ 
+     public boolean matches(CraftingInput input, Level level) {
++        // Paper start - Improve exact choice recipe ingredients & unwrap ternary
+         if (input.ingredientCount() != this.ingredients.size()) {
+             return false;
++        } else if (!isSimple) {
++            var nonEmptyItems = new java.util.ArrayList<ItemStack>(input.ingredientCount());
++            for (var item : input.items())
++                if (!item.isEmpty())
++                    nonEmptyItems.add(item);
++            return net.neoforged.neoforge.common.util.RecipeMatcher.findMatches(nonEmptyItems, this.ingredients) != null;
+         } else {
+-            return input.size() == 1 && this.ingredients.size() == 1
+-                ? this.ingredients.getFirst().test(input.getItem(0))
+-                : input.stackedContents().canCraft(this, null);
++            if (input.size() == 1 && this.ingredients.size() == 1) {
++                return this.ingredients.getFirst().test(input.getItem(0));
++            }
++            input.stackedContents().initializeExtras(this, input);
++            boolean canCraft = input.stackedContents().canCraft(this, null);
++            input.stackedContents().resetExtras();
++            return canCraft;
++            // Paper end - Improve exact choice recipe ingredients & unwrap ternary
+         }
++    }
++
++    /**
++     * {@return the result of this shapeless recipe or null if it is not static and needs ot be obtained by assembling it}
++     */
++    public @org.jspecify.annotations.Nullable ItemStackTemplate result() {
++        return result;
+     }
+ 
+     public ItemStack assemble(CraftingInput input) {

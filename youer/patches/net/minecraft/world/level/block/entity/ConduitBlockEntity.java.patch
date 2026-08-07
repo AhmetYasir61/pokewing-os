@@ -1,0 +1,116 @@
+--- a/net/minecraft/world/level/block/entity/ConduitBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/ConduitBlockEntity.java
+@@ -150,10 +_,8 @@
+                         BlockPos testPos = worldPosition.offset(ox, oy, oz);
+                         BlockState testBlock = level.getBlockState(testPos);
+ 
+-                        for (Block type : VALID_BLOCKS) {
+-                            if (testBlock.is(type)) {
+-                                effectBlocks.add(testPos);
+-                            }
++                        if (testBlock.isConduitFrame(level, testPos, worldPosition)) {
++                            effectBlocks.add(testPos);
+                         }
+                     }
+                 }
+@@ -164,30 +_,53 @@
+     }
+ 
+     private static void applyEffects(Level level, BlockPos worldPosition, List<BlockPos> effectBlocks) {
++        // CraftBukkit start
++        ConduitBlockEntity.applyEffects(level, worldPosition, ConduitBlockEntity.getRange(effectBlocks, level)); // Purpur - Conduit behavior configuration
++    }
++
++    public static int getRange(List<BlockPos> effectBlocks, Level level) { // Purpur - Conduit behavior configuration
++        // CraftBukkit end
+         int activeSize = effectBlocks.size();
+-        int effectRange = activeSize / 7 * 16;
++        int effectRange = activeSize / 7 * level.purpurConfig.conduitDistance; // Purpur - Conduit behavior configuration
++        // CraftBukkit start
++        return effectRange;
++    }
++
++    private static void applyEffects(Level level, BlockPos worldPosition, int j) { // i = effect range in blocks
++        // CraftBukkit end
+         int x = worldPosition.getX();
+         int y = worldPosition.getY();
+         int z = worldPosition.getZ();
+-        AABB bb = new AABB(x, y, z, x + 1, y + 1, z + 1).inflate(effectRange).expandTowards(0.0, level.getHeight(), 0.0);
++        AABB bb = new AABB(x, y, z, x + 1, y + 1, z + 1).inflate(j).expandTowards(0.0, level.getHeight(), 0.0);
+         List<Player> players = level.getEntitiesOfClass(Player.class, bb);
+         if (!players.isEmpty()) {
+             for (Player player : players) {
+-                if (worldPosition.closerThan(player.blockPosition(), effectRange) && player.isInWaterOrRain()) {
+-                    player.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, 260, 0, true, true));
++                if (worldPosition.closerThan(player.blockPosition(), j) && player.isInWaterOrRain()) {
++                    player.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, 260, 0, true, true), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.CONDUIT); // CraftBukkit
+                 }
+             }
+         }
+     }
+ 
+     private static void updateAndAttackTarget(ServerLevel level, BlockPos worldPosition, BlockState blockState, ConduitBlockEntity entity, boolean isActive) {
++        // CraftBukkit start - add "damageTarget" boolean
++        updateAndAttackTarget(level, worldPosition, blockState, entity, isActive, true);
++    }
++
++    public static void updateAndAttackTarget(ServerLevel level, BlockPos worldPosition, BlockState blockState, ConduitBlockEntity entity, boolean isActive, boolean damageTarget) {
++        // CraftBukkit end
+         EntityReference<LivingEntity> newDestroyTarget = updateDestroyTarget(entity.destroyTarget, level, worldPosition, isActive);
+         LivingEntity targetEntity = EntityReference.getLivingEntity(newDestroyTarget, level);
+-        if (targetEntity != null) {
+-            level.playSound(
+-                null, targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), SoundEvents.CONDUIT_ATTACK_TARGET, SoundSource.BLOCKS, 1.0F, 1.0F
+-            );
+-            targetEntity.hurtServer(level, level.damageSources().magic(), 4.0F);
++
++        // CraftBukkit start
++        if (damageTarget && targetEntity != null) {
++            // CraftBukkit start
++            if (targetEntity.hurtServer(level, level.damageSources().magic().eventBlockDamager(level, worldPosition), level.purpurConfig.conduitDamageAmount)) { // CraftBukkit - move up // Purpur - Conduit behavior configuration
++                level.playSound(
++                    null, targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), SoundEvents.CONDUIT_ATTACK_TARGET, SoundSource.BLOCKS, 1.0F, 1.0F
++                );
++            }
++            // CraftBukkit end
+         }
+ 
+         if (!Objects.equals(newDestroyTarget, entity.destroyTarget)) {
+@@ -201,25 +_,29 @@
+     ) {
+         if (!isActive) {
+             return null;
+-        }
+-
+-        if (target == null) {
++        } else if (target == null) {
+             return selectNewTarget(level, pos);
++        } else {
++            LivingEntity targetEntity = EntityReference.getLivingEntity(target, level);
++            return targetEntity != null && targetEntity.isAlive() && pos.closerThan(targetEntity.blockPosition(), level.purpurConfig.conduitDamageDistance) ? target : null;
+         }
+-
+-        LivingEntity targetEntity = EntityReference.getLivingEntity(target, level);
+-        return targetEntity != null && targetEntity.isAlive() && pos.closerThan(targetEntity.blockPosition(), 8.0) ? target : null;
+     }
+ 
+     private static @Nullable EntityReference<LivingEntity> selectNewTarget(ServerLevel level, BlockPos pos) {
+         List<LivingEntity> candidates = level.getEntitiesOfClass(
+-            LivingEntity.class, getDestroyRangeAABB(pos), input -> input instanceof Enemy && input.isInWaterOrRain()
++            LivingEntity.class, getDestroyRangeAABB(pos, level), input -> input instanceof Enemy && input.isInWaterOrRain()
+         );
+         return candidates.isEmpty() ? null : EntityReference.of(Util.getRandom(candidates, level.getRandom()));
+     }
+ 
+     public static AABB getDestroyRangeAABB(BlockPos worldPosition) {
+-        return new AABB(worldPosition).inflate(8.0);
++        // Purpur start - Conduit behavior configuration
++        return getDestroyRangeAABB(worldPosition, null);
++    }
++
++    private static AABB getDestroyRangeAABB(final BlockPos worldPosition, final Level level) {
++        // Purpur end - Conduit behavior configuration
++        return new AABB(worldPosition).inflate(level == null ? 8.0 : level.purpurConfig.conduitDamageDistance); // Purpur - Conduit behavior configuration
+     }
+ 
+     private static void animationTick(Level level, BlockPos worldPosition, List<BlockPos> effectBlocks, @Nullable Entity destroyTarget, int tickCount) {

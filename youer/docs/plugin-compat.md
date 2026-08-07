@@ -95,8 +95,15 @@ unnamed `_` variables NeoForge's build plugins use:
 error: unnamed variables are a preview feature and are disabled by default.
 ```
 
+`setup` has to run first. It decompiles Minecraft, applies the patches under `patches/`, and syncs
+the result into `projects/youer/src/main/java` — a second source directory the main source set picks
+up alongside the NeoForge/Bukkit/Paper sources at the repository root. Skip it and `compileJava` has
+no `net.minecraft` on its classpath, which surfaces as thousands of `package net.minecraft.* does not
+exist` errors rather than anything that names the real cause.
+
 ```bash
 cd youer
+./gradlew :neoforge:setup      # decompiles Minecraft; slow on a cold cache
 ./gradlew :neoforge:youerJar
 ```
 

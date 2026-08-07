@@ -396,11 +396,32 @@ tasks.withType(Javadoc.class).configureEach {
     options.addStringOption('Xdoclint:all,-missing', '-public')
 }
 
+// Youer - the build id stamped into the jar name, YouerVersion and versions/youer.txt.
+// gradleutils reads it from git, which throws "One of setGitDir or setWorkTree must be called" when
+// the build runs from an extracted archive rather than a clone. Fall back to a placeholder so the
+// jar still builds; pass -Pyouer_build_id=<id> to set it explicitly.
+// Probe for the repository ourselves rather than letting gradleutils throw: its GitInfoValueSource
+// failing is recorded as a configuration cache problem, which fails the build even when the
+// exception is caught here.
+ext.youerBuildId = {
+    if (project.hasProperty('youer_build_id')) {
+        return project.property('youer_build_id').toString()
+    }
+    for (def dir = rootProject.projectDir; dir != null; dir = dir.parentFile) {
+        // A worktree or submodule checkout has .git as a file, so test for existence, not a directory.
+        if (new File(dir, '.git').exists()) {
+            return gradleutils.gitInfo.abbreviatedId
+        }
+    }
+    logger.lifecycle("No git checkout found, stamping this build as 'nogit'. Pass -Pyouer_build_id=<id> to override.")
+    return 'nogit'
+}()
+
 // Placeholders for source and resource generation.
 // Exposed project properties
 Map<String, String> placeholders = [
         'version' : project.version.toString(),
-        'youer_version' : gradleutils.gitInfo.abbreviatedId,
+        'youer_version' : youerBuildId,
         'paper_version' : '7731202e1f-#100',
         'purpur_version' : '5a85de0eb-#2618',
         'neoform_version' : project.neoform_version,
@@ -634,7 +655,7 @@ task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':
     archiveClassifier = 'server'
     archiveExtension = 'jar'
     archiveBaseName = 'youer'
-    archiveVersion = minecraft_version + '-' + gradleutils.gitInfo.abbreviatedId
+    archiveVersion = minecraft_version + '-' + youerBuildId // Youer - tolerate a missing git checkout
     destinationDirectory = file('build/libs')
 
     manifest {
@@ -682,7 +703,7 @@ task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':
     }
 
     from(rootProject.file('server_files/version.txt')) {
-        filter(ReplaceTokens, tokens: [VERSION: gradleutils.gitInfo.abbreviatedId])
+        filter(ReplaceTokens, tokens: [VERSION: youerBuildId]) // Youer - tolerate a missing git checkout
         rename { 'versions/youer.txt' }
     }
     from(rootProject.file('server_files/version.txt')) {

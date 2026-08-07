@@ -108,3 +108,10 @@ cd youer
 ```
 
 The jar lands in `projects/youer/build/libs/`.
+
+The build stamps the jar name, `YouerVersion` and `versions/youer.txt` with the abbreviated commit
+id. Running from an extracted archive instead of a clone used to fail configuration with
+`One of setGitDir or setWorkTree must be called`, because gradleutils reads that id from git. The
+build now checks for a checkout first and falls back to `nogit`; catching the exception was not
+enough, since gradleutils' value source failing is itself recorded as a configuration cache problem.
+Pass `-Pyouer_build_id=<id>` to stamp something specific.

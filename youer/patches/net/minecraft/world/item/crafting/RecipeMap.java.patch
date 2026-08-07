@@ -1,0 +1,109 @@
+--- a/net/minecraft/world/item/crafting/RecipeMap.java
++++ b/net/minecraft/world/item/crafting/RecipeMap.java
+@@ -2,9 +_,13 @@
+ 
+ import com.google.common.collect.ImmutableMap;
+ import com.google.common.collect.ImmutableMultimap;
++import com.google.common.collect.LinkedHashMultimap;
++import com.google.common.collect.Maps;
+ import com.google.common.collect.Multimap;
+ import com.google.common.collect.ImmutableMultimap.Builder;
+ import java.util.Collection;
++import java.util.Iterator;
++import java.util.LinkedHashMap;
+ import java.util.Map;
+ import java.util.stream.Stream;
+ import net.minecraft.resources.ResourceKey;
+@@ -12,11 +_,11 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ public class RecipeMap {
+-    public static final RecipeMap EMPTY = new RecipeMap(ImmutableMultimap.of(), Map.of());
+-    public final Multimap<RecipeType<?>, RecipeHolder<?>> byType;
+-    public final Map<ResourceKey<Recipe<?>>, RecipeHolder<?>> byKey;
++    public static final RecipeMap EMPTY = new RecipeMap(ImmutableMultimap.of(), Maps.newLinkedHashMap());
++    public Multimap<RecipeType<?>, RecipeHolder<?>> byType;
++    public final LinkedHashMap<ResourceKey<Recipe<?>>, RecipeHolder<?>> byKey;
+ 
+-    private RecipeMap(Multimap<RecipeType<?>, RecipeHolder<?>> byType, Map<ResourceKey<Recipe<?>>, RecipeHolder<?>> byKey) {
++    private RecipeMap(Multimap<RecipeType<?>, RecipeHolder<?>> byType, LinkedHashMap<ResourceKey<Recipe<?>>, RecipeHolder<?>> byKey) {
+         this.byType = byType;
+         this.byKey = byKey;
+     }
+@@ -30,7 +_,50 @@
+             byKey.put(recipe.id(), recipe);
+         }
+ 
+-        return new RecipeMap(byType.build(), byKey.build());
++        // CraftBukkit start - mutable
++        return new RecipeMap(com.google.common.collect.LinkedHashMultimap.create(byType.build()), com.google.common.collect.Maps.newLinkedHashMap(byKey.build()));
++    }
++
++    public void addRecipe(RecipeHolder<?> holder) {
++        Collection<RecipeHolder<?>> recipes = this.byType.get(holder.value().getType());
++
++        if (this.byKey.containsKey(holder.id())) {
++            throw new IllegalStateException("Duplicate recipe ignored with ID " + holder.id());
++        } else {
++            recipes.add(holder);
++            this.byKey.put(holder.id(), holder);
++        }
++    }
++    // CraftBukkit end
++
++    // Paper start - replace removeRecipe implementation
++    public boolean removeRecipe(ResourceKey<Recipe<?>> id) {
++        final RecipeHolder<?> remove = this.byKey.remove(id);
++        if (remove == null) {
++            return false;
++        }
++        final Collection<? extends RecipeHolder<?>> recipes = this.byType(remove.value().getType());
++        return recipes.remove(remove);
++    }
++    // Paper end - replace removeRecipe implementation
++
++    // Neo: handle ordering according to any recipe priorities
++    public void order(it.unimi.dsi.fastutil.objects.Object2IntMap<ResourceKey<net.minecraft.world.item.crafting.Recipe<?>>> recipePriorities) {
++        it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap<java.util.List<RecipeHolder<?>>> priorityBuilder = new it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap<>();
++        com.google.common.collect.LinkedListMultimap<RecipeType<?>, RecipeHolder<?>> finalBuilder = com.google.common.collect.LinkedListMultimap.create();
++
++        for (RecipeHolder<?> recipeholder : this.byKey.values()) {
++            int priority = recipePriorities.getOrDefault(recipeholder.id(), 0);
++            priorityBuilder.computeIfAbsent(priority, p -> new java.util.ArrayList<>()).add(recipeholder);
++        }
++
++        for (var list : priorityBuilder.reversed().values()) {
++            for (RecipeHolder<?> recipeHolder : list) {
++                finalBuilder.put(recipeHolder.value().getType(), recipeHolder);
++            }
++        }
++
++        this.byType = ImmutableMultimap.copyOf(finalBuilder);
+     }
+ 
+     public <I extends RecipeInput, T extends Recipe<I>> Collection<RecipeHolder<T>> byType(RecipeType<T> type) {
+@@ -48,4 +_,24 @@
+     public <I extends RecipeInput, T extends Recipe<I>> Stream<RecipeHolder<T>> getRecipesFor(RecipeType<T> type, I container, Level level) {
+         return container.isEmpty() ? Stream.empty() : this.byType(type).stream().filter(r -> r.value().matches(container, level));
+     }
++
++    // DivineMC start - Carpet-Fixes - Remove streams to be faster
++    public <I extends RecipeInput, T extends Recipe<I>> java.util.List<RecipeHolder<T>> getRecipesForList(RecipeType<T> type, I input, Level world) {
++        java.util.List<RecipeHolder<T>> list;
++
++        if (input.isEmpty()) {
++            return java.util.List.of();
++        } else {
++            list = new java.util.ArrayList<>();
++        }
++
++        for (RecipeHolder<T> recipeholder : this.byType(type)) {
++            if (recipeholder.value().matches(input, world)) {
++                list.add(recipeholder);
++            }
++        }
++
++        return list;
++    }
++    // DivineMC end - Carpet-Fixes - Remove streams to be faster
+ }

@@ -1,0 +1,50 @@
+--- a/net/minecraft/world/item/component/Consumable.java
++++ b/net/minecraft/world/item/component/Consumable.java
+@@ -24,10 +_,12 @@
+ import net.minecraft.world.food.FoodProperties;
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.item.ItemUseAnimation;
++import net.minecraft.world.item.Items;
+ import net.minecraft.world.item.consume_effects.ConsumeEffect;
+ import net.minecraft.world.item.consume_effects.PlaySoundConsumeEffect;
+ import net.minecraft.world.level.Level;
+ import net.minecraft.world.level.gameevent.GameEvent;
++import org.bukkit.event.entity.EntityPotionEffectEvent;
+ 
+ public record Consumable(
+     float consumeSeconds, ItemUseAnimation animation, Holder<SoundEvent> sound, boolean hasConsumeParticles, List<ConsumeEffect> onConsumeEffects
+@@ -84,13 +_,33 @@
+ 
+         stack.getAllOfType(ConsumableListener.class).forEach(component -> component.onConsume(level, user, stack, this));
+         if (!level.isClientSide()) {
+-            this.onConsumeEffects.forEach(action -> action.apply(level, stack, user));
++            // CraftBukkit start
++            EntityPotionEffectEvent.Cause cause;
++            if (stack.is(Items.MILK_BUCKET)) {
++                cause = EntityPotionEffectEvent.Cause.MILK;
++            } else if (stack.is(Items.POTION)) {
++                cause = EntityPotionEffectEvent.Cause.POTION_DRINK;
++            } else {
++                cause = EntityPotionEffectEvent.Cause.FOOD;
++            }
++            this.onConsumeEffects.forEach(action -> action.apply(level, stack, user, cause));
+         }
+ 
+         user.gameEvent(this.animation == ItemUseAnimation.DRINK ? GameEvent.DRINK : GameEvent.EAT);
+         stack.consume(1, user);
+         return stack;
+     }
++
++    // CraftBukkit start
++    public void cancelUsingItem(ServerPlayer player, ItemStack stack) {
++        final java.util.List<net.minecraft.network.protocol.Packet<? super net.minecraft.network.protocol.game.ClientGamePacketListener>> packets = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>(); // Paper - properly resend entities - collect packets for bundle
++        stack.getAllOfType(ConsumableListener.class).forEach(listener -> {
++            listener.cancelUsingItem(player, stack, packets); // Paper - properly resend entities - collect packets for bundle
++        });
++        player.level().getServer().getPlayerList().sendActiveEffects(player, packets::add); // Paper - properly resend entities - collect packets for bundle
++        player.connection.send(new net.minecraft.network.protocol.game.ClientboundBundlePacket(packets));
++    }
++    // CraftBukkit end
+ 
+     public boolean canConsume(LivingEntity user, ItemStack stack) {
+         FoodProperties foodProperties = stack.get(DataComponents.FOOD);

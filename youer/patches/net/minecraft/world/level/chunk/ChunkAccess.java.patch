@@ -1,0 +1,327 @@
+--- a/net/minecraft/world/level/chunk/ChunkAccess.java
++++ b/net/minecraft/world/level/chunk/ChunkAccess.java
+@@ -59,14 +_,14 @@
+ 
+ import net.neoforged.neoforge.attachment.IAttachmentHolder;
+ 
+-public abstract class ChunkAccess implements LightChunk, StructureAccess, BiomeManager.NoiseBiomeSource, IAttachmentHolder {
++public abstract class ChunkAccess implements LightChunk, StructureAccess, BiomeManager.NoiseBiomeSource, IAttachmentHolder, ca.spottedleaf.moonrise.patches.starlight.chunk.StarlightChunk { // Paper - rewrite chunk system
+     public static final int NO_FILLED_SECTION = -1;
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private static final LongSet EMPTY_REFERENCE_SET = new LongOpenHashSet();
+     protected final @Nullable ShortList[] postProcessing;
+     private volatile boolean unsaved;
+     private volatile boolean isLightCorrect;
+-    protected final ChunkPos chunkPos;
++    protected final ChunkPos chunkPos; public final long coordinateKey; public final int locX; public final int locZ; // Paper - cache coordinate key
+     private long inhabitedTime;
+     @Deprecated
+     private @Nullable BiomeGenerationSettings carverBiomeSettings;
+@@ -74,13 +_,68 @@
+     protected final UpgradeData upgradeData;
+     protected final @Nullable BlendingData blendingData;
+     public final Map<Heightmap.Types, Heightmap> heightmaps = Maps.newEnumMap(Heightmap.Types.class);
+-    protected ChunkSkyLightSources skyLightSources;
++    // Paper - rewrite chunk system
+     private final Map<Structure, StructureStart> structureStarts = Maps.newHashMap();
+     private final Map<Structure, LongSet> structuresRefences = Maps.newHashMap();
+     protected final Map<BlockPos, CompoundTag> pendingBlockEntities = Maps.newHashMap();
+     public final Map<BlockPos, BlockEntity> blockEntities = new Object2ObjectOpenHashMap<>();
+     protected final LevelHeightAccessor levelHeightAccessor;
+     protected final LevelChunkSection[] sections;
++    // CraftBukkit start - SPIGOT-6814: move to ChunkAccess to account for 1.17 to 1.18 chunk upgrading.
++    private static final org.bukkit.craftbukkit.persistence.CraftPersistentDataTypeRegistry DATA_TYPE_REGISTRY = new org.bukkit.craftbukkit.persistence.CraftPersistentDataTypeRegistry();
++    public org.bukkit.craftbukkit.persistence.DirtyCraftPersistentDataContainer persistentDataContainer = new org.bukkit.craftbukkit.persistence.DirtyCraftPersistentDataContainer(ChunkAccess.DATA_TYPE_REGISTRY);
++    // CraftBukkit end
++
++    // Paper start - rewrite chunk system
++    private volatile ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray[] blockNibbles;
++    private volatile ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray[] skyNibbles;
++    private volatile boolean[] skyEmptinessMap;
++    private volatile boolean[] blockEmptinessMap;
++
++    @Override
++    public ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray[] starlight$getBlockNibbles() {
++        return this.blockNibbles;
++    }
++
++    @Override
++    public void starlight$setBlockNibbles(final ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray[] nibbles) {
++        this.blockNibbles = nibbles;
++    }
++
++    @Override
++    public ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray[] starlight$getSkyNibbles() {
++        return this.skyNibbles;
++    }
++
++    @Override
++    public void starlight$setSkyNibbles(final ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray[] nibbles) {
++        this.skyNibbles = nibbles;
++    }
++
++    @Override
++    public boolean[] starlight$getSkyEmptinessMap() {
++        return this.skyEmptinessMap;
++    }
++
++    @Override
++    public void starlight$setSkyEmptinessMap(final boolean[] emptinessMap) {
++        this.skyEmptinessMap = emptinessMap;
++    }
++
++    @Override
++    public boolean[] starlight$getBlockEmptinessMap() {
++        return this.blockEmptinessMap;
++    }
++
++    @Override
++    public void starlight$setBlockEmptinessMap(final boolean[] emptinessMap) {
++        this.blockEmptinessMap = emptinessMap;
++    }
++    // Paper end - rewrite chunk system
++    // Paper start - get block chunk optimisation
++    private final int minSection;
++    private final int maxSection;
++    // Paper end - get block chunk optimisation
+ 
+     public ChunkAccess(
+         ChunkPos chunkPos,
+@@ -91,14 +_,15 @@
+         LevelChunkSection @Nullable [] sections,
+         @Nullable BlendingData blendingData
+     ) {
+-        this.chunkPos = chunkPos;
++        this.locX = chunkPos.x(); this.locZ = chunkPos.z(); // Paper - reduce need for field lookups
++        this.chunkPos = chunkPos; this.coordinateKey = ChunkPos.pack(this.locX, this.locZ); // Paper - cache long key
+         this.upgradeData = upgradeData;
+         this.levelHeightAccessor = levelHeightAccessor;
+         this.sections = new LevelChunkSection[levelHeightAccessor.getSectionsCount()];
+         this.inhabitedTime = inhabitedTime;
+         this.postProcessing = new ShortList[levelHeightAccessor.getSectionsCount()];
+         this.blendingData = blendingData;
+-        this.skyLightSources = new ChunkSkyLightSources(levelHeightAccessor);
++        // Paper - rewrite chunk system
+         if (sections != null) {
+             if (this.sections.length == sections.length) {
+                 System.arraycopy(sections, 0, this.sections, 0, this.sections.length);
+@@ -107,13 +_,23 @@
+             }
+         }
+ 
+-        replaceMissingSections(containerFactory, this.sections);
++        this.replaceMissingSections(containerFactory, this.sections); // Paper - Anti-Xray - make it a non-static method
++        // Paper start - rewrite chunk system
++        if (!((Object)this instanceof ImposterProtoChunk)) {
++            this.starlight$setBlockNibbles(ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine.getFilledEmptyLight(levelHeightAccessor));
++            this.starlight$setSkyNibbles(ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine.getFilledEmptyLight(levelHeightAccessor));
++        }
++        // Paper end - rewrite chunk system
++        // Paper start - get block chunk optimisation
++        this.minSection = ca.spottedleaf.moonrise.common.util.WorldUtil.getMinSection(levelHeightAccessor);
++        this.maxSection = ca.spottedleaf.moonrise.common.util.WorldUtil.getMaxSection(levelHeightAccessor);
++        // Paper end - get block chunk optimisation
+     }
+ 
+-    private static void replaceMissingSections(PalettedContainerFactory containerFactory, LevelChunkSection[] sections) {
++    private void replaceMissingSections(PalettedContainerFactory containerFactory, LevelChunkSection[] sections) { // Paper - Anti-Xray - make it a non-static method
+         for (int i = 0; i < sections.length; i++) {
+             if (sections[i] == null) {
+-                sections[i] = new LevelChunkSection(containerFactory);
++                sections[i] = new LevelChunkSection(containerFactory, this.levelHeightAccessor instanceof net.minecraft.world.level.Level ? (net.minecraft.world.level.Level) this.levelHeightAccessor : null, this.chunkPos, this.levelHeightAccessor.getSectionYFromSectionIndex(i)); // Paper - Anti-Xray - Add parameters
+             }
+         }
+     }
+@@ -122,6 +_,8 @@
+         return GameEventListenerRegistry.NOOP;
+     }
+ 
++    public abstract BlockState getBlockState(final int x, final int y, final int z); // Paper
++
+     public @Nullable BlockState setBlockState(BlockPos pos, BlockState state) {
+         return this.setBlockState(pos, state, 3);
+     }
+@@ -268,6 +_,7 @@
+     public boolean tryMarkSaved() {
+         if (this.unsaved) {
+             this.unsaved = false;
++            this.persistentDataContainer.dirty(false); // CraftBukkit - SPIGOT-6814: chunk was saved, pdc is no longer dirty
+             return true;
+         } else {
+             return false;
+@@ -275,7 +_,7 @@
+     }
+ 
+     public boolean isUnsaved() {
+-        return this.unsaved;
++        return this.unsaved || this.persistentDataContainer.dirty(); // CraftBukkit - SPIGOT-6814: chunk is unsaved if pdc was mutated
+     }
+ 
+     public abstract ChunkStatus getPersistedStatus();
+@@ -320,10 +_,14 @@
+ 
+     @Override
+     public final void findBlockLightSources(BiConsumer<BlockPos, BlockState> consumer) {
+-        this.findBlocks(state -> state.getLightEmission() != 0, consumer);
++        this.findBlocks(p_284897_ -> p_284897_.hasDynamicLightEmission() || p_284897_.getLightEmission(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO) != 0, (p_284897_, pos) -> p_284897_.getLightEmission(this, pos) != 0, consumer);
+     }
+ 
+     public void findBlocks(Predicate<BlockState> predicate, BiConsumer<BlockPos, BlockState> consumer) {
++        findBlocks(predicate, (state, pos) -> predicate.test(state), consumer);
++    }
++
++    public void findBlocks(Predicate<BlockState> predicate, java.util.function.BiPredicate<BlockState, BlockPos> fineFilter, BiConsumer<BlockPos, BlockState> consumer) {
+         BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
+ 
+         for (int sectionY = this.getMinSectionY(); sectionY <= this.getMaxSectionY(); sectionY++) {
+@@ -335,8 +_,9 @@
+                     for (int z = 0; z < 16; z++) {
+                         for (int x = 0; x < 16; x++) {
+                             BlockState state = section.getBlockState(x, y, z);
+-                            if (predicate.test(state)) {
+-                                consumer.accept(mutablePos.setWithOffset(origin, x, y, z), state);
++                            mutablePos.setWithOffset(origin, x, y, z);
++                            if (fineFilter.test(state, mutablePos)) {
++                                consumer.accept(mutablePos, state);
+                             }
+                         }
+                     }
+@@ -433,19 +_,40 @@
+ 
+     @Override
+     public Holder<Biome> getNoiseBiome(int quartX, int quartY, int quartZ) {
++        // Paper start - get block chunk optimisation
++        int sectionY = (quartY >> 2) - this.minSection;
++        int rel = quartY & 3;
++
++        final LevelChunkSection[] sections = this.sections;
++
++        if (sectionY < 0) {
++            sectionY = 0;
++            rel = 0;
++        } else if (sectionY >= sections.length) {
++            sectionY = sections.length - 1;
++            rel = 3;
++        }
++
++        return sections[sectionY].getNoiseBiome(quartX & 3, rel, quartZ & 3);
++        // Paper end - get block chunk optimisation
++    }
++
++    // CraftBukkit start
++    public void setNoiseBiome(int quartX, int quartY, int quartZ, Holder<Biome> biome) {
+         try {
+             int quartMinY = QuartPos.fromBlock(this.getMinY());
+             int quartMaxY = quartMinY + QuartPos.fromBlock(this.getHeight()) - 1;
+             int clampedQuartY = Mth.clamp(quartY, quartMinY, quartMaxY);
+             int sectionIndex = this.getSectionIndex(QuartPos.toBlock(clampedQuartY));
+-            return this.sections[sectionIndex].getNoiseBiome(quartX & 3, clampedQuartY & 3, quartZ & 3);
+-        } catch (Throwable t) {
+-            CrashReport report = CrashReport.forThrowable(t, "Getting biome");
+-            CrashReportCategory category = report.addCategory("Biome being got");
++            this.sections[sectionIndex].setNoiseBiome(quartX & 3, clampedQuartY & 3, quartZ & 3, biome);
++        } catch (Throwable throwable) {
++            CrashReport report = CrashReport.forThrowable(throwable, "Setting biome");
++            CrashReportCategory category = report.addCategory("Biome being set");
+             category.setDetail("Location", () -> CrashReportCategory.formatLocation(this, quartX, quartY, quartZ));
+             throw new ReportedException(report);
+         }
+     }
++    // CraftBukkit end
+ 
+     public void fillBiomesFromNoise(BiomeResolver biomeResolver, Climate.Sampler sampler) {
+         ChunkPos pos = this.getPos();
+@@ -477,13 +_,90 @@
+     }
+ 
+     public void initializeLightSources() {
+-        this.skyLightSources.fillFrom(this);
++        // Paper - rewrite chunk system
+     }
+ 
+     @Override
+     public ChunkSkyLightSources getSkyLightSources() {
+-        return this.skyLightSources;
+-    }
++        return null; // Paper - rewrite chunk system
++    }
++
++    // Neo: Hook in AttachmentHolder to chunks for data storage and retrieval
++    private final net.neoforged.neoforge.attachment.AttachmentHolder.AsField attachmentHolder = new net.neoforged.neoforge.attachment.AttachmentHolder.AsField(this);
++
++    @Override
++    public boolean hasAttachments() {
++        return getAttachmentHolder().hasAttachments();
++    }
++
++    @Override
++    public boolean hasData(net.neoforged.neoforge.attachment.AttachmentType<?> type) {
++        return getAttachmentHolder().hasData(type);
++    }
++
++    @Override
++    public <T> T getData(net.neoforged.neoforge.attachment.AttachmentType<T> type) {
++        return getAttachmentHolder().getData(type);
++    }
++
++    @Override
++    @Nullable
++    public <T> T getExistingDataOrNull(net.neoforged.neoforge.attachment.AttachmentType<T> type) {
++        return getAttachmentHolder().getExistingDataOrNull(type);
++    }
++
++    @Override
++    @Nullable
++    public <T> T setData(net.neoforged.neoforge.attachment.AttachmentType<T> type, T data) {
++        markUnsaved();
++        return getAttachmentHolder().setData(type, data);
++    }
++
++    @Override
++    @Nullable
++    public <T> T removeData(net.neoforged.neoforge.attachment.AttachmentType<T> type) {
++        markUnsaved();
++        return getAttachmentHolder().removeData(type);
++    }
++
++    /**
++     * <strong>FOR INTERNAL USE ONLY</strong>
++     * <p>
++     * Only public for use in {@link net.minecraft.world.level.chunk.storage.SerializableChunkData}.
++     */
++    @org.jetbrains.annotations.ApiStatus.Internal
++    @Nullable
++    public final CompoundTag writeAttachmentsToNBT(HolderLookup.Provider provider) {
++        ProblemReporter.Collector reporter = new ProblemReporter.Collector();
++        var tag = net.minecraft.world.level.storage.TagValueOutput.createWithContext(reporter, provider);
++        getAttachmentHolder().serializeAttachments(tag);
++        if (!reporter.isEmpty()) throw new IllegalArgumentException("Attachments failed to serialise: " + reporter.getReport());
++        return tag.isEmpty() ? null : tag.buildResult();
++    }
++
++    /**
++     * <strong>FOR INTERNAL USE ONLY</strong>
++     * <p>
++     * Only public for use in {@link net.minecraft.world.level.chunk.storage.SerializableChunkData}.
++     *
++     */
++    @org.jetbrains.annotations.ApiStatus.Internal
++    public final void readAttachmentsFromNBT(HolderLookup.Provider provider, CompoundTag tag) {
++        ProblemReporter.Collector reporter = new ProblemReporter.Collector();
++        var input = net.minecraft.world.level.storage.TagValueInput.create(reporter, provider, tag);
++        getAttachmentHolder().deserializeInternal(provider, input);
++        if (!reporter.isEmpty()) {
++            throw new IllegalArgumentException("Attachments failed to deserialise: " + reporter.getReport());
++        }
++    }
++
++    @org.jetbrains.annotations.ApiStatus.Internal
++    public net.neoforged.neoforge.attachment.AttachmentHolder.AsField getAttachmentHolder() {
++        return attachmentHolder;
++    }
++
++    // Neo: Allow for exposing the Level a chunk is tied to if available
++    public net.minecraft.world.level.@Nullable Level getLevel() { return null; }
+ 
+     public static ProblemReporter.PathElement problemPath(ChunkPos pos) {
+         return new ChunkAccess.ChunkPathElement(pos);

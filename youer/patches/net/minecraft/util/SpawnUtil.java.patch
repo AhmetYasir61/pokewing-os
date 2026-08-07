@@ -1,0 +1,91 @@
+--- a/net/minecraft/util/SpawnUtil.java
++++ b/net/minecraft/util/SpawnUtil.java
+@@ -16,16 +_,19 @@
+ import net.minecraft.world.level.block.state.BlockState;
+ 
+ public class SpawnUtil {
++
+     public static <T extends Mob> Optional<T> trySpawnMob(
+-        EntityType<T> entityType,
+-        EntitySpawnReason spawnReason,
+-        ServerLevel level,
+-        BlockPos start,
+-        int spawnAttempts,
+-        int spawnRangeXZ,
+-        int spawnRangeY,
+-        SpawnUtil.Strategy strategy,
+-        boolean checkCollisions
++            EntityType<T> entityType,
++            EntitySpawnReason spawnReason,
++            ServerLevel level,
++            BlockPos start,
++            int spawnAttempts,
++            int spawnRangeXZ,
++            int spawnRangeY,
++            SpawnUtil.Strategy strategy,
++            boolean checkCollisions,
++            org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason reason,
++        @org.jspecify.annotations.Nullable Runnable onAbort // Paper - pre creature spawn event
+     ) {
+         BlockPos.MutableBlockPos searchPos = start.mutable();
+         RandomSource random = level.getRandom();
+@@ -35,22 +_,54 @@
+             int dz = Mth.randomBetweenInclusive(random, -spawnRangeXZ, spawnRangeXZ);
+             searchPos.setWithOffset(start, dx, spawnRangeY, dz);
+             if (level.getWorldBorder().isWithinBounds(searchPos)
+-                && moveToPossibleSpawnPosition(level, spawnRangeY, searchPos, strategy)
+-                && (!checkCollisions || level.noCollision(entityType.getSpawnAABB(searchPos.getX() + 0.5, searchPos.getY(), searchPos.getZ() + 0.5)))) {
++                    && moveToPossibleSpawnPosition(level, spawnRangeY, searchPos, strategy)
++                    && (!checkCollisions || level.noCollision(entityType.getSpawnAABB(searchPos.getX() + 0.5, searchPos.getY(), searchPos.getZ() + 0.5)))) {
++                // Paper start - PreCreatureSpawnEvent
++                final com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent event = new com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent(
++                        org.bukkit.craftbukkit.util.CraftLocation.toBukkit(start, level),
++                        org.bukkit.craftbukkit.entity.CraftEntityType.minecraftToBukkit(entityType),
++                        reason
++                );
++                if (!event.callEvent()) {
++                    if (event.shouldAbortSpawn()) {
++                        if (onAbort != null) {
++                            onAbort.run();
++                        }
++                        return Optional.empty();
++                    }
++                    break;
++                }
++                // Paper end - PreCreatureSpawnEvent
+                 T mob = (T)entityType.create(level, null, searchPos, spawnReason, false, false);
+                 if (mob != null) {
+-                    if (mob.checkSpawnRules(level, spawnReason) && mob.checkSpawnObstruction(level)) {
+-                        level.addFreshEntityWithPassengers(mob);
++                    if (net.neoforged.neoforge.event.EventHooks.checkSpawnPosition(mob, level, spawnReason)) {
++                        level.addFreshEntityWithPassengers(mob, reason);
++                        if (mob.isRemoved()) return Optional.empty(); // CraftBukkit
+                         mob.playAmbientSound();
+                         return Optional.of(mob);
+                     }
+ 
+-                    mob.discard();
++                    mob.discard(null); // CraftBukkit - add Bukkit remove cause
+                 }
+             }
+         }
+ 
+         return Optional.empty();
++    }
++    // Youer end
++
++    public static <T extends Mob> Optional<T> trySpawnMob(
++        EntityType<T> entityType,
++        EntitySpawnReason spawnReason,
++        ServerLevel level,
++        BlockPos start,
++        int spawnAttempts,
++        int spawnRangeXZ,
++        int spawnRangeY,
++        SpawnUtil.Strategy strategy,
++        boolean checkCollisions
++    ) {
++        return trySpawnMob(entityType, spawnReason, level, start, spawnAttempts, spawnRangeXZ, spawnRangeY, strategy, checkCollisions, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT, null); // Paper - pre creature spawn event
+     }
+ 
+     private static boolean moveToPossibleSpawnPosition(ServerLevel level, int spawnRangeY, BlockPos.MutableBlockPos searchPos, SpawnUtil.Strategy strategy) {

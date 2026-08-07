@@ -1,0 +1,33 @@
+--- a/net/minecraft/server/network/CommonListenerCookie.java
++++ b/net/minecraft/server/network/CommonListenerCookie.java
+@@ -1,9 +_,28 @@
+ package net.minecraft.server.network;
+ 
+ import com.mojang.authlib.GameProfile;
++import java.util.Objects;
+ import net.minecraft.server.level.ClientInformation;
+-
+-public record CommonListenerCookie(GameProfile gameProfile, int latency, ClientInformation clientInformation, boolean transferred) {
++import net.neoforged.neoforge.network.connection.ConnectionType;
++
++public record CommonListenerCookie(GameProfile gameProfile, int latency, ClientInformation clientInformation, boolean transferred, ConnectionType connectionType, @org.jspecify.annotations.Nullable String clientBrand, java.util.Set<String> channels, io.papermc.paper.util.KeepAlive keepAlive) { // Paper
++
++    public CommonListenerCookie(GameProfile gameProfile, int latency, ClientInformation clientInformation, boolean transferred, ConnectionType connectionType) {
++        this(gameProfile, latency, clientInformation, transferred, connectionType, null, new java.util.HashSet<>(), new io.papermc.paper.util.KeepAlive());
++    }
++
++    public CommonListenerCookie(GameProfile gameProfile, int latency, ClientInformation clientInformation, boolean transferred, @org.jspecify.annotations.Nullable String clientBrand, java.util.Set<String> channels, io.papermc.paper.util.KeepAlive keepAlive) {
++        this(gameProfile, latency, clientInformation, transferred, ConnectionType.OTHER, clientBrand, channels, keepAlive);
++    }
++
++    /**
++     * @deprecated Use {@link #CommonListenerCookie(GameProfile, int, ClientInformation, boolean, ConnectionType)} instead, to indicate whether the connection is modded.
++     */
++    @Deprecated
++    public CommonListenerCookie(GameProfile gameProfile, int latency, ClientInformation clientInformation, boolean transferred) {
++        this(gameProfile, latency, clientInformation, transferred, ConnectionType.OTHER, null, new java.util.HashSet<>(), new io.papermc.paper.util.KeepAlive());
++    }
++
+     public static CommonListenerCookie createInitial(GameProfile gameProfile, boolean transferred) {
+         return new CommonListenerCookie(gameProfile, 0, ClientInformation.createDefault(), transferred);
+     }

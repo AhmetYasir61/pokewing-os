@@ -1,0 +1,86 @@
+--- a/net/minecraft/world/level/gameevent/vibrations/VibrationSystem.java
++++ b/net/minecraft/world/level/gameevent/vibrations/VibrationSystem.java
+@@ -50,6 +_,8 @@
+         GameEvent.RESONATE_15.key()
+     );
+     int NO_VIBRATION_FREQUENCY = 0;
++    /** @deprecated Neo: use the {@link net.neoforged.neoforge.registries.datamaps.builtin.NeoForgeDataMaps#VIBRATION_FREQUENCIES data map} instead. */
++    @Deprecated
+     ToIntFunction<ResourceKey<GameEvent>> VIBRATION_FREQUENCY_FOR_EVENT = Util.make(new Reference2IntOpenHashMap<>(), map -> {
+         map.defaultReturnValue(0);
+         map.put(GameEvent.STEP.key(), 1);
+@@ -104,11 +_,13 @@
+     VibrationSystem.User getVibrationUser();
+ 
+     static int getGameEventFrequency(Holder<GameEvent> event) {
+-        return event.unwrapKey().map(VibrationSystem::getGameEventFrequency).orElse(0);
++        var data = event.getData(net.neoforged.neoforge.registries.datamaps.builtin.NeoForgeDataMaps.VIBRATION_FREQUENCIES);
++        return data != null ? data.frequency() : 0;
+     }
+ 
+     static int getGameEventFrequency(ResourceKey<GameEvent> event) {
+-        return VIBRATION_FREQUENCY_FOR_EVENT.applyAsInt(event);
++        var holder = net.minecraft.core.registries.BuiltInRegistries.GAME_EVENT.get(event);
++        return holder.map(VibrationSystem::getGameEventFrequency).orElse(0);
+     }
+ 
+     static ResourceKey<GameEvent> getResonanceEventByFrequency(int vibrationFrequency) {
+@@ -124,7 +_,7 @@
+         public static final Codec<VibrationSystem.Data> CODEC = RecordCodecBuilder.create(
+             i -> i.group(
+                     VibrationInfo.CODEC.lenientOptionalFieldOf("event").forGetter(o -> Optional.ofNullable(o.currentVibration)),
+-                    VibrationSelector.CODEC.fieldOf("selector").forGetter(VibrationSystem.Data::getSelectionStrategy),
++                    VibrationSelector.CODEC.optionalFieldOf("selector").xmap(o -> o.orElseGet(VibrationSelector::new), Optional::of).forGetter(VibrationSystem.Data::getSelectionStrategy), // Paper - fix MapLike spam for missing "selector" in 1.19.2
+                     ExtraCodecs.optionalAlwaysPresentFieldOf(ExtraCodecs.NON_NEGATIVE_INT, "event_delay", 0)
+                         .forGetter(VibrationSystem.Data::getTravelTimeInTicks)
+                 )
+@@ -185,7 +_,7 @@
+         }
+     }
+ 
+-    class Listener implements GameEventListener {
++    public static class Listener implements GameEventListener {
+         private final VibrationSystem system;
+ 
+         public Listener(VibrationSystem system) {
+@@ -220,14 +_,19 @@
+             }
+ 
+             Vec3 destination = listenerSourcePos.get();
+-            if (!user.canReceiveVibration(level, BlockPos.containing(sourcePosition), event, context)) {
++            // CraftBukkit start
++            boolean defaultCancel = !user.canReceiveVibration(level, BlockPos.containing(sourcePosition), event, context);
++            Entity entity = context.sourceEntity();
++            org.bukkit.event.block.BlockReceiveGameEvent event1 = new org.bukkit.event.block.BlockReceiveGameEvent(org.bukkit.craftbukkit.CraftGameEvent.minecraftHolderToBukkit(event), org.bukkit.craftbukkit.block.CraftBlock.at(level, BlockPos.containing(destination)), (entity == null) ? null : entity.getBukkitEntity());
++            event1.setCancelled(defaultCancel);
++            level.getCraftServer().getPluginManager().callEvent(event1);
++            if (event1.isCancelled()) {
++                // CraftBukkit end
+                 return false;
+             }
+-
+             if (isOccluded(level, sourcePosition, destination)) {
+                 return false;
+             }
+-
+             this.scheduleVibration(level, data, event, context, sourcePosition, destination);
+             return true;
+         }
+@@ -264,7 +_,7 @@
+         }
+     }
+ 
+-    interface Ticker {
++    public interface Ticker {
+         static void tick(Level level, VibrationSystem.Data data, VibrationSystem.User user) {
+             if (level instanceof ServerLevel serverLevel) {
+                 if (data.currentVibration == null) {
+@@ -370,7 +_,7 @@
+         }
+     }
+ 
+-    interface User {
++    public interface User {
+         int getListenerRadius();
+ 
+         PositionSource getPositionSource();

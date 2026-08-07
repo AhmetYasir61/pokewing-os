@@ -1,0 +1,123 @@
+--- a/net/minecraft/world/level/block/ChorusFlowerBlock.java
++++ b/net/minecraft/world/level/block/ChorusFlowerBlock.java
+@@ -23,6 +_,8 @@
+ import net.minecraft.world.phys.shapes.VoxelShape;
+ import org.jspecify.annotations.Nullable;
+ 
++import org.bukkit.craftbukkit.event.CraftEventFactory; // CraftBukkit
++
+ public class ChorusFlowerBlock extends Block {
+     public static final MapCodec<ChorusFlowerBlock> CODEC = RecordCodecBuilder.mapCodec(
+         i -> i.group(BuiltInRegistries.BLOCK.byNameCodec().fieldOf("plant").forGetter(b -> b.plant), propertiesCodec()).apply(i, ChorusFlowerBlock::new)
+@@ -65,10 +_,13 @@
+         BlockPos above = pos.above();
+         if (level.isEmptyBlock(above) && above.getY() <= level.getMaxY()) {
+             int currentAge = state.getValue(AGE);
+-            if (currentAge < 5) {
++            if (currentAge < 5 && net.neoforged.neoforge.common.CommonHooks.canCropGrow(level, above, state, true)) {
+                 boolean growUpwards = false;
+                 boolean pillarOnSupportBlock = false;
+                 BlockState belowState = level.getBlockState(pos.below());
++                var soilDecision = belowState.canSustainPlant(level, pos.below(), Direction.UP, state);
++                if (!soilDecision.isDefault()) growUpwards = soilDecision.isTrue();
++                else
+                 if (belowState.is(BlockTags.SUPPORTS_CHORUS_FLOWER)) {
+                     growUpwards = true;
+                 } else if (belowState.is(this.plant)) {
+@@ -77,7 +_,9 @@
+                     for (int i = 0; i < 4; i++) {
+                         BlockState testState = level.getBlockState(pos.below(height + 1));
+                         if (!testState.is(this.plant)) {
+-                            if (testState.is(BlockTags.SUPPORTS_CHORUS_FLOWER)) {
++                            var soilDecision2 = testState.canSustainPlant(level, pos.below(height + 1), Direction.UP, state);
++                            if (!soilDecision2.isDefault()) pillarOnSupportBlock = soilDecision2.isTrue();
++                            else if (testState.is(BlockTags.SUPPORTS_CHORUS_FLOWER)) {
+                                 pillarOnSupportBlock = true;
+                             }
+                             break;
+@@ -94,8 +_,12 @@
+                 }
+ 
+                 if (growUpwards && allNeighborsEmpty(level, above, null) && level.isEmptyBlock(pos.above(2))) {
+-                    level.setBlock(pos, ChorusPlantBlock.getStateWithConnections(level, pos, this.plant.defaultBlockState()), 2);
+-                    this.placeGrownFlower(level, above, currentAge);
++                    // CraftBukkit start - add event
++                    if (CraftEventFactory.handleBlockSpreadEvent(level, pos, above, this.defaultBlockState().setValue(ChorusFlowerBlock.AGE, currentAge), 2)) {
++                        level.setBlock(pos, ChorusPlantBlock.getStateWithConnections(level, pos, this.plant.defaultBlockState()), 2);
++                        this.placeGrownFlower(level, above, currentAge);
++                    }
++                    // CraftBukkit end
+                 } else if (currentAge < 4) {
+                     int numBranchAttempts = random.nextInt(4);
+                     if (pillarOnSupportBlock) {
+@@ -108,30 +_,43 @@
+                         Direction direction = Direction.Plane.HORIZONTAL.getRandomDirection(random);
+                         BlockPos target = pos.relative(direction);
+                         if (level.isEmptyBlock(target) && level.isEmptyBlock(target.below()) && allNeighborsEmpty(level, target, direction.getOpposite())) {
+-                            this.placeGrownFlower(level, target, currentAge + 1);
+-                            createdBranch = true;
++                            // CraftBukkit start - add event
++                            if (CraftEventFactory.handleBlockSpreadEvent(level, pos, target, this.defaultBlockState().setValue(ChorusFlowerBlock.AGE, currentAge + 1), 2)) {
++                                this.placeGrownFlower(level, target, currentAge + 1);
++                                createdBranch = true;
++                            }
++                            // CraftBukkit end
+                         }
+                     }
+ 
+                     if (createdBranch) {
+                         level.setBlock(pos, ChorusPlantBlock.getStateWithConnections(level, pos, this.plant.defaultBlockState()), 2);
+                     } else {
+-                        this.placeDeadFlower(level, pos);
++                        // CraftBukkit start - add event
++                        if (CraftEventFactory.handleBlockGrowEvent(level, pos, this.defaultBlockState().setValue(ChorusFlowerBlock.AGE, 5), 2)) {
++                            this.placeDeadFlower(level, pos);
++                        }
++                        // CraftBukkit end
+                     }
+                 } else {
+-                    this.placeDeadFlower(level, pos);
++                    // CraftBukkit start - add event
++                    if (CraftEventFactory.handleBlockGrowEvent(level, pos, this.defaultBlockState().setValue(ChorusFlowerBlock.AGE, 5), 2)) {
++                        this.placeDeadFlower(level, pos);
++                    }
++                    // CraftBukkit end
+                 }
++                net.neoforged.neoforge.common.CommonHooks.fireCropGrowPost(level, pos, state);
+             }
+         }
+     }
+ 
+     private void placeGrownFlower(Level level, BlockPos pos, int age) {
+-        level.setBlock(pos, this.defaultBlockState().setValue(AGE, age), 2);
++        // level.setBlock(pos, this.defaultBlockState().setValue(AGE, age), Block.UPDATE_CLIENTS); // Paper - already done above in the event call
+         level.levelEvent(1033, pos, 0);
+     }
+ 
+     private void placeDeadFlower(Level level, BlockPos pos) {
+-        level.setBlock(pos, this.defaultBlockState().setValue(AGE, 5), 2);
++        // level.setBlock(pos, this.defaultBlockState().setValue(AGE, age), Block.UPDATE_CLIENTS); // Paper - already done above in the event call
+         level.levelEvent(1034, pos, 0);
+     }
+ 
+@@ -166,6 +_,8 @@
+     @Override
+     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
+         BlockState belowState = level.getBlockState(pos.below());
++        var soilDecision = belowState.canSustainPlant(level, pos.below(), Direction.UP, state);
++        if (!soilDecision.isDefault()) return soilDecision.isTrue();
+         if (!belowState.is(this.plant) && !belowState.is(BlockTags.SUPPORTS_CHORUS_FLOWER)) {
+             if (!belowState.isAir()) {
+                 return false;
+@@ -255,6 +_,11 @@
+     protected void onProjectileHit(Level level, BlockState state, BlockHitResult blockHit, Projectile projectile) {
+         BlockPos pos = blockHit.getBlockPos();
+         if (level instanceof ServerLevel serverLevel && projectile.mayInteract(serverLevel, pos) && projectile.mayBreak(serverLevel)) {
++            // CraftBukkit
++            if (!CraftEventFactory.callEntityChangeBlockEvent(projectile, pos, state.getFluidState().createLegacyBlock())) { // Paper - fix wrong block state
++                return;
++            }
++            // CraftBukkit end
+             level.destroyBlock(pos, true, projectile);
+         }
+     }

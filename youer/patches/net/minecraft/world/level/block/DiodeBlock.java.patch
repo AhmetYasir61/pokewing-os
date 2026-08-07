@@ -1,0 +1,30 @@
+--- a/net/minecraft/world/level/block/DiodeBlock.java
++++ b/net/minecraft/world/level/block/DiodeBlock.java
+@@ -56,8 +_,18 @@
+             boolean on = state.getValue(POWERED);
+             boolean shouldTurnOn = this.shouldTurnOn(level, pos, state);
+             if (on && !shouldTurnOn) {
++                // Paper start - Call BlockRedstoneEvent
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, false)) {
++                    return;
++                }
++                // Paper end - Call BlockRedstoneEvent
+                 level.setBlock(pos, state.setValue(POWERED, false), 2);
+             } else if (!on) {
++                // Paper start - Call BlockRedstoneEvent
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, true)) {
++                    return;
++                }
++                // Paper end - Call BlockRedstoneEvent
+                 level.setBlock(pos, state.setValue(POWERED, true), 2);
+                 if (!shouldTurnOn) {
+                     level.scheduleTick(pos, this, this.getDelay(state), TickPriority.VERY_HIGH);
+@@ -178,6 +_,8 @@
+     protected void updateNeighborsInFront(Level level, BlockPos pos, BlockState state) {
+         Direction direction = state.getValue(FACING);
+         BlockPos oppositePos = pos.relative(direction.getOpposite());
++        if (net.neoforged.neoforge.event.EventHooks.onNeighborNotify(level, pos, level.getBlockState(pos), java.util.EnumSet.of(direction.getOpposite()), false).isCanceled())
++            return;
+         Orientation orientation = ExperimentalRedstoneUtils.initialOrientation(level, direction.getOpposite(), Direction.UP);
+         level.neighborChanged(oppositePos, this, orientation);
+         level.updateNeighborsAtExceptFromFacing(oppositePos, this, direction, orientation);

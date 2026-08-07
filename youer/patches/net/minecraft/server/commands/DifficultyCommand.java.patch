@@ -1,0 +1,20 @@
+--- a/net/minecraft/server/commands/DifficultyCommand.java
++++ b/net/minecraft/server/commands/DifficultyCommand.java
+@@ -31,12 +_,12 @@
+ 
+     public static int setDifficulty(CommandSourceStack source, Difficulty difficulty) throws CommandSyntaxException {
+         MinecraftServer server = source.getServer();
+-        if (server.getWorldData().getDifficulty() == difficulty) {
++        if (source.getLevel().getDifficulty() == difficulty) { // CraftBukkit
+             throw ERROR_ALREADY_SAME_DIFFICULTY.create(difficulty.getDisplayName());
++        } else {
++            server.setDifficulty(source.getLevel(), difficulty, source, true); // Paper - per level difficulty; don't skip other difficulty-changing logic (fix upstream's fix); WorldDifficultyChangeEvent
++            source.sendSuccess(() -> Component.translatable("commands.difficulty.success", difficulty.getDisplayName()), true);
++            return 0;
+         }
+-
+-        server.setDifficulty(difficulty, true);
+-        source.sendSuccess(() -> Component.translatable("commands.difficulty.success", difficulty.getDisplayName()), true);
+-        return 0;
+     }
+ }

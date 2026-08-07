@@ -1,0 +1,40 @@
+--- a/net/minecraft/world/item/StandingAndWallBlockItem.java
++++ b/net/minecraft/world/item/StandingAndWallBlockItem.java
+@@ -3,11 +_,15 @@
+ import java.util.Map;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
++import net.minecraft.server.level.ServerPlayer;
+ import net.minecraft.world.item.context.BlockPlaceContext;
+ import net.minecraft.world.level.LevelReader;
+ import net.minecraft.world.level.block.Block;
+ import net.minecraft.world.level.block.state.BlockState;
+ import net.minecraft.world.phys.shapes.CollisionContext;
++import org.bukkit.craftbukkit.block.CraftBlock;
++import org.bukkit.craftbukkit.block.data.CraftBlockData;
++import org.bukkit.event.block.BlockCanBuildEvent;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class StandingAndWallBlockItem extends BlockItem {
+@@ -41,7 +_,20 @@
+             }
+         }
+ 
+-        return stateForPlacement != null && level.isUnobstructed(stateForPlacement, pos, CollisionContext.empty()) ? stateForPlacement : null;
++        // return stateForPlacement != null && level.isUnobstructed(stateForPlacement, pos, CollisionContext.empty()) ? stateForPlacement : null;
++        // CraftBukkit start
++        if (stateForPlacement != null) {
++            boolean defaultReturn = level.isUnobstructed(stateForPlacement, pos, CollisionContext.empty());
++            org.bukkit.entity.Player player = (context.getPlayer() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) ? serverPlayer.getBukkitEntity() : null;
++
++            org.bukkit.event.block.BlockCanBuildEvent event = new org.bukkit.event.block.BlockCanBuildEvent(org.bukkit.craftbukkit.block.CraftBlock.at(context.getLevel(), pos), player, stateForPlacement.asBlockData(), defaultReturn, org.bukkit.craftbukkit.CraftEquipmentSlot.getHand(context.getHand())); // Paper - Expose hand in BlockCanBuildEvent
++            context.getLevel().getCraftServer().getPluginManager().callEvent(event);
++
++            return (event.isBuildable()) ? stateForPlacement : null;
++        } else {
++            return null;
++        }
++        // CraftBukkit end
+     }
+ 
+     @Override

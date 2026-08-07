@@ -1,0 +1,85 @@
+--- a/net/minecraft/world/entity/animal/sniffer/Sniffer.java
++++ b/net/minecraft/world/entity/animal/sniffer/Sniffer.java
+@@ -94,6 +_,39 @@
+         this.setPathfindingMalus(PathType.DAMAGE_CAUTIOUS, -1.0F);
+     }
+ 
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.snifferRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.snifferRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.snifferControllable;
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.snifferMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.snifferScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.snifferBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
++
+     @Override
+     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+         super.defineSynchedData(entityData);
+@@ -287,6 +_,13 @@
+             BlockPos head = this.getHeadBlock();
+             this.dropFromGiftLootTable(level, BuiltInLootTables.SNIFFER_DIGGING, (l, itemStack) -> {
+                 ItemEntity entity = new ItemEntity(this.level(), head.getX(), head.getY(), head.getZ(), itemStack);
++                // CraftBukkit start - handle EntityDropItemEvent
++                org.bukkit.event.entity.EntityDropItemEvent event = new org.bukkit.event.entity.EntityDropItemEvent(this.getBukkitEntity(), (org.bukkit.entity.Item) entity.getBukkitEntity());
++                org.bukkit.Bukkit.getPluginManager().callEvent(event);
++                if (event.isCancelled()) {
++                    return;
++                }
++                // CraftBukkit end
+                 entity.setDefaultPickUpDelay();
+                 l.addFreshEntity(entity);
+             });
+@@ -308,7 +_,7 @@
+                 if (this.tickCount % 10 == 0) {
+                     this.level()
+                         .playLocalSound(
+-                            this.getX(), this.getY(), this.getZ(), stateBelow.getSoundType().getHitSound(), this.getSoundSource(), 0.5F, 0.5F, false
++                            this.getX(), this.getY(), this.getZ(), stateBelow.getSoundType(level(), head.below(), this).getHitSound(), this.getSoundSource(), 0.5F, 0.5F, false
+                         );
+                 }
+             }
+@@ -346,12 +_,17 @@
+ 
+     @Override
+     public void spawnChildFromBreeding(ServerLevel level, Animal partner) {
++        // Paper start - Add EntityFertilizeEggEvent event
++        final io.papermc.paper.event.entity.EntityFertilizeEggEvent result = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityFertilizeEggEvent(this, partner);
++        if (result.isCancelled()) return;
++        // Paper end - Add EntityFertilizeEggEvent event
+         ItemStack itemStack = new ItemStack(Items.SNIFFER_EGG);
+         ItemEntity entity = new ItemEntity(level, this.position().x(), this.position().y(), this.position().z(), itemStack);
+         entity.setDefaultPickUpDelay();
+-        this.finalizeSpawnChildFromBreeding(level, partner, null);
++        this.finalizeSpawnChildFromBreeding(level, partner, null, result.getExperience()); // Paper - Add EntityFertilizeEggEvent event
++        if (this.spawnAtLocation(level, entity) != null) { // Paper - Call EntityDropItemEvent
+         this.playSound(SoundEvents.SNIFFER_EGG_PLOP, 1.0F, (this.random.nextFloat() - this.random.nextFloat()) * 0.2F + 0.5F);
+-        level.addFreshEntity(entity);
++        } // Paper - Call EntityDropItemEvent
+     }
+ 
+     @Override

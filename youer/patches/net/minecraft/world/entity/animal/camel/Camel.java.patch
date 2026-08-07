@@ -1,0 +1,105 @@
+--- a/net/minecraft/world/entity/animal/camel/Camel.java
++++ b/net/minecraft/world/entity/animal/camel/Camel.java
+@@ -100,6 +_,20 @@
+         navigation.setCanWalkOverFences(true);
+     }
+ 
++    // Purpur start - Ridables
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.camelRidableInWater;
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.camelBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
+     @Override
+     protected void addAdditionalSaveData(ValueOutput output) {
+         super.addAdditionalSaveData(output);
+@@ -141,7 +_,7 @@
+         return super.finalizeSpawn(level, difficulty, spawnReason, groupData);
+     }
+ 
+-    public static boolean checkCamelSpawnRules(EntityType<Camel> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random) {
++    public static boolean checkCamelSpawnRules(EntityType<? extends Camel> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random) {
+         return level.getBlockState(pos.below()).is(BlockTags.CAMELS_SPAWNABLE_ON) && isBrightEnoughToSpawn(level, pos);
+     }
+ 
+@@ -312,6 +_,7 @@
+         this.dashCooldown = 55;
+         this.setDashing(true);
+         this.needsSync = true;
++        net.neoforged.neoforge.common.CommonHooks.onLivingJump(this);
+     }
+ 
+     public boolean isDashing() {
+@@ -346,6 +_,23 @@
+         return this.dashCooldown;
+     }
+ 
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public float generateMaxHealth(net.minecraft.util.RandomSource random) {
++        return (float) generateMaxHealth(this.level().purpurConfig.camelMaxHealthMin, this.level().purpurConfig.camelMaxHealthMax);
++    }
++
++    @Override
++    public double generateJumpStrength(net.minecraft.util.RandomSource random) {
++        return generateJumpStrength(this.level().purpurConfig.camelJumpStrengthMin, this.level().purpurConfig.camelJumpStrengthMax);
++    }
++
++    @Override
++    public double generateSpeed(net.minecraft.util.RandomSource random) {
++        return generateSpeed(this.level().purpurConfig.camelMovementSpeedMin, this.level().purpurConfig.camelMovementSpeedMax);
++    }
++    // Purpur end - Configurable entity base attributes
++
+     @Override
+     public SoundEvent getAmbientSound() {
+         return SoundEvents.CAMEL_AMBIENT;
+@@ -424,12 +_,12 @@
+ 
+         boolean couldHeal = this.getHealth() < this.getMaxHealth();
+         if (couldHeal) {
+-            this.heal(2.0F);
++            this.heal(2.0F, org.bukkit.event.entity.EntityRegainHealthEvent.RegainReason.EATING); // Paper - Add missing regain reason
+         }
+ 
+         boolean couldSetInLove = this.isTamed() && this.getAge() == 0 && this.canFallInLove();
+         if (couldSetInLove) {
+-            this.setInLove(player);
++            this.setInLove(player, itemStack.copy()); // Paper - Fix EntityBreedEvent copying
+         }
+ 
+         boolean couldAgeUp = this.canAgeUp();
+@@ -585,7 +_,7 @@
+     }
+ 
+     public void sitDown() {
+-        if (!this.isCamelSitting()) {
++        if (!this.isCamelSitting() && new io.papermc.paper.event.entity.EntityToggleSitEvent(this.getBukkitEntity(), true).callEvent()) { // Paper - Add EntityToggleSitEvent
+             this.makeSound(this.getSitDownSound());
+             this.setPose(Pose.SITTING);
+             this.gameEvent(GameEvent.ENTITY_ACTION);
+@@ -594,7 +_,7 @@
+     }
+ 
+     public void standUp() {
+-        if (this.isCamelSitting()) {
++        if (this.isCamelSitting() && new io.papermc.paper.event.entity.EntityToggleSitEvent(this.getBukkitEntity(), false).callEvent()) { // Paper - Add EntityToggleSitEvent
+             this.makeSound(this.getStandUpSound());
+             this.setPose(Pose.STANDING);
+             this.gameEvent(GameEvent.ENTITY_ACTION);
+@@ -611,6 +_,7 @@
+     }
+ 
+     public void standUpInstantly() {
++        if (this.isCamelSitting() && !new io.papermc.paper.event.entity.EntityToggleSitEvent(this.getBukkitEntity(), false).callEvent()) return; // Paper - Add EntityToggleSitEvent
+         this.setPose(Pose.STANDING);
+         this.gameEvent(GameEvent.ENTITY_ACTION);
+         this.resetLastPoseChangeTickToFullStand(this.level().getGameTime());

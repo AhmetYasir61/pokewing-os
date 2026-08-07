@@ -1,0 +1,69 @@
+--- a/net/minecraft/world/entity/ai/goal/TemptGoal.java
++++ b/net/minecraft/world/entity/ai/goal/TemptGoal.java
+@@ -2,6 +_,7 @@
+ 
+ import java.util.EnumSet;
+ import java.util.function.Predicate;
++import net.minecraft.world.entity.Entity;
+ import net.minecraft.world.entity.LivingEntity;
+ import net.minecraft.world.entity.Mob;
+ import net.minecraft.world.entity.PathfinderMob;
+@@ -10,6 +_,8 @@
+ import net.minecraft.world.entity.player.Player;
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.phys.Vec3;
++import org.bukkit.event.entity.EntityTargetEvent;
++import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class TemptGoal extends Goal {
+@@ -23,7 +_,7 @@
+     private double pz;
+     private double pRotX;
+     private double pRotY;
+-    protected @Nullable Player player;
++    protected @Nullable LivingEntity player; // CraftBukkit
+     private int calmDown;
+     private boolean isRunning;
+     private final Predicate<ItemStack> items;
+@@ -56,12 +_,21 @@
+         } else {
+             this.player = getServerLevel(this.mob)
+                 .getNearestPlayer(this.targetingConditions.range(this.mob.getAttributeValue(Attributes.TEMPT_RANGE)), this.mob);
++            // CraftBukkit start
++            if (this.player != null) {
++                EntityTargetLivingEntityEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityTargetLivingEvent(this.mob, this.player, EntityTargetEvent.TargetReason.TEMPT);
++                if (event.isCancelled()) {
++                    return false;
++                }
++                this.player = (event.getTarget() == null) ? null : ((org.bukkit.craftbukkit.entity.CraftLivingEntity) event.getTarget()).getHandle();
++            }
++            // CraftBukkit end
+             return this.player != null;
+         }
+     }
+ 
+     private boolean shouldFollow(LivingEntity player) {
+-        return this.items.test(player.getMainHandItem()) || this.items.test(player.getOffhandItem());
++        return (this.items.test(player.getMainHandItem()) || this.items.test(player.getOffhandItem())) && (!(this.mob instanceof net.minecraft.world.entity.npc.villager.Villager villager) || !villager.isSleeping()); // Purpur - Villagers follow emerald blocks
+     }
+ 
+     @Override
+@@ -122,7 +_,7 @@
+         this.mob.getNavigation().stop();
+     }
+ 
+-    protected void navigateTowards(Player player) {
++    protected void navigateTowards(LivingEntity player) { // Paper
+         this.mob.getNavigation().moveTo(player, this.speedModifier);
+     }
+ 
+@@ -141,7 +_,7 @@
+         }
+ 
+         @Override
+-        protected void navigateTowards(Player player) {
++        protected void navigateTowards(LivingEntity player) { // Paper
+             Vec3 target = player.getEyePosition().subtract(this.mob.position()).scale(this.mob.getRandom().nextDouble()).add(this.mob.position());
+             this.mob.getMoveControl().setWantedPosition(target.x, target.y, target.z, this.speedModifier);
+         }

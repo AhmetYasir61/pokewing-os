@@ -1,0 +1,247 @@
+--- a/net/minecraft/server/network/ServerConfigurationPacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerConfigurationPacketListenerImpl.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.server.network;
+ 
++import com.mohistmc.youer.util.ThreadUtils;
+ import com.mojang.authlib.GameProfile;
+ import com.mojang.logging.LogUtils;
+ import java.util.List;
+@@ -30,6 +_,7 @@
+ import net.minecraft.server.RegistryLayer;
+ import net.minecraft.server.ServerLinks;
+ import net.minecraft.server.level.ClientInformation;
++import net.minecraft.server.level.ServerPlayer;
+ import net.minecraft.server.network.config.JoinWorldTask;
+ import net.minecraft.server.network.config.PrepareSpawnTask;
+ import net.minecraft.server.network.config.ServerCodeOfConductConfigurationTask;
+@@ -52,12 +_,26 @@
+     public ClientInformation clientInformation;
+     private @Nullable SynchronizeRegistriesTask synchronizeRegistriesTask;
+     private @Nullable PrepareSpawnTask prepareSpawnTask;
++    public io.papermc.paper.connection.PaperPlayerConfigurationConnection paperConnection; // Paper
+ 
+     public ServerConfigurationPacketListenerImpl(MinecraftServer server, Connection connection, CommonListenerCookie cookie) {
+         super(server, connection, cookie);
+         this.gameProfile = cookie.gameProfile();
+         this.clientInformation = cookie.clientInformation();
+-    }
++        this.paperConnection = new io.papermc.paper.connection.PaperPlayerConfigurationConnection(this); // Paper
++    }
++
++    // Paper start - configuration phase API
++    @Override
++    public io.papermc.paper.connection.PlayerCommonConnection getApiConnection() {
++        return this.paperConnection;
++    }
++
++    @Override
++    public net.kyori.adventure.audience.Audience getAudience() {
++        return this.paperConnection.getAudience();
++    }
++    // Paper end - configuration phase API
+ 
+     @Override
+     protected GameProfile playerProfile() {
+@@ -66,6 +_,11 @@
+ 
+     @Override
+     public void onDisconnect(DisconnectionDetails details) {
++        // Paper start - Debugging
++        if (this.server.isDebugging()) {
++            ServerConfigurationPacketListenerImpl.LOGGER.info("{} ({}) lost connection: {}, while in configuration phase {}", this.gameProfile.name(), this.gameProfile.id(), details.reason().getString(), this.currentTask != null ? this.currentTask.type().id() : "null");
++        } else
++        // Paper end
+         LOGGER.info("{} ({}) lost connection: {}", this.gameProfile.name(), this.gameProfile.id(), details.reason().getString());
+         if (this.prepareSpawnTask != null) {
+             this.prepareSpawnTask.close();
+@@ -81,11 +_,29 @@
+     }
+ 
+     public void startConfiguration() {
++        // Neo: Before starting vanilla configuration, reset ad-hoc channels and run modded channel negotiation.
++        this.send(new net.neoforged.neoforge.network.payload.MinecraftUnregisterPayload(net.neoforged.neoforge.network.registration.NetworkRegistry.getInitialServerUnregisterChannels()));
++        this.send(new net.neoforged.neoforge.network.payload.MinecraftRegisterPayload(net.neoforged.neoforge.network.registration.NetworkRegistry.getInitialListeningChannels(this.flow())));
++        this.send(new net.neoforged.neoforge.network.payload.ModdedNetworkQueryPayload(java.util.Map.of()));
++        this.send(new net.minecraft.network.protocol.common.ClientboundPingPacket(0));
++    }
++
++    // Neo: Hide vanilla's startConfiguration() in this method so we can call it in handlePong below.
++    private void runConfiguration() {
++        new io.papermc.paper.event.connection.configuration.PlayerConnectionInitialConfigureEvent(this.paperConnection).callEvent(); // Paper
+         this.send(new ClientboundCustomPayloadPacket(new BrandPayload(this.server.getServerModName())));
+         ServerLinks serverLinks = this.server.serverLinks();
+-        if (!serverLinks.isEmpty()) {
+-            this.send(new ClientboundServerLinksPacket(serverLinks.untrust()));
+-        }
++        // Youer Fix NeoForge's `serverEventLoopGroup` causing Bukkit events to be perceived as occurring outside the main thread.
++        ThreadUtils.executeOnMainThread(() -> {
++            // Paper start
++            org.bukkit.craftbukkit.CraftServerLinks links = new org.bukkit.craftbukkit.CraftServerLinks(serverLinks);
++            new org.bukkit.event.player.PlayerLinksSendEvent(this.paperConnection, links).callEvent();
++            if (!links.getServerLinks().isEmpty()) {
++                this.send(new ClientboundServerLinksPacket(links.getServerLinks().untrust()));
++            }
++        });
++        // Paper end
++        // Youer end
+ 
+         LayeredRegistryAccess<RegistryLayer> registries = this.server.registries();
+         List<KnownPack> knownPacks = this.server
+@@ -94,14 +_,17 @@
+             .flatMap(packResources -> packResources.location().knownPackInfo().stream())
+             .toList();
+         this.send(new ClientboundUpdateEnabledFeaturesPacket(FeatureFlags.REGISTRY.toNames(this.server.getWorldData().enabledFeatures())));
++        // Neo: we must sync the registries before vanilla sends tags in SynchronizeRegistriesTask!
++        net.neoforged.neoforge.network.ConfigurationInitialization.configureEarlyTasks(this, this.configurationTasks::add);
+         this.synchronizeRegistriesTask = new SynchronizeRegistriesTask(knownPacks, registries);
+         this.configurationTasks.add(this.synchronizeRegistriesTask);
+         this.addOptionalTasks();
++        this.configurationTasks.add(new io.papermc.paper.connection.PaperConfigurationTask(this)); // Paper
+         this.returnToWorld();
+     }
+ 
+     public void returnToWorld() {
+-        this.prepareSpawnTask = new PrepareSpawnTask(this.server, new NameAndId(this.gameProfile));
++        this.prepareSpawnTask = new PrepareSpawnTask(this.server, this.gameProfile, this); // Paper - pass full GameProfile & listener for events
+         this.configurationTasks.add(this.prepareSpawnTask);
+         this.configurationTasks.add(new JoinWorldTask());
+         this.startNextTask();
+@@ -109,33 +_,70 @@
+ 
+     private void addOptionalTasks() {
+         Map<String, String> codeOfConducts = this.server.getCodeOfConducts();
+-        if (!codeOfConducts.isEmpty()) {
++        if (io.papermc.paper.event.connection.configuration.PlayerCodeOfConductSendEvent.getHandlerList().getRegisteredListeners().length > 0 || !codeOfConducts.isEmpty()) { // Paper - Code of Conduct event - Fire even if empty, if there are event listeners to potentially send one
+             this.configurationTasks.add(new ServerCodeOfConductConfigurationTask(() -> {
+                 String codeOfConduct = codeOfConducts.get(this.clientInformation.language().toLowerCase(Locale.ROOT));
+                 if (codeOfConduct == null) {
+                     codeOfConduct = codeOfConducts.get("en_us");
+                 }
+ 
+-                if (codeOfConduct == null) {
++                if (codeOfConduct == null && !codeOfConducts.isEmpty()) { // Paper - Code of Conduct event - Only if there are any - needed because we make this lambda run even if it's empty
+                     codeOfConduct = codeOfConducts.values().iterator().next();
+                 }
+ 
++                // Paper start - Code of Conduct event
++                io.papermc.paper.event.connection.configuration.PlayerCodeOfConductSendEvent event = new io.papermc.paper.event.connection.configuration.PlayerCodeOfConductSendEvent(this.paperConnection, codeOfConduct);
++                event.callEvent();
++                codeOfConduct = event.getCodeOfConduct();
++                if (codeOfConduct == null) {
++                    // Immediately bail out of this task. On MC updates, double check it's still okay to finish task within startNextTask.
++                    this.finishCurrentTask(ServerCodeOfConductConfigurationTask.TYPE);
++                }
++                // Paper end - Code of Conduct event
+                 return codeOfConduct;
+             }));
+         }
+ 
+         this.server.getServerResourcePack().ifPresent(info -> this.configurationTasks.add(new ServerResourcePackConfigurationTask(info)));
++
++        // Neo: Gather modded configuration tasks and schedule them for execution
++        this.configurationTasks.addAll(net.neoforged.fml.ModLoader.postEventWithReturn(new net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent(this)).getConfigurationTasks());
++    }
++
++    @Override
++    public void handleCustomPayload(net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket packet) {
++        // Neo: Perform modded network initialization when the client sends their channel list.
++        if (packet.payload() instanceof net.neoforged.neoforge.network.payload.ModdedNetworkQueryPayload moddedEnvironmentPayload) {
++            this.connectionType = net.neoforged.neoforge.network.connection.ConnectionType.NEOFORGE;
++            net.neoforged.neoforge.network.registration.NetworkRegistry.initializeNeoForgeConnection(this, moddedEnvironmentPayload.queries());
++            return;
++        }
++        super.handleCustomPayload(packet); // Neo: Call super to invoke modded payload handling.
++    }
++
++    @Override
++    public void handlePong(net.minecraft.network.protocol.common.ServerboundPongPacket serverboundPongPacket) {
++        super.handlePong(serverboundPongPacket);
++        // During startConfiguration() we send a ping with id 0, if we get a pong back, we initiate the connection.
++        if (serverboundPongPacket.getId() == 0) {
++            if (!this.connectionType.isNeoForge() && !net.neoforged.neoforge.network.registration.NetworkRegistry.initializeOtherConnection(this)) {
++                return;
++            }
++            this.runConfiguration();
++        }
+     }
+ 
+     @Override
+     public void handleClientInformation(ServerboundClientInformationPacket packet) {
+         this.clientInformation = packet.information();
++        this.connection.channel.attr(io.papermc.paper.adventure.PaperAdventure.LOCALE_ATTRIBUTE).set(net.kyori.adventure.translation.Translator.parseLocale(packet.information().language())); // Paper
+     }
+ 
+     @Override
+     public void handleResourcePackResponse(ServerboundResourcePackPacket packet) {
+         super.handleResourcePackResponse(packet);
+-        if (packet.action().isTerminal()) {
++        this.connection.resourcePackStatus = org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.values()[packet.action().ordinal()]; // Paper
++        if (packet.action().isTerminal() && packet.id().equals(this.server.getServerResourcePack().map(MinecraftServer.ServerResourcePackInfo::id).orElse(null))) { // Paper - Ignore resource pack requests that are not vanilla
+             this.finishCurrentTask(ServerResourcePackConfigurationTask.TYPE);
+         }
+     }
+@@ -153,6 +_,7 @@
+ 
+     @Override
+     public void handleAcceptCodeOfConduct(ServerboundAcceptCodeOfConductPacket packet) {
++        PacketUtils.ensureRunningOnSameThread(packet, this, this.server.packetProcessor()); // CraftBukkit
+         this.finishCurrentTask(ServerCodeOfConductConfigurationTask.TYPE);
+     }
+ 
+@@ -160,7 +_,13 @@
+     public void handleConfigurationFinished(ServerboundFinishConfigurationPacket packet) {
+         PacketUtils.ensureRunningOnSameThread(packet, this, this.server.packetProcessor());
+         this.finishCurrentTask(JoinWorldTask.TYPE);
+-        this.connection.setupOutboundProtocol(GameProtocols.CLIENTBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(this.server.registryAccess())));
++        this.connection.setupOutboundProtocol(GameProtocols.CLIENTBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(this.server.registryAccess(), this.connectionType)));
++        // Packets can only be sent after the outbound protocol is set up again
++        if (this.connectionType == net.neoforged.neoforge.network.connection.ConnectionType.OTHER) {
++            //We need to also initialize this here, as the client may have sent the packet before we have finished our configuration.
++            net.neoforged.neoforge.network.registration.NetworkRegistry.initializeNeoForgeConnection(this, java.util.Map.of());
++        }
++        net.neoforged.neoforge.network.registration.NetworkRegistry.onConfigurationFinished(this);
+ 
+         try {
+             PlayerList playerList = this.server.getPlayerList();
+@@ -169,13 +_,13 @@
+                 return;
+             }
+ 
+-            Component loginError = playerList.canPlayerLogin(this.connection.getRemoteAddress(), new NameAndId(this.gameProfile));
++            Component loginError = org.bukkit.craftbukkit.event.CraftEventFactory.handleLoginResult(playerList.canPlayerLogin(this.connection.getRemoteAddress(), new NameAndId(this.gameProfile)), this.paperConnection, this.connection, this.gameProfile, this.server, false); // Paper - Login event logic
+             if (loginError != null) {
+                 this.disconnect(loginError);
+                 return;
+             }
+ 
+-            Objects.requireNonNull(this.prepareSpawnTask).spawnPlayer(this.connection, this.createCookie(this.clientInformation));
++            Objects.requireNonNull(this.prepareSpawnTask).spawnPlayer(this.connection, this.createCookie(this.clientInformation, this.connectionType));
+         } catch (Exception e) {
+             LOGGER.error("Couldn't place player in world", e);
+             this.disconnect(DISCONNECT_REASON_INVALID_DATA);
+@@ -231,4 +_,24 @@
+         this.currentTask = null;
+         this.startNextTask();
+     }
++
++    // Paper start
++    @Override
++    public void disconnectAsync(final net.minecraft.network.DisconnectionDetails disconnectionInfo) {
++        if (this.cserver.isPrimaryThread()) {
++            this.disconnect(disconnectionInfo);
++            return;
++        }
++
++        this.connection.setReadOnly();
++        this.server.scheduleOnMain(() -> {
++            this.disconnect(disconnectionInfo); // Currently you cannot cancel disconnect during the config stage
++        });
++    }
++
++    @Override
++    public io.papermc.paper.connection.PaperPlayerConfigurationConnection paperConnection() {
++        return paperConnection;
++    }
++    // Paper end
+ }

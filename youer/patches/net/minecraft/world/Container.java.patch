@@ -1,0 +1,78 @@
+--- a/net/minecraft/world/Container.java
++++ b/net/minecraft/world/Container.java
+@@ -1,8 +_,11 @@
+ package net.minecraft.world;
+ 
++import com.mohistmc.youer.bukkit.inventory.InventoryOwner;
++import java.util.Collections;
+ import java.util.Iterator;
+ import java.util.List;
+ import java.util.NoSuchElementException;
++import java.util.Objects;
+ import java.util.Set;
+ import java.util.function.Predicate;
+ import net.minecraft.core.BlockPos;
+@@ -14,6 +_,11 @@
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.level.Level;
+ import net.minecraft.world.level.block.entity.BlockEntity;
++import org.bukkit.Location;
++import org.bukkit.craftbukkit.entity.CraftHumanEntity;
++import org.bukkit.craftbukkit.inventory.CraftInventory;
++import org.bukkit.inventory.Inventory;
++import org.bukkit.inventory.InventoryHolder;
+ import org.jspecify.annotations.Nullable;
+ 
+ import net.neoforged.neoforge.common.extensions.ContainerExtension;
+@@ -124,7 +_,50 @@
+         return new Container.ContainerIterator(this);
+     }
+ 
+-    class ContainerIterator implements Iterator<ItemStack> {
++    // CraftBukkit start
++    default java.util.List<ItemStack> getContents() {
++        return Collections.emptyList();
++    }
++
++    default void onOpen(CraftHumanEntity who) {
++    }
++
++    default void onClose(CraftHumanEntity who) {
++    }
++
++    default java.util.List<org.bukkit.entity.HumanEntity> getViewers() {
++        return Collections.emptyList();
++    }
++
++    default org.bukkit.inventory.InventoryHolder getOwner() {
++        return this instanceof BlockEntity blockEntity ? InventoryOwner.get(blockEntity) : null;
++    }
++
++    default void setMaxStackSize(int size) {
++    }
++
++    default org.bukkit.@Nullable Location getLocation() {
++        if (this instanceof BlockEntity entity) {
++            BlockPos blockPos = entity.getBlockPos();
++            return new Location(entity.getLevel().getWorld(), blockPos.getX(), blockPos.getY(), blockPos.getZ());
++        } else {
++            return null;
++        }
++    }
++
++    default Inventory getOwnerInventory() {
++        InventoryHolder owner = this.getOwner();
++        if (owner != null) {
++            return owner.getInventory();
++        } else {
++            return new CraftInventory(this);
++        }
++    }
++
++    int MAX_STACK = Item.ABSOLUTE_MAX_STACK_SIZE;
++    // CraftBukkit end
++
++    public static class ContainerIterator implements Iterator<ItemStack> {
+         private final Container container;
+         private int index;
+         private final int size;

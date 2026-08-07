@@ -1,0 +1,57 @@
+--- a/net/minecraft/world/entity/EntitySelector.java
++++ b/net/minecraft/world/entity/EntitySelector.java
+@@ -17,6 +_,24 @@
+     public static final Predicate<Entity> NO_SPECTATORS = entity -> !entity.isSpectator();
+     public static final Predicate<Entity> CAN_BE_COLLIDED_WITH = NO_SPECTATORS.and(entity -> entity.canBeCollidedWith(null));
+     public static final Predicate<Entity> CAN_BE_PICKED = Entity::isPickable;
++    // Paper start - Ability to control player's insomnia and phantoms
++    public static Predicate<Player> IS_INSOMNIAC = (player) -> {
++        int playerInsomniaTicks = player.level().paperConfig().entities.behavior.playerInsomniaStartTicks;
++        if (playerInsomniaTicks <= 0) {
++            return false;
++        }
++
++        net.minecraft.server.level.ServerPlayer serverPlayer = (net.minecraft.server.level.ServerPlayer) player;
++        return net.minecraft.util.Mth.clamp(serverPlayer.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.TIME_SINCE_REST)), 1, Integer.MAX_VALUE) >= playerInsomniaTicks;
++    };
++    // Paper end - Ability to control player's insomnia and phantoms
++    public static Predicate<Player> notAfk = (player) -> !player.isAfk(); // Purpur - AFK API
++
++    // Paper start - Affects Spawning API
++    public static final Predicate<Entity> PLAYER_AFFECTS_SPAWNING = (entity) -> {
++        return !entity.isSpectator() && entity.isAlive() && entity instanceof Player player && player.affectsSpawning;
++    };
++    // Paper end - Affects Spawning API
+ 
+     private EntitySelector() {
+     }
+@@ -33,21 +_,20 @@
+             ? Predicates.alwaysFalse()
+             : NO_SPECTATORS.and(
+                 input -> {
+-                    if (!input.isPushable()) {
++                    if (!input.canCollideWithBukkit(entity) || !entity.canCollideWithBukkit(input)) { // CraftBukkit - collidable API
+                         return false;
+-                    }
+-
+-                    if (!entity.level().isClientSide() || input instanceof Player player && player.isLocalPlayer()) {
++                    } else if (!entity.level().isClientSide() || input instanceof Player player && player.isLocalPlayer()) {
+                         Team theirTeam = input.getTeam();
+                         Team.CollisionRule theirCollisionRule = theirTeam == null ? Team.CollisionRule.ALWAYS : theirTeam.getCollisionRule();
+                         if (theirCollisionRule == Team.CollisionRule.NEVER) {
+                             return false;
++                        } else {
++                            boolean sameTeam = ownTeam != null && ownTeam.isAlliedTo(theirTeam);
++                            return (ownCollisionRule == Team.CollisionRule.PUSH_OWN_TEAM || theirCollisionRule == Team.CollisionRule.PUSH_OWN_TEAM) && sameTeam
++                                ? false
++                                : ownCollisionRule != Team.CollisionRule.PUSH_OTHER_TEAMS && theirCollisionRule != Team.CollisionRule.PUSH_OTHER_TEAMS
++                                    || sameTeam;
+                         }
+-
+-                        boolean sameTeam = ownTeam != null && ownTeam.isAlliedTo(theirTeam);
+-                        return (ownCollisionRule == Team.CollisionRule.PUSH_OWN_TEAM || theirCollisionRule == Team.CollisionRule.PUSH_OWN_TEAM) && sameTeam
+-                            ? false
+-                            : ownCollisionRule != Team.CollisionRule.PUSH_OTHER_TEAMS && theirCollisionRule != Team.CollisionRule.PUSH_OTHER_TEAMS || sameTeam;
+                     } else {
+                         return false;
+                     }

@@ -1,0 +1,396 @@
+--- a/net/minecraft/world/entity/EntityType.java
++++ b/net/minecraft/world/entity/EntityType.java
+@@ -3,6 +_,7 @@
+ import com.mojang.logging.LogUtils;
+ import com.mojang.serialization.Codec;
+ import java.util.Optional;
++import java.util.function.Consumer;
+ import java.util.stream.Stream;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
+@@ -52,6 +_,7 @@
+ import org.slf4j.Logger;
+ 
+ public class EntityType<T extends Entity> implements EntityTypeTest<Entity, T>, FeatureElement {
++    private static final boolean DEBUG_ENTITIES_WITH_INVALID_IDS = Boolean.getBoolean("paper.debugEntitiesWithInvalidIds"); // Paper - Add logging for debugging entity tags with invalid ids
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private final Holder.Reference<EntityType<?>> builtInRegistryHolder = BuiltInRegistries.ENTITY_TYPE.createIntrusiveHolder(this);
+     public static final Codec<EntityType<?>> CODEC = BuiltInRegistries.ENTITY_TYPE.byNameCodec();
+@@ -68,15 +_,36 @@
+     private final String descriptionId;
+     private @Nullable Component description;
+     private final Optional<ResourceKey<LootTable>> lootTable;
+-    private final EntityDimensions dimensions;
++    public EntityDimensions dimensions;
+     private final float spawnDimensionsScale;
+     private final FeatureFlagSet requiredFeatures;
+     private final boolean allowedInPeaceful;
+ 
++    private final java.util.function.Predicate<EntityType<?>> trackDeltasSupplier;
++    private final java.util.function.ToIntFunction<EntityType<?>> trackingRangeSupplier;
++    private final java.util.function.ToIntFunction<EntityType<?>> updateIntervalSupplier;
++    private final boolean onlyOpCanSetNbt;
++
++    // Purpur start - PlayerSetSpawnerTypeWithEggEvent
++    public static EntityType<?> getFromBukkitType(org.bukkit.entity.EntityType bukkitType) {
++        return getFromKey(Identifier.parse(bukkitType.getKey().toString()));
++    }
++
++    public static EntityType<?> getFromKey(Identifier location) {
++        return BuiltInRegistries.ENTITY_TYPE.getValue(location);
++    }
++    // Purpur end - PlayerSetSpawnerTypeWithEggEvent
++
+     public static Identifier getKey(EntityType<?> type) {
+         return BuiltInRegistries.ENTITY_TYPE.getKey(type);
+     }
+ 
++    // Purpur start
++    public static Optional<EntityType<?>> byString(String key) {
++        return BuiltInRegistries.ENTITY_TYPE.getOptional(Identifier.tryParse(key));
++    }
++    // Purpur end
++
+     public EntityType(
+         EntityType.EntityFactory<T> factory,
+         MobCategory category,
+@@ -94,6 +_,30 @@
+         FeatureFlagSet requiredFeatures,
+         boolean allowedInPeaceful
+     ) {
++        this(factory, category, serialize, summon, fireImmune, canSpawnFarFromPlayer, immuneTo, dimensions, spawnDimensionsScale, clientTrackingRange, updateInterval, descriptionId, lootTable, requiredFeatures, allowedInPeaceful, EntityType::defaultTrackDeltasSupplier, EntityType::defaultTrackingRangeSupplier, EntityType::defaultUpdateIntervalSupplier, false);
++    }
++
++    public EntityType(
++            EntityType.EntityFactory<T> factory,
++            MobCategory category,
++            boolean serialize,
++            boolean summon,
++            boolean fireImmune,
++            boolean canSpawnFarFromPlayer,
++            TagKey<Block> immuneTo,
++            EntityDimensions dimensions,
++            float spawnDimensionsScale,
++            int clientTrackingRange,
++            int updateInterval,
++            String descriptionId,
++            Optional<ResourceKey<LootTable>> lootTable,
++            FeatureFlagSet requiredFeatures,
++            boolean allowedInPeaceful,
++            final java.util.function.Predicate<EntityType<?>> trackDeltasSupplier,
++            final java.util.function.ToIntFunction<EntityType<?>> trackingRangeSupplier,
++            final java.util.function.ToIntFunction<EntityType<?>> updateIntervalSupplier,
++            boolean onlyOpCanSetNbt
++    ) {
+         this.factory = factory;
+         this.category = category;
+         this.canSpawnFarFromPlayer = canSpawnFarFromPlayer;
+@@ -109,25 +_,28 @@
+         this.lootTable = lootTable;
+         this.requiredFeatures = requiredFeatures;
+         this.allowedInPeaceful = allowedInPeaceful;
+-    }
+-
+-    public @Nullable T spawn(
+-        ServerLevel level,
+-        @Nullable ItemStack itemStack,
+-        @Nullable LivingEntity user,
+-        BlockPos spawnPos,
+-        EntitySpawnReason spawnReason,
+-        boolean tryMoveDown,
+-        boolean movedUp
+-    ) {
+-        PostSpawnProcessor<T> postSpawnConfig;
++        this.trackDeltasSupplier = trackDeltasSupplier;
++        this.trackingRangeSupplier = trackingRangeSupplier;
++        this.updateIntervalSupplier = updateIntervalSupplier;
++        this.onlyOpCanSetNbt = onlyOpCanSetNbt;
++    }
++
++    public @Nullable T spawn(ServerLevel level, @Nullable ItemStack itemStack, @Nullable LivingEntity user, BlockPos spawnPos, EntitySpawnReason spawnReason, boolean tryMoveDown, boolean movedUp) {
++        // CraftBukkit start
++        return this.spawn(level, itemStack, user, spawnPos, spawnReason, tryMoveDown, movedUp, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER_EGG);
++    }
++
++    public @Nullable T spawn(ServerLevel level, @Nullable ItemStack itemStack, @Nullable LivingEntity user, BlockPos spawnPos, EntitySpawnReason spawnReason, boolean tryMoveDown, boolean movedUp, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason bukkitSpawnReason) {
++        // CraftBukkit end
++        PostSpawnProcessor<T> consumer;
++
+         if (itemStack != null) {
+-            postSpawnConfig = createDefaultStackConfig(level, itemStack, user);
++            consumer = createDefaultStackConfig(level, itemStack, user);
+         } else {
+-            postSpawnConfig = PostSpawnProcessor.nop();
++            consumer = entity -> {};
+         }
+ 
+-        return this.spawn(level, postSpawnConfig, spawnPos, spawnReason, tryMoveDown, movedUp);
++        return (T) this.spawn(level, consumer, spawnPos, spawnReason, tryMoveDown, movedUp, bukkitSpawnReason); // CraftBukkit
+     }
+ 
+     public static <T extends Entity> PostSpawnProcessor<T> createDefaultStackConfig(Level level, ItemStack itemStack, @Nullable LivingEntity user) {
+@@ -148,24 +_,52 @@
+         PostSpawnProcessor<T> initialConfig, Level level, ItemStack itemStack, @Nullable LivingEntity user
+     ) {
+         TypedEntityData<EntityType<?>> entityData = itemStack.get(DataComponents.ENTITY_DATA);
+-        return entityData != null ? initialConfig.andThen(entity -> updateCustomEntityTag(level, user, entity, entityData)) : initialConfig;
++        // CraftBukkit start - SPIGOT-5665
++        return entityData != null ? initialConfig.andThen(entity -> {
++            try {
++                updateCustomEntityTag(level, user, entity, entityData);
++            } catch (Throwable t) {
++                LOGGER.warn("Error loading spawn egg NBT", t);
++            }
++        }) : initialConfig;
++        // CraftBukkit end
+     }
+ 
+     public @Nullable T spawn(ServerLevel level, BlockPos spawnPos, EntitySpawnReason spawnReason) {
+-        return this.spawn(level, null, spawnPos, spawnReason, false, false);
+-    }
+-
+-    public @Nullable T spawn(
+-        ServerLevel level,
+-        @Nullable PostSpawnProcessor<T> postSpawnConfig,
+-        BlockPos spawnPos,
+-        EntitySpawnReason spawnReason,
+-        boolean tryMoveDown,
+-        boolean movedUp
+-    ) {
++        // CraftBukkit start
++        return (T) this.spawn(level, spawnPos, spawnReason, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT);
++    }
++
++    public @Nullable T spawn(ServerLevel level, BlockPos spawnPos, EntitySpawnReason spawnReason, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason bukkitSpawnReason) {
++        return (T) this.spawn(level, null, spawnPos, spawnReason, false, false, bukkitSpawnReason); // CraftBukkit
++        // CraftBukkit end
++    }
++
++    public @Nullable T spawn(ServerLevel level, @Nullable PostSpawnProcessor<T> postSpawnConfig, BlockPos spawnPos, EntitySpawnReason spawnReason, boolean tryMoveDown, boolean movedUp) {
++        // CraftBukkit start
++        return this.spawn(level, postSpawnConfig, spawnPos, spawnReason, tryMoveDown, movedUp, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT);
++    }
++
++    public @Nullable T spawn(ServerLevel level, @Nullable PostSpawnProcessor<T> postSpawnConfig, BlockPos spawnPos, EntitySpawnReason spawnReason, boolean tryMoveDown, boolean movedUp, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason creatureSpawnReason) {
++        // CraftBukkit end
++        // Paper start - PreCreatureSpawnEvent
++        com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent event = new com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent(
++            org.bukkit.craftbukkit.util.CraftLocation.toBukkit(spawnPos, level),
++            org.bukkit.craftbukkit.entity.CraftEntityType.minecraftToBukkit(this),
++            creatureSpawnReason
++        );
++        if (!event.callEvent()) {
++            return null;
++        }
++        // Paper end - PreCreatureSpawnEvent
+         T entity = this.create(level, postSpawnConfig, spawnPos, spawnReason, tryMoveDown, movedUp);
+         if (entity != null) {
+-            level.addFreshEntityWithPassengers(entity);
++            // CraftBukkit start
++            level.addFreshEntityWithPassengers(entity, creatureSpawnReason);
++            if (entity.isRemoved()) {
++                return null; // Don't return an entity when CreatureSpawnEvent is canceled
++            }
++            // CraftBukkit end
+             if (entity instanceof Mob mob) {
+                 mob.playAmbientSound();
+             }
+@@ -200,6 +_,13 @@
+             mob.yHeadRot = mob.getYRot();
+             mob.yBodyRot = mob.getYRot();
+             mob.finalizeSpawn(level, level.getCurrentDifficultyAt(mob.blockPosition()), spawnReason, null);
++            if (mob.isSpawnCancelled()) {
++                // Neo: Discard mob, spawn was cancelled
++                mob.discard();
++                // return null, mob was killed, context should be lost
++                // fixes llamas for wandering trader spawning if wandering trader was cancelled
++                return null;
++            }
+         }
+ 
+         if (postSpawnConfig != null) {
+@@ -226,6 +_,13 @@
+                 if (level.isClientSide()
+                     || !entity.getType().onlyOpCanSetNbt()
+                     || user instanceof Player player && server.getPlayerList().isOp(player.nameAndId())) {
++                    // Paper start - filter out protected tags
++                    if (user == null || !user.getBukkitEntity().hasPermission("minecraft.nbt.place")) {
++                        for (net.minecraft.commands.arguments.NbtPathArgument.NbtPath tag : level.paperConfig().entities.spawning.filteredEntityTagNbtPaths) {
++                            tag.remove(entityData.getUnsafe());
++                        }
++                    }
++                    // Paper end - filter out protected tags
+                     entityData.loadInto(entity);
+                 }
+             }
+@@ -252,6 +_,16 @@
+         return this.category;
+     }
+ 
++    // Purpur start - PlayerSetSpawnerTypeWithEggEvent
++    public String getName() {
++        return BuiltInRegistries.ENTITY_TYPE.getKey(this).getPath();
++    }
++
++    public String getTranslatedName() {
++        return getDescription().getString();
++    }
++    // Purpur end - PlayerSetSpawnerTypeWithEggEvent
++
+     public String getDescriptionId() {
+         return this.descriptionId;
+     }
+@@ -292,7 +_,7 @@
+     }
+ 
+     public boolean canSpawn(Level level) {
+-        return !this.isEnabled(level.enabledFeatures()) ? false : this.isAllowedInPeaceful() || level.getDifficulty() != Difficulty.PEACEFUL;
++        return this.isEnabled(level.enabledFeatures()) && (this.isAllowedInPeaceful() || level.getDifficulty() != Difficulty.PEACEFUL);
+     }
+ 
+     public @Nullable T create(Level level, EntitySpawnReason reason) {
+@@ -304,10 +_,29 @@
+     }
+ 
+     public static Optional<Entity> create(ValueInput input, Level level, EntitySpawnRequest request) {
++        // Paper start - Don't fire sync event during generation
++        return create(input, level, request, false);
++    }
++
++    public static Optional<Entity> create(final ValueInput input, final Level level, final EntitySpawnRequest request, final boolean generation) {
++        // Paper end - Don't fire sync event during generation
+         return Util.ifElse(
+             by(input).map(type -> type.create(level, request)),
+-            entity -> entity.load(input),
+-            () -> LOGGER.warn("Skipping Entity with id {}", input.getStringOr("id", "[invalid]"))
++            // Paper start - Don't fire sync event during generation
++            entity -> {
++                if (generation) entity.generation = true; // Paper - Don't fire sync event during generation
++                entity.load(input);
++            },
++            // Paper end - Don't fire sync event during generation
++            // Paper start - Add logging for debugging entity tags with invalid ids
++            () -> {
++                LOGGER.debug("Skipping Entity with id {}", input.getStringOr("id", "[invalid]"));
++                LOGGER.debug("Location: {} {}", level.getWorld().getName(), input.read("Pos", net.minecraft.world.phys.Vec3.CODEC).orElse(net.minecraft.world.phys.Vec3.ZERO)); // Purpur - log skipped entity's position
++                if ((DEBUG_ENTITIES_WITH_INVALID_IDS || level.getCraftServer().getServer().isDebugging()) && input instanceof TagValueInput tagInput) {
++                    LOGGER.debug("Skipped entity tag: {}", tagInput.input);
++                }
++            }
++            // Paper end - Add logging for debugging entity tags with invalid ids
+         );
+     }
+ 
+@@ -383,7 +_,18 @@
+     }
+ 
+     public static Stream<Entity> loadEntitiesRecursive(ValueInput.ValueInputList entities, Level level, EntitySpawnReason reason) {
++        final java.util.Map<EntityType<?>, Integer> loadedEntityCounts = new java.util.HashMap<>(); // Paper - Entity load/save limit per chunk
+         return entities.stream().mapMulti((tag, output) -> loadEntityRecursive(tag, level, reason, entity -> {
++            // Paper start - Entity load/save limit per chunk
++            final EntityType<?> entityType = entity.getType();
++            final int saveLimit = level.paperConfig().chunks.entityPerChunkSaveLimit.getOrDefault(entityType, -1);
++            if (saveLimit > -1) {
++                if (loadedEntityCounts.getOrDefault(entityType, 0) >= saveLimit) {
++                    return null;
++                }
++                loadedEntityCounts.merge(entityType, 1, Integer::sum);
++            }
++            // Paper end - Entity load/save limit per chunk
+             output.accept(entity);
+             return entity;
+         }));
+@@ -408,14 +_,23 @@
+     }
+ 
+     public int clientTrackingRange() {
++        return trackingRangeSupplier.applyAsInt(this);
++    }
++    private int defaultTrackingRangeSupplier() {
+         return this.clientTrackingRange;
+     }
+ 
+     public int updateInterval() {
++        return updateIntervalSupplier.applyAsInt(this);
++    }
++    private int defaultUpdateIntervalSupplier() {
+         return this.updateInterval;
+     }
+ 
+     public boolean trackDeltas() {
++        return this.trackDeltasSupplier.test(this);
++    }
++    private boolean defaultTrackDeltasSupplier() {
+         return this != EntityTypes.PLAYER
+             && this != EntityTypes.LLAMA_SPIT
+             && this != EntityTypes.WITHER
+@@ -442,14 +_,17 @@
+         return this.builtInRegistryHolder;
+     }
+ 
+-    public boolean isAllowedInPeaceful() {
++    public final boolean isAllowedInPeaceful() {
+         return this.allowedInPeaceful;
+     }
+ 
+     public boolean onlyOpCanSetNbt() {
++        if (onlyOpCanSetNbt) return true;
+         return EntityTypes.OP_ONLY_CUSTOM_DATA.contains(this);
+     }
+ 
++    public Stream<net.minecraft.tags.TagKey<EntityType<?>>> getTags() {return this.builtInRegistryHolder().tags();}
++
+     public static class Builder<T extends Entity> {
+         private final EntityType.EntityFactory<T> factory;
+         private final MobCategory category;
+@@ -469,6 +_,10 @@
+         );
+         private final DependantName<EntityType<?>, String> descriptionId = id -> Util.makeDescriptionId("entity", id.identifier());
+         private boolean allowedInPeaceful = true;
++        private java.util.function.Predicate<EntityType<?>> velocityUpdateSupplier = EntityType::defaultTrackDeltasSupplier;
++        private java.util.function.ToIntFunction<EntityType<?>> trackingRangeSupplier = EntityType::defaultTrackingRangeSupplier;
++        private java.util.function.ToIntFunction<EntityType<?>> updateIntervalSupplier = EntityType::defaultUpdateIntervalSupplier;
++        private boolean onlyOpCanSetNbt = false;
+ 
+         private Builder(EntityType.EntityFactory<T> factory, MobCategory category) {
+             this.factory = factory;
+@@ -587,6 +_,26 @@
+             return this;
+         }
+ 
++        public EntityType.Builder<T> setUpdateInterval(int interval) {
++            this.updateIntervalSupplier = t->interval;
++            return this;
++        }
++
++        public EntityType.Builder<T> setTrackingRange(int range) {
++            this.trackingRangeSupplier = t->range;
++            return this;
++        }
++
++        public EntityType.Builder<T> setShouldReceiveVelocityUpdates(boolean value) {
++            this.velocityUpdateSupplier = t->value;
++            return this;
++        }
++
++        public EntityType.Builder<T> setOnlyOpCanSetNbt(boolean onlyOpCanSetNbt) {
++            this.onlyOpCanSetNbt = onlyOpCanSetNbt;
++            return this;
++        }
++
+         public EntityType<T> build(ResourceKey<EntityType<?>> name) {
+             if (this.serialize) {
+                 Util.fetchChoiceType(References.ENTITY_TREE, name.identifier().toString());
+@@ -607,7 +_,11 @@
+                 this.descriptionId.get(name),
+                 this.lootTable.get(name),
+                 this.requiredFeatures,
+-                this.allowedInPeaceful
++                this.allowedInPeaceful,
++                this.velocityUpdateSupplier,
++                this.trackingRangeSupplier,
++                this.updateIntervalSupplier,
++                this.onlyOpCanSetNbt
+             );
+         }
+     }

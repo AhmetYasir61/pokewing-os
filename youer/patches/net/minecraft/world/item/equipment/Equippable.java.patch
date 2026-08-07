@@ -1,0 +1,34 @@
+--- a/net/minecraft/world/item/equipment/Equippable.java
++++ b/net/minecraft/world/item/equipment/Equippable.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.item.equipment;
+ 
++import com.mohistmc.youer.feature.ban.bans.BanItem;
+ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.codecs.RecordCodecBuilder;
+ import java.util.Optional;
+@@ -126,10 +_,24 @@
+     }
+ 
+     public InteractionResult swapWithEquipmentSlot(ItemStack inHand, Player player) {
++        if (BanItem.check(player, inHand)) return InteractionResult.FAIL;
+         if (player.canUseSlot(this.slot) && this.canBeEquippedBy(player.typeHolder())) {
+             ItemStack inEquipmentSlot = player.getItemBySlot(this.slot);
+             if ((!EnchantmentHelper.has(inEquipmentSlot, EnchantmentEffectComponents.PREVENT_ARMOR_CHANGE) || player.isCreative())
+                 && !ItemStack.isSameItemSameComponents(inHand, inEquipmentSlot)) {
++                // Paper start
++                final io.papermc.paper.event.player.PlayerSwapWithEquipmentSlotEvent event = new io.papermc.paper.event.player.PlayerSwapWithEquipmentSlotEvent(
++                        (org.bukkit.entity.Player) player.getBukkitEntity(),
++                        org.bukkit.craftbukkit.inventory.CraftItemStack.asBukkitCopy(inHand),
++                        org.bukkit.craftbukkit.CraftEquipmentSlot.getSlot(this.slot),
++                        org.bukkit.craftbukkit.inventory.CraftItemStack.asBukkitCopy(inEquipmentSlot)
++                );
++                event.callEvent();
++                if (event.isCancelled()) {
++                    ((org.bukkit.entity.Player) player.getBukkitEntity()).updateInventory();
++                    return InteractionResult.FAIL;
++                }
++                // Paper end
+                 if (!player.level().isClientSide()) {
+                     player.awardStat(Stats.ITEM_USED.get(inHand.getItem()));
+                 }

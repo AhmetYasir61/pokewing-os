@@ -1,0 +1,109 @@
+--- a/net/minecraft/world/entity/animal/golem/IronGolem.java
++++ b/net/minecraft/world/entity/animal/golem/IronGolem.java
+@@ -58,13 +_,64 @@
+     private static final UniformInt PERSISTENT_ANGER_TIME = TimeUtil.rangeOfSeconds(20, 39);
+     private long persistentAngerEndTime;
+     private @Nullable EntityReference<LivingEntity> persistentAngerTarget;
++    private java.util.@Nullable UUID summoner; // Purpur - Summoner API
+ 
+     public IronGolem(EntityType<? extends IronGolem> type, Level level) {
+         super(type, level);
+     }
+ 
++    // Purpur start - Summoner API
++    public java.util.@Nullable UUID getSummoner() {
++        return summoner;
++    }
++
++    public void setSummoner(java.util.@Nullable UUID summoner) {
++        this.summoner = summoner;
++    }
++    // Purpur end - Summoner API
++
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.ironGolemRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.ironGolemRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.ironGolemControllable;
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.ironGolemMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.ironGolemScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.ironGolemTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.ironGolemAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
++        if (this.level().purpurConfig.ironGolemPoppyCalm) this.goalSelector.addGoal(0, new org.purpurmc.purpur.entity.ai.ReceiveFlower(this)); // Purpur - Iron golem calm anger options
+         this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.0, true));
+         this.goalSelector.addGoal(2, new MoveTowardsTargetGoal(this, 0.9, 32.0F));
+         this.goalSelector.addGoal(2, new MoveBackToVillageGoal(this, 0.6, false));
+@@ -106,7 +_,7 @@
+     @Override
+     protected void doPush(Entity entity) {
+         if (entity instanceof Enemy && !(entity instanceof Creeper) && this.getRandom().nextInt(20) == 0) {
+-            this.setTarget((LivingEntity)entity);
++            this.setTarget((LivingEntity) entity, org.bukkit.event.entity.EntityTargetLivingEntityEvent.TargetReason.COLLISION); // CraftBukkit - set reason
+         }
+ 
+         super.doPush(entity);
+@@ -146,6 +_,7 @@
+     protected void addAdditionalSaveData(ValueOutput output) {
+         super.addAdditionalSaveData(output);
+         output.putBoolean("PlayerCreated", this.isPlayerCreated());
++        output.storeNullable("Purpur.Summoner", net.minecraft.core.UUIDUtil.CODEC, getSummoner()); // Purpur - Summoner API
+         this.addPersistentAngerSaveData(output);
+     }
+ 
+@@ -153,6 +_,7 @@
+     protected void readAdditionalSaveData(ValueInput input) {
+         super.readAdditionalSaveData(input);
+         this.setPlayerCreated(input.getBooleanOr("PlayerCreated", false));
++        this.setSummoner(input.read("Purpur.Summoner", net.minecraft.core.UUIDUtil.CODEC).orElse(null)); // Purpur - Summoner API
+         this.readPersistentAngerSaveData(this.level(), input);
+     }
+ 
+@@ -273,6 +_,7 @@
+         float pitch = 1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F;
+         this.playSound(SoundEvents.IRON_GOLEM_REPAIR, 1.0F, pitch);
+         itemStack.consume(1, player);
++        if (this.level().purpurConfig.ironGolemHealCalm && isAngry() && getHealth() == getMaxHealth()) stopBeingAngry(); // Purpur - Iron golem calm anger options
+         return InteractionResult.SUCCESS;
+     }
+ 
+@@ -308,7 +_,7 @@
+         BlockPos pos = this.blockPosition();
+         BlockPos belowPos = pos.below();
+         BlockState below = level.getBlockState(belowPos);
+-        if (!below.entityCanStandOn(level, belowPos, this)) {
++        if (!below.entityCanStandOn(level, belowPos, this) && !this.level().paperConfig().entities.spawning.ironGolemsCanSpawnInAir) { // Paper - Add option to allow iron golems to spawn in air
+             return false;
+         }
+ 

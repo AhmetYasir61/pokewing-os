@@ -1,0 +1,250 @@
+--- a/net/minecraft/world/level/border/WorldBorder.java
++++ b/net/minecraft/world/level/border/WorldBorder.java
+@@ -4,6 +_,7 @@
+ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.codecs.RecordCodecBuilder;
+ import java.util.List;
++import java.util.Objects;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.resources.Identifier;
+ import net.minecraft.util.Mth;
+@@ -36,6 +_,8 @@
+     private double centerZ;
+     private int absoluteMaxSize = 29999984;
+     private WorldBorder.BorderExtent extent = new WorldBorder.StaticBorderExtent(5.999997E7F);
++    public net.minecraft.server.level.@org.jspecify.annotations.Nullable ServerLevel world; // CraftBukkit
++    private int lastTick = -1; // Paper - Prevent ticking virtual world borders multiple times per server tick
+ 
+     public WorldBorder() {
+         this(WorldBorder.Settings.DEFAULT);
+@@ -57,6 +_,20 @@
+         return this.isWithinBounds(pos.getMinBlockX(), pos.getMinBlockZ()) && this.isWithinBounds(pos.getMaxBlockX(), pos.getMaxBlockZ());
+     }
+ 
++    // Paper start - Bound treasure maps to world border
++    private final BlockPos.MutableBlockPos mutPos = new BlockPos.MutableBlockPos();
++
++    public boolean isBlockInBounds(int x, int z) {
++        this.mutPos.set(x, 64, z);
++        return this.isWithinBounds(this.mutPos);
++    }
++
++    public boolean isChunkInBounds(int chunkX, int chunkZ) {
++        this.mutPos.set(((chunkX << 4) + 15), 64, (chunkZ << 4) + 15);
++        return this.isWithinBounds(this.mutPos);
++    }
++    // Paper end - Bound treasure maps to world border
++
+     public boolean isWithinBounds(AABB aabb) {
+         return this.isWithinBounds(aabb.minX, aabb.minZ, aabb.maxX - 1.0E-5F, aabb.maxZ - 1.0E-5F);
+     }
+@@ -160,7 +_,15 @@
+         return this.centerZ;
+     }
+ 
++    // Paper start - Add worldborder events
+     public void setCenter(double x, double z) {
++        if (this.world != null) {
++            io.papermc.paper.event.world.border.WorldBorderCenterChangeEvent event = new io.papermc.paper.event.world.border.WorldBorderCenterChangeEvent(this.world.getWorld(), this.world.getWorld().getWorldBorder(), new org.bukkit.Location(this.world.getWorld(), this.getCenterX(), 0, this.getCenterZ()), new org.bukkit.Location(this.world.getWorld(), x, 0, z));
++            if (!event.callEvent()) return;
++            x = event.getNewCenter().getX();
++            z = event.getNewCenter().getZ();
++        }
++        // Paper end - Add worldborder events
+         this.centerX = x;
+         this.centerZ = z;
+         this.extent.onCenterChange();
+@@ -183,7 +_,18 @@
+         return this.extent.getLerpTarget();
+     }
+ 
++    // Paper start - Add worldborder events
+     public void setSize(double size) {
++        if (this.world != null) {
++            io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent event = new io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent(this.world.getWorld(), this.world.getWorld().getWorldBorder(), io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent.Type.INSTANT_MOVE, getSize(), size, 0);
++            if (!event.callEvent()) return;
++            if (event.getType() == io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent.Type.STARTED_MOVE && event.getDurationTicks() > 0) { // If changed to a timed transition
++                lerpSizeBetween(event.getOldSize(), event.getNewSize(), event.getDurationTicks(), this.world.getGameTime());
++                return;
++            }
++            size = event.getNewSize();
++        }
++        // Paper end - Add worldborder events
+         this.extent = new WorldBorder.StaticBorderExtent(size);
+         this.setDirty();
+ 
+@@ -192,8 +_,24 @@
+         }
+     }
+ 
++    // Paper start - Add worldborder events
+     public void lerpSizeBetween(double from, double to, long ticks, long gameTime) {
+-        this.extent = from == to ? new WorldBorder.StaticBorderExtent(to) : new WorldBorder.MovingBorderExtent(from, to, ticks, gameTime);
++        if (this.world != null) {
++            io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent.Type type;
++            if (from == to) {
++                type = io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent.Type.INSTANT_MOVE; // Use INSTANT_MOVE because below it creates a Static border if they are equal.
++            } else {
++                type = io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent.Type.STARTED_MOVE;
++            }
++            io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent event = new io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent(this.world.getWorld(), this.world.getWorld().getWorldBorder(), type, from, to, ticks);
++            if (!event.callEvent()) return;
++            to = event.getNewSize();
++            ticks = event.getDurationTicks();
++        }
++        // Paper end - Add worldborder events
++        this.extent = (WorldBorder.BorderExtent)(from == to
++            ? new WorldBorder.StaticBorderExtent(to)
++            : new WorldBorder.MovingBorderExtent(from, to, ticks, gameTime));
+         this.setDirty();
+ 
+         for (BorderChangeListener listener : this.getListeners()) {
+@@ -206,6 +_,7 @@
+     }
+ 
+     public void addListener(BorderChangeListener listener) {
++        if (listeners.contains(listener)) return; // CraftBukkit
+         this.listeners.add(listener);
+     }
+ 
+@@ -279,6 +_,12 @@
+     }
+ 
+     public void tick() {
++        // Paper start - Prevent ticking virtual world borders multiple times per server tick
++        if (this.lastTick == net.minecraft.server.MinecraftServer.currentTick) {
++            return;
++        }
++        this.lastTick = net.minecraft.server.MinecraftServer.currentTick;
++        // Paper end - Prevent ticking virtual world borders multiple times per server tick
+         this.extent = this.extent.update();
+     }
+ 
+@@ -299,6 +_,22 @@
+         }
+     }
+ 
++    // Paper start - add back applySettings
++    public void applySettings(WorldBorder.Settings settings) {
++        this.setCenter(settings.centerX(), settings.centerZ());
++        this.setDamagePerBlock(settings.damagePerBlock());
++        this.setSafeZone(settings.safeZone());
++        this.setWarningBlocks(settings.warningBlocks());
++        this.setWarningTime(settings.warningTime());
++        if (settings.lerpTime() > 0L) {
++            final long gameTime = (this.world != null) ? this.world.getGameTime() : 0; // Virtual Borders don't have a World
++            this.lerpSizeBetween(settings.size(), settings.lerpTarget(), settings.lerpTime(), gameTime);
++        } else {
++            this.setSize(settings.size());
++        }
++    }
++    // Paper end - add back applySettings
++
+     private interface BorderExtent {
+         double getMinX(final float deltaPartialTick);
+ 
+@@ -338,6 +_,8 @@
+         private double previousSize;
+ 
+         private MovingBorderExtent(double from, double to, long duration, long gameTime) {
++            Objects.requireNonNull(WorldBorder.this);
++            super();
+             this.from = from;
+             this.to = to;
+             this.lerpDuration = duration;
+@@ -352,36 +_,36 @@
+         @Override
+         public double getMinX(float deltaPartialTick) {
+             return Mth.clamp(
+-                WorldBorder.this.getCenterX() - Mth.lerp(deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
+-                -WorldBorder.this.absoluteMaxSize,
+-                WorldBorder.this.absoluteMaxSize
++                WorldBorder.this.getCenterX() - Mth.lerp((double)deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
++                (double)(-WorldBorder.this.absoluteMaxSize),
++                (double)WorldBorder.this.absoluteMaxSize
+             );
+         }
+ 
+         @Override
+         public double getMinZ(float deltaPartialTick) {
+             return Mth.clamp(
+-                WorldBorder.this.getCenterZ() - Mth.lerp(deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
+-                -WorldBorder.this.absoluteMaxSize,
+-                WorldBorder.this.absoluteMaxSize
++                WorldBorder.this.getCenterZ() - Mth.lerp((double)deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
++                (double)(-WorldBorder.this.absoluteMaxSize),
++                (double)WorldBorder.this.absoluteMaxSize
+             );
+         }
+ 
+         @Override
+         public double getMaxX(float deltaPartialTick) {
+             return Mth.clamp(
+-                WorldBorder.this.getCenterX() + Mth.lerp(deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
+-                -WorldBorder.this.absoluteMaxSize,
+-                WorldBorder.this.absoluteMaxSize
++                WorldBorder.this.getCenterX() + Mth.lerp((double)deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
++                (double)(-WorldBorder.this.absoluteMaxSize),
++                (double)WorldBorder.this.absoluteMaxSize
+             );
+         }
+ 
+         @Override
+         public double getMaxZ(float deltaPartialTick) {
+             return Mth.clamp(
+-                WorldBorder.this.getCenterZ() + Mth.lerp(deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
+-                -WorldBorder.this.absoluteMaxSize,
+-                WorldBorder.this.absoluteMaxSize
++                WorldBorder.this.getCenterZ() + Mth.lerp((double)deltaPartialTick, this.getPreviousSize(), this.getSize()) / 2.0,
++                (double)(-WorldBorder.this.absoluteMaxSize),
++                (double)WorldBorder.this.absoluteMaxSize
+             );
+         }
+ 
+@@ -433,7 +_,13 @@
+             this.previousSize = this.size;
+             this.size = this.calculateSize();
+             WorldBorder.this.setDirty();
+-            return this.lerpProgress <= 0L ? WorldBorder.this.new StaticBorderExtent(this.to) : this;
++            // Paper start
++            boolean finished = this.lerpProgress <= 0L;
++            if (finished && WorldBorder.this.world != null) {
++                new io.papermc.paper.event.world.border.WorldBorderBoundsChangeFinishEvent(WorldBorder.this.world.getWorld(), WorldBorder.this.world.getWorld().getWorldBorder(), this.from, this.to, this.lerpDuration).callEvent(); // Paper - Add worldborder events
++            }
++            return finished ? WorldBorder.this.new StaticBorderExtent(this.to) : this;
++            // Paper end
+         }
+ 
+         @Override
+@@ -504,6 +_,8 @@
+         private VoxelShape shape;
+ 
+         public StaticBorderExtent(double size) {
++            Objects.requireNonNull(WorldBorder.this);
++            super();
+             this.size = size;
+             this.updateBox();
+         }
+@@ -554,10 +_,18 @@
+         }
+ 
+         private void updateBox() {
+-            this.minX = Mth.clamp(WorldBorder.this.getCenterX() - this.size / 2.0, -WorldBorder.this.absoluteMaxSize, WorldBorder.this.absoluteMaxSize);
+-            this.minZ = Mth.clamp(WorldBorder.this.getCenterZ() - this.size / 2.0, -WorldBorder.this.absoluteMaxSize, WorldBorder.this.absoluteMaxSize);
+-            this.maxX = Mth.clamp(WorldBorder.this.getCenterX() + this.size / 2.0, -WorldBorder.this.absoluteMaxSize, WorldBorder.this.absoluteMaxSize);
+-            this.maxZ = Mth.clamp(WorldBorder.this.getCenterZ() + this.size / 2.0, -WorldBorder.this.absoluteMaxSize, WorldBorder.this.absoluteMaxSize);
++            this.minX = Mth.clamp(
++                WorldBorder.this.getCenterX() - this.size / 2.0, (double)(-WorldBorder.this.absoluteMaxSize), (double)WorldBorder.this.absoluteMaxSize
++            );
++            this.minZ = Mth.clamp(
++                WorldBorder.this.getCenterZ() - this.size / 2.0, (double)(-WorldBorder.this.absoluteMaxSize), (double)WorldBorder.this.absoluteMaxSize
++            );
++            this.maxX = Mth.clamp(
++                WorldBorder.this.getCenterX() + this.size / 2.0, (double)(-WorldBorder.this.absoluteMaxSize), (double)WorldBorder.this.absoluteMaxSize
++            );
++            this.maxZ = Mth.clamp(
++                WorldBorder.this.getCenterZ() + this.size / 2.0, (double)(-WorldBorder.this.absoluteMaxSize), (double)WorldBorder.this.absoluteMaxSize
++            );
+             this.shape = Shapes.join(
+                 Shapes.INFINITY,
+                 Shapes.box(

@@ -1,0 +1,62 @@
+--- a/net/minecraft/world/entity/decoration/painting/Painting.java
++++ b/net/minecraft/world/entity/decoration/painting/Painting.java
+@@ -150,21 +_,32 @@
+ 
+     @Override
+     protected AABB calculateBoundingBox(BlockPos pos, Direction direction) {
+-        float shiftToBlockWall = 0.46875F;
+-        Vec3 attachedToWall = Vec3.atCenterOf(pos).relative(direction, -0.46875);
++        // CraftBukkit start
+         PaintingVariant variant = this.getVariant().value();
+-        double horizontalOffset = this.offsetForPaintingSize(variant.width());
+-        double verticalOffset = this.offsetForPaintingSize(variant.height());
+-        Direction left = direction.getCounterClockWise();
+-        Vec3 position = attachedToWall.relative(left, horizontalOffset).relative(Direction.UP, verticalOffset);
+-        Direction.Axis axis = direction.getAxis();
+-        double xSize = axis == Direction.Axis.X ? 0.0625 : variant.width();
+-        double ySize = variant.height();
+-        double zSize = axis == Direction.Axis.Z ? 0.0625 : variant.width();
+-        return AABB.ofSize(position, xSize, ySize, zSize);
+-    }
+-
+-    private double offsetForPaintingSize(int size) {
++        return Painting.calculateBoundingBoxStatic(pos, direction, variant.width(), variant.height());
++    }
++
++    public static AABB calculateBoundingBoxStatic(BlockPos pos, Direction direction, int width, int height) {
++        // CraftBukkit end
++        float f = 0.46875F;
++        Vec3 vec3 = Vec3.atCenterOf(pos).relative(direction, -0.46875D);
++        // CraftBukkit start
++        double d0 = offsetForPaintingSize(width);
++        double d1 = offsetForPaintingSize(height);
++        // CraftBukkit end
++        Direction direction1 = direction.getCounterClockWise();
++        Vec3 vec31 = vec3.relative(direction1, d0).relative(Direction.UP, d1);
++        Direction.Axis direction_axis = direction.getAxis();
++        // CraftBukkit start
++        double d2 = direction_axis == Direction.Axis.X ? 0.0625D : (double) width;
++        double d3 = (double) height;
++        double d4 = direction_axis == Direction.Axis.Z ? 0.0625D : (double) width;
++        // CraftBukkit end
++
++        return AABB.ofSize(vec31, d2, d3, d4);
++    }
++
++    private static double offsetForPaintingSize(int size) {
+         return size % 2 == 0 ? 0.5 : 0.0;
+     }
+ 
+@@ -173,7 +_,11 @@
+         if (level.getGameRules().get(GameRules.ENTITY_DROPS)) {
+             this.playSound(SoundEvents.PAINTING_BREAK, 1.0F, 1.0F);
+             if (!(causedBy instanceof Player player && player.hasInfiniteMaterials())) {
+-                this.spawnAtLocation(level, Items.PAINTING);
++                // Purpur start - Apply display names from item forms of entities to entities and vice versa
++                final ItemStack painting = new ItemStack(Items.PAINTING);
++                if (!this.level().purpurConfig.persistentDroppableEntityDisplayNames) painting.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, null);
++                this.spawnAtLocation(level, painting);
++                // Purpur end - Apply display names from item forms of entities to entities and vice versa
+             }
+         }
+     }

@@ -1,0 +1,31 @@
+plugins {
+    id 'java'
+    id 'io.github.goooler.shadow' version '8.1.8'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.warnings = false
+}
+
+dependencies {
+    compileOnly 'org.jetbrains:annotations:26.0.2-1'
+    annotationProcessor 'org.projectlombok:lombok:1.18.42'
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+
+    implementation 'com.mohistmc:yaml:0.8'
+    implementation 'com.mohistmc:i18n:0.6'
+    implementation 'com.mohistmc:json:0.5'
+    implementation 'com.mohistmc:tools:0.6.3'
+}
+
+shadowJar {
+    dependencies {
+        include(dependency('com.mohistmc:yaml'))
+        include(dependency('com.mohistmc:i18n'))
+        include(dependency('com.mohistmc:json'))
+        include(dependency('com.mohistmc:tools'))
+    }
+}
+
+jar.dependsOn(shadowJar)

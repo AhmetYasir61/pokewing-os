@@ -1,0 +1,41 @@
+--- a/net/minecraft/world/entity/monster/illager/Evoker.java
++++ b/net/minecraft/world/entity/monster/illager/Evoker.java
+@@ -50,6 +_,20 @@
+         this.xpReward = 10;
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.evokerTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.evokerAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
+         super.registerGoals();
+@@ -268,7 +_,7 @@
+                         serverLevel.getScoreboard().addPlayerToTeam(vex.getScoreboardName(), evokerTeam);
+                     }
+ 
+-                    serverLevel.addFreshEntityWithPassengers(vex);
++                    serverLevel.addFreshEntityWithPassengers(vex, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPELL); // CraftBukkit - Add SpawnReason
+                     serverLevel.gameEvent(GameEvent.ENTITY_PLACE, pos, GameEvent.Context.of(Evoker.this));
+                 }
+             }
+@@ -305,7 +_,7 @@
+             }
+ 
+             ServerLevel level = getServerLevel(Evoker.this.level());
+-            if (!level.getGameRules().get(GameRules.MOB_GRIEFING)) {
++            if (!net.neoforged.neoforge.event.EventHooks.canEntityGrief(level, Evoker.this)) {
+                 return false;
+             }
+ 

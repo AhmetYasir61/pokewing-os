@@ -1,0 +1,137 @@
+--- a/net/minecraft/world/entity/item/PrimedTnt.java
++++ b/net/minecraft/world/entity/item/PrimedTnt.java
+@@ -28,6 +_,9 @@
+ import net.minecraft.world.level.portal.TeleportTransition;
+ import net.minecraft.world.level.storage.ValueInput;
+ import net.minecraft.world.level.storage.ValueOutput;
++import org.bukkit.craftbukkit.event.CraftEventFactory;
++import org.bukkit.event.entity.EntityRemoveEvent;
++import org.bukkit.event.entity.ExplosionPrimeEvent;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class PrimedTnt extends Entity implements TraceableEntity {
+@@ -54,6 +_,7 @@
+     public @Nullable EntityReference<LivingEntity> owner;
+     private boolean usedPortal;
+     public float explosionPower = 4.0F;
++    public boolean isIncendiary = false; // CraftBukkit - add field
+ 
+     public PrimedTnt(EntityType<? extends PrimedTnt> type, Level level) {
+         super(type, level);
+@@ -63,7 +_,7 @@
+     public PrimedTnt(Level level, double x, double y, double z, @Nullable LivingEntity owner) {
+         this(EntityTypes.TNT, level);
+         this.setPos(x, y, z);
+-        double rot = level.getRandom().nextDouble() * (float) (Math.PI * 2);
++        double rot = this.getRandom().nextDouble() * (float) (Math.PI * 2); // Paper - Don't use level random in entity constructors
+         this.setDeltaMovement(-Math.sin(rot) * 0.02, 0.2F, -Math.cos(rot) * 0.02);
+         this.setFuse(80);
+         this.xo = x;
+@@ -95,10 +_,17 @@
+ 
+     @Override
+     public void tick() {
++        if (this.level().spigotConfig.maxTntTicksPerTick > 0 && ++this.level().spigotConfig.currentPrimedTnt > this.level().spigotConfig.maxTntTicksPerTick) { return; } // Spigot
+         this.handlePortal();
+         this.applyGravity();
+         this.move(MoverType.SELF, this.getDeltaMovement());
+         this.applyEffectsFromBlocks();
++        // Paper start - Configurable TNT height nerf
++        if (this.level().paperConfig().fixes.tntEntityHeightNerf.test(v -> this.getY() > v)) {
++            this.discard(EntityRemoveEvent.Cause.OUT_OF_WORLD);
++            return;
++        }
++        // Paper end - Configurable TNT height nerf
+         this.setDeltaMovement(this.getDeltaMovement().scale(this.getAirDrag()));
+         if (this.onGround()) {
+             this.setDeltaMovement(this.getDeltaMovement().multiply(0.7, -0.5, 0.7));
+@@ -107,20 +_,34 @@
+         int fuse = this.getFuse() - 1;
+         this.setFuse(fuse);
+         if (fuse <= 0) {
+-            this.discard();
++            // CraftBukkit start - Need to reverse the order of the explosion and the entity death
++            // this.discard();
+             if (!this.level().isClientSide()) {
+                 this.explode();
+             }
++            this.discard(EntityRemoveEvent.Cause.EXPLODE); // CraftBukkit - add Bukkit remove cause
++            // CraftBukkit end
+         } else {
+             this.updateFluidInteraction();
+             if (this.level().isClientSide()) {
+                 this.level().addParticle(ParticleTypes.SMOKE, this.getX(), this.getY() + 0.5, this.getZ(), 0.0, 0.0, 0.0);
+             }
+         }
++        // Paper start - Option to prevent TNT from moving in water
++        if (!this.isRemoved() && this.wasTouchingWater && this.level().paperConfig().fixes.preventTntFromMovingInWater) {
++            this.hurtMarked = true;
++            this.needsSync = true;
++        }
++        // Paper end - Option to prevent TNT from moving in water
+     }
+ 
+     protected void explode() {
+         if (this.level() instanceof ServerLevel level && level.getGameRules().get(GameRules.TNT_EXPLODES)) {
++            // CraftBukkit start
++            ExplosionPrimeEvent event = CraftEventFactory.callExplosionPrimeEvent((org.bukkit.entity.Explosive) this.getBukkitEntity());
++            if (event.isCancelled()) {
++                return;
++            }
+             this.level()
+                 .explode(
+                     this,
+@@ -129,10 +_,11 @@
+                     this.getX(),
+                     this.getY(0.0625),
+                     this.getZ(),
+-                    this.explosionPower,
+-                    false,
++                    event.getRadius(),
++                    event.getFire(),
+                     Level.ExplosionInteraction.TNT
+                 );
++            // CraftBukkit end
+         }
+     }
+ 
+@@ -205,4 +_,39 @@
+     public final boolean hurtServer(ServerLevel level, DamageSource source, float damage) {
+         return false;
+     }
++
++    // Paper start - Option to prevent TNT from moving in water
++    @Override
++    public boolean isPushedByFluid() {
++        return !this.level().paperConfig().fixes.preventTntFromMovingInWater && super.isPushedByFluid();
++    }
++    // Paper end - Option to prevent TNT from moving in water
++
++    // Purpur start - Shears can defuse TNT
++    @Override
++    public net.minecraft.world.InteractionResult interact(final net.minecraft.world.entity.player.Player player, final net.minecraft.world.InteractionHand hand, final net.minecraft.world.phys.Vec3 location) {
++        Level world = this.level();
++
++        if (world instanceof ServerLevel serverWorld && level().purpurConfig.shearsCanDefuseTnt) {
++            final net.minecraft.world.item.ItemStack inHand = player.getItemInHand(hand);
++
++            if (!inHand.is(net.minecraft.world.item.Items.SHEARS) || !player.getBukkitEntity().hasPermission("purpur.tnt.defuse") ||
++                    serverWorld.getRandom().nextFloat() > serverWorld.purpurConfig.shearsCanDefuseTntChance) return net.minecraft.world.InteractionResult.PASS;
++
++            net.minecraft.world.entity.item.ItemEntity tntItem = new net.minecraft.world.entity.item.ItemEntity(serverWorld, getX(), getY(), getZ(),
++                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.TNT));
++            tntItem.setPickUpDelay(10);
++
++            inHand.hurtAndBreak(1, player, hand.asEquipmentSlot());
++            serverWorld.addFreshEntity(tntItem, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CUSTOM);
++
++            this.playSound(net.minecraft.sounds.SoundEvents.SHEEP_SHEAR);
++
++            this.kill(serverWorld);
++            return net.minecraft.world.InteractionResult.SUCCESS;
++        }
++
++        return super.interact(player, hand, location);
++    }
++    // Purpur end - Shears can defuse TNT
+ }

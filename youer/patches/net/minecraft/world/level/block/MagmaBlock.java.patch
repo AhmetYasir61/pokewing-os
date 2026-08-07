@@ -1,0 +1,13 @@
+--- a/net/minecraft/world/level/block/MagmaBlock.java
++++ b/net/minecraft/world/level/block/MagmaBlock.java
+@@ -22,8 +_,8 @@
+ 
+     @Override
+     public void stepOn(Level level, BlockPos pos, BlockState onState, Entity entity) {
+-        if (!entity.isSteppingCarefully() && entity instanceof LivingEntity) {
+-            entity.hurt(level.damageSources().hotFloor(), 1.0F);
++        if ((!entity.isSteppingCarefully() || level.purpurConfig.magmaBlockDamageWhenSneaking) && entity instanceof LivingEntity) { // Purpur - Configurable damage settings for magma blocks
++            entity.hurt(level.damageSources().hotFloor().eventBlockDamager(level, pos), 1.0F); // CraftBukkit
+         }
+ 
+         super.stepOn(level, pos, onState, entity);

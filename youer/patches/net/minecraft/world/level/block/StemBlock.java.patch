@@ -1,0 +1,47 @@
+--- a/net/minecraft/world/level/block/StemBlock.java
++++ b/net/minecraft/world/level/block/StemBlock.java
+@@ -81,13 +_,14 @@
+ 
+     @Override
+     protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
++        if (!level.isAreaLoaded(pos, 1)) return; // Forge: prevent loading unloaded chunks when checking neighbor's light
+         if (level.getRawBrightness(pos, 0) >= 9) {
+-            float growthSpeed = CropBlock.getGrowthSpeed(this, level, pos);
+-            if (random.nextInt((int)(25.0F / growthSpeed) + 1) == 0) {
++            float f = CropBlock.getGrowthSpeed(state, level, pos);
++            if (net.neoforged.neoforge.common.CommonHooks.canCropGrow(level, pos, state, random.nextFloat() < ((this == Blocks.PUMPKIN_STEM ? level.spigotConfig.pumpkinModifier : level.spigotConfig.melonModifier) / (100.0F * (Math.floor((25.0F / f) + 1)))))) {
+                 int age = state.getValue(AGE);
+                 if (age < 7) {
+                     state = state.setValue(AGE, age + 1);
+-                    level.setBlock(pos, state, 2);
++                    org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockGrowEvent(level, pos, state, Block.UPDATE_CLIENTS); // CraftBukkit
+                 } else {
+                     Direction direction = Direction.Plane.HORIZONTAL.getRandomDirection(random);
+                     BlockPos relative = pos.relative(direction);
+@@ -97,11 +_,16 @@
+                         Optional<Block> fruit = blocks.getOptional(this.fruit);
+                         Optional<Block> stem = blocks.getOptional(this.attachedStem);
+                         if (fruit.isPresent() && stem.isPresent()) {
+-                            level.setBlockAndUpdate(relative, fruit.get().defaultBlockState());
++                            // CraftBukkit start
++                            if (!org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockGrowEvent(level, relative, fruit.get().defaultBlockState(), Block.UPDATE_ALL)) {
++                                return;
++                            }
++                            // CraftBukkit end
+                             level.setBlockAndUpdate(pos, stem.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, direction));
+                         }
+                     }
+                 }
++                net.neoforged.neoforge.common.CommonHooks.fireCropGrowPost(level, pos, state);
+             }
+         }
+     }
+@@ -125,7 +_,7 @@
+     public void performBonemeal(ServerLevel level, RandomSource random, BlockPos pos, BlockState state) {
+         int age = Math.min(7, state.getValue(AGE) + Mth.nextInt(random, 2, 5));
+         BlockState newState = state.setValue(AGE, age);
+-        level.setBlock(pos, newState, 2);
++        org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockGrowEvent(level, pos, newState, Block.UPDATE_CLIENTS); // CraftBukkit
+         if (age == 7) {
+             newState.randomTick(level, pos, random);
+         }

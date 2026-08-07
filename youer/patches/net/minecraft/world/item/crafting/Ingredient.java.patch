@@ -1,0 +1,200 @@
+--- a/net/minecraft/world/item/crafting/Ingredient.java
++++ b/net/minecraft/world/item/crafting/Ingredient.java
+@@ -2,6 +_,7 @@
+ 
+ import com.mojang.serialization.Codec;
+ import java.util.Arrays;
++import java.util.List;
+ import java.util.Objects;
+ import java.util.Optional;
+ import java.util.function.Predicate;
+@@ -21,20 +_,47 @@
+ import net.minecraft.world.item.Items;
+ import net.minecraft.world.item.crafting.display.SlotDisplay;
+ import net.minecraft.world.level.ItemLike;
++import org.jspecify.annotations.Nullable;
+ 
+-public final class Ingredient implements Predicate<ItemStack>, StackedContents.IngredientInfo<Holder<Item>> {
+-    public static final StreamCodec<RegistryFriendlyByteBuf, Ingredient> CONTENTS_STREAM_CODEC = ByteBufCodecs.holderSet(Registries.ITEM)
+-        .map(Ingredient::new, i -> i.values);
+-    public static final StreamCodec<RegistryFriendlyByteBuf, Optional<Ingredient>> OPTIONAL_CONTENTS_STREAM_CODEC = ByteBufCodecs.holderSet(Registries.ITEM)
++public final class Ingredient implements Predicate<ItemStack>, StackedContents.IngredientInfo<io.papermc.paper.inventory.recipe.ItemOrExact> { // Paper - Improve exact choice recipe ingredients
++    public static final StreamCodec<RegistryFriendlyByteBuf, Ingredient> CONTENTS_STREAM_CODEC = net.neoforged.neoforge.common.crafting.IngredientCodecs.streamCodec(ByteBufCodecs.holderSet(Registries.ITEM)
++        .map(Ingredient::new, i -> i.getValuesForSync()));
++    public static final StreamCodec<RegistryFriendlyByteBuf, Optional<Ingredient>> OPTIONAL_CONTENTS_STREAM_CODEC = net.neoforged.neoforge.common.crafting.IngredientCodecs.optionalStreamCodec(ByteBufCodecs.holderSet(Registries.ITEM)
+         .map(
+             ingredient -> ingredient.size() == 0 ? Optional.empty() : Optional.of(new Ingredient((HolderSet<Item>)ingredient)),
+-            ingredient -> ingredient.<HolderSet<Item>>map(i -> i.values).orElse(HolderSet.empty())
+-        );
++            ingredient -> ingredient.map(i -> i.getValuesForSync()).orElse(HolderSet.direct())
++        ));
+     public static final Codec<HolderSet<Item>> NON_AIR_HOLDER_SET_CODEC = HolderSetCodec.create(Registries.ITEM, Item.CODEC, false);
+-    public static final Codec<Ingredient> CODEC = ExtraCodecs.nonEmptyHolderSet(NON_AIR_HOLDER_SET_CODEC).xmap(Ingredient::new, i -> i.values);
++    public static final Codec<Ingredient> CODEC = net.neoforged.neoforge.common.crafting.IngredientCodecs.codec(ExtraCodecs.nonEmptyHolderSet(NON_AIR_HOLDER_SET_CODEC).xmap(Ingredient::new, i -> i.values));
+     public final HolderSet<Item> values;
++    private net.neoforged.neoforge.common.crafting.@org.jspecify.annotations.Nullable ICustomIngredient customIngredient = null;
++    private java.util.@org.jspecify.annotations.Nullable List<Holder<Item>> customIngredientValues; // Paper - Improve exact choice recipe ingredients
++
++    // CraftBukkit start
++    private java.util.@org.jspecify.annotations.Nullable Set<ItemStack> itemStacks; // Paper - Improve exact choice recipe ingredients
++    public Predicate<org.bukkit.inventory.ItemStack> predicate; // Purpur - Add predicate to recipe's ExactChoice ingredient
++
++    public boolean isExact() {
++        return this.itemStacks != null;
++    }
++
++    public java.util.@org.jspecify.annotations.Nullable Set<ItemStack> itemStacks() { // Paper - Improve exact choice recipe ingredients
++        return this.itemStacks;
++    }
++
++    public static Ingredient ofStacks(java.util.List<ItemStack> stacks) {
++        Ingredient ingredient = Ingredient.of(stacks.stream().map(ItemStack::getItem));
++        // Paper start - Improve exact choice recipe ingredients
++        ingredient.itemStacks = net.minecraft.world.item.ItemStackLinkedSet.createTypeAndComponentsSet();
++        ingredient.itemStacks.addAll(stacks);
++        ingredient.itemStacks = java.util.Collections.unmodifiableSet(ingredient.itemStacks);
++        // Paper end - Improve exact choice recipe ingredients
++        return ingredient;
++    }
++    // CraftBukkit end
+ 
+     private Ingredient(HolderSet<Item> values) {
++        if (values.isImmediatelyResolvable())//Neo: Skip validating holderset contents for holdersets if they are not immediately resolvable
+         values.unwrap().ifRight(directValues -> {
+             if (directValues.isEmpty()) {
+                 throw new UnsupportedOperationException("Ingredients can't be empty");
+@@ -47,35 +_,115 @@
+         this.values = values;
+     }
+ 
++    public Ingredient(net.neoforged.neoforge.common.crafting.ICustomIngredient customIngredient) {
++        this.values = HolderSet.empty();
++        this.customIngredient = customIngredient;
++    }
++
+     public static boolean testOptionalIngredient(Optional<Ingredient> ingredient, ItemStack stack) {
+         return ingredient.<Boolean>map(value -> value.test(stack)).orElseGet(stack::isEmpty);
+     }
+ 
+     @Deprecated
+     public Stream<Holder<Item>> items() {
++        if (this.customIngredient != null) {
++            return updateCustomIngredientValues().stream();
++        }
+         return this.values.stream();
+     }
+ 
+     public boolean isEmpty() {
++        if (this.customIngredient != null) {
++            return updateCustomIngredientValues().isEmpty();
++        }
+         return this.values.size() == 0;
+     }
+ 
+     public boolean test(ItemStack input) {
++        if (this.customIngredient != null) {
++            return this.customIngredient.test(input);
++        }
++        // CraftBukkit start
++        if (this.isExact()) {
++            return this.itemStacks.contains(input); // Paper - Improve exact choice recipe ingredients (hashing FTW!)
++        }
++        // CraftBukkit end
++        // Purpur start - Add predicate to recipe's ExactChoice ingredient
++        if (predicate != null) {
++            return predicate.test(input.asBukkitCopy());
++        }
++        // Purpur end - Add predicate to recipe's ExactChoice ingredient
+         return input.is(this.values);
+     }
+ 
+-    public boolean acceptsItem(Holder<Item> item) {
+-        return this.values.contains(item);
++    // Paper start - Improve exact choice recipe ingredients
++    public boolean acceptsItem(io.papermc.paper.inventory.recipe.ItemOrExact itemOrExact) {
++        return switch (itemOrExact) {
++            // 将 customIngredient 的判断合并到第一个 case，使用 when 守卫条件
++            case io.papermc.paper.inventory.recipe.ItemOrExact.Item(final Holder<Item> item)
++                    when this.customIngredient != null
++                    -> updateCustomIngredientValues().contains(item);
++
++            case io.papermc.paper.inventory.recipe.ItemOrExact.Item(final Holder<Item> item)
++                    -> !this.isExact() && this.values.contains(item);
++
++            case io.papermc.paper.inventory.recipe.ItemOrExact.Exact(final ItemStack exact)
++                    -> this.isExact() && this.itemStacks.contains(exact);
++        };
+     }
++    // Paper end - Improve exact choice recipe ingredients
+ 
+     @Override
+     public boolean equals(Object o) {
+-        return o instanceof Ingredient other ? Objects.equals(this.values, other.values) : false;
++        return o instanceof Ingredient other && Objects.equals(this.values, other.values) && Objects.equals(this.itemStacks, other.itemStacks); // CraftBukkit
+     }
+ 
+     @Override
+     public int hashCode() {
+-        return Objects.hashCode(this.values);
++        if (this.customIngredient != null) {
++            return this.customIngredient.hashCode();
++        }
++        return this.values.hashCode();
++    }
++
++    /**
++      * Retrieves the underlying values of this ingredient.
++      * If this is a {@linkplain #isCustom custom ingredient}, an exception is thrown.
++      */
++    public HolderSet<Item> getValues() {
++        if (isCustom()) {
++            throw new IllegalStateException("Cannot retrieve values from custom ingredient!");
++        }
++        return this.values;
++    }
++
++    /**
++     * Retrieves the holder set to use for syncing {@linkplain #isSimple() simple} ingredients
++     */
++    private HolderSet<Item> getValuesForSync() {
++        if (isCustom()) {
++            return HolderSet.direct(this.items().toList());
++        }
++        return this.values;
++    }
++
++    public boolean isSimple() {
++        return this.customIngredient == null || this.customIngredient.isSimple();
++    }
++
++    public net.neoforged.neoforge.common.crafting.@org.jspecify.annotations.Nullable ICustomIngredient getCustomIngredient() {
++        return this.customIngredient;
++    }
++
++    public boolean isCustom() {
++        return this.customIngredient != null;
++    }
++
++    private java.util.List<Holder<Item>> updateCustomIngredientValues() {
++        if (this.customIngredientValues == null) {
++            this.customIngredientValues = this.customIngredient.items().toList();
++        }
++        return this.customIngredientValues;
+     }
+ 
+     public static Ingredient of(ItemLike itemLike) {
+@@ -95,6 +_,14 @@
+     }
+ 
+     public SlotDisplay display() {
++        if (this.customIngredient != null) {
++            return this.customIngredient.display();
++        }
++        // Paper start - show exact ingredients in recipe book
++        if (this.isExact()) {
++            return new SlotDisplay.Composite(this.itemStacks().stream().map(ItemStackTemplate::fromNonEmptyStack).<SlotDisplay>map(SlotDisplay.ItemStackSlotDisplay::new).toList());
++        }
++        // Paper end - show exact ingredients in recipe book
+         return (SlotDisplay)this.values
+             .unwrap()
+             .map(SlotDisplay.TagSlotDisplay::new, l -> new SlotDisplay.Composite(l.stream().map(Ingredient::displayForSingleItem).toList()));

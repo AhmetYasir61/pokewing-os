@@ -1,0 +1,24 @@
+--- a/net/minecraft/world/entity/npc/ClientSideMerchant.java
++++ b/net/minecraft/world/entity/npc/ClientSideMerchant.java
+@@ -7,6 +_,7 @@
+ import net.minecraft.world.item.trading.Merchant;
+ import net.minecraft.world.item.trading.MerchantOffer;
+ import net.minecraft.world.item.trading.MerchantOffers;
++import org.bukkit.craftbukkit.inventory.CraftMerchant;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class ClientSideMerchant implements Merchant {
+@@ -55,6 +_,13 @@
+     public boolean stillValid(Player player) {
+         return this.source == player;
+     }
++
++    // Paper start
++    @Override
++    public CraftMerchant getCraftMerchant() {
++        throw new UnsupportedOperationException();
++    }
++    // Paper end
+ 
+     @Override
+     public int getVillagerXp() {

@@ -1,0 +1,52 @@
+--- a/net/minecraft/world/entity/monster/spider/Spider.java
++++ b/net/minecraft/world/entity/monster/spider/Spider.java
+@@ -53,6 +_,20 @@
+         super(type, level);
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.spiderTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.spiderAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
+         this.goalSelector.addGoal(1, new FloatGoal(this));
+@@ -82,7 +_,7 @@
+     public void tick() {
+         super.tick();
+         if (!this.level().isClientSide()) {
+-            this.setClimbing(this.horizontalCollision);
++            this.setClimbing(this.horizontalCollision && (this.level().paperConfig().entities.behavior.allowSpiderWorldBorderClimbing || !io.papermc.paper.FeatureHooks.isCollidingWithWorldBorder(this))); // Paper - Add config option for spider worldborder climbing // todo broken since 1.21.11
+         }
+     }
+ 
+@@ -123,8 +_,8 @@
+     }
+ 
+     @Override
+-    public boolean canBeAffected(MobEffectInstance newEffect) {
+-        return newEffect.is(MobEffects.POISON) ? false : super.canBeAffected(newEffect);
++    public boolean canBeAffected(final MobEffectInstance newEffect) {
++        return (!newEffect.is(MobEffects.POISON) || !this.level().paperConfig().entities.mobEffects.spidersImmuneToPoisonEffect) && super.canBeAffected(newEffect); // Paper - Add config for mobs immune to default effects
+     }
+ 
+     public boolean isClimbing() {
+@@ -167,7 +_,7 @@
+         if (groupData instanceof Spider.SpiderEffectsGroupData spiderEffectsGroupData) {
+             Holder<MobEffect> effect = spiderEffectsGroupData.effect;
+             if (effect != null) {
+-                this.addEffect(new MobEffectInstance(effect, -1));
++                this.addEffect(new MobEffectInstance(effect, -1), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.SPIDER_SPAWN); // CraftBukkit
+             }
+         }
+ 

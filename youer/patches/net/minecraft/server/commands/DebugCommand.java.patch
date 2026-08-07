@@ -1,0 +1,24 @@
+--- a/net/minecraft/server/commands/DebugCommand.java
++++ b/net/minecraft/server/commands/DebugCommand.java
+@@ -37,6 +_,7 @@
+ import net.minecraft.util.Util;
+ import net.minecraft.util.profiling.ProfileResults;
+ import org.apache.commons.io.IOUtils;
++import org.bukkit.command.CommandSender;
+ import org.slf4j.Logger;
+ 
+ public class DebugCommand {
+@@ -267,6 +_,13 @@
+         public boolean alwaysAccepts() {
+             return true;
+         }
++
++        // Paper start
++        @Override
++        public CommandSender getBukkitSender(CommandSourceStack wrapper) {
++            throw new UnsupportedOperationException();
++        }
++        // Paper end
+ 
+         @Override
+         public void close() {

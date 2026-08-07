@@ -1,0 +1,120 @@
+--- a/net/minecraft/world/level/block/RailState.java
++++ b/net/minecraft/world/level/block/RailState.java
+@@ -16,14 +_,22 @@
+     private BlockState state;
+     private final boolean isStraight;
+     private final List<BlockPos> connections = Lists.newArrayList();
++    private final boolean canMakeSlopes;
++
++    // Paper start - Fix some rails connecting improperly
++    public boolean isValid() {
++        return this.level.getBlockState(this.pos).getBlock() == this.state.getBlock();
++    }
++    // Paper end - Fix some rails connecting improperly
+ 
+     public RailState(Level level, BlockPos pos, BlockState state) {
+         this.level = level;
+         this.pos = pos;
+         this.state = state;
+         this.block = (BaseRailBlock)state.getBlock();
+-        RailShape direction = state.getValue(this.block.getShapeProperty());
+-        this.isStraight = this.block.isStraight();
++        RailShape direction = this.block.getRailDirection(state, level, pos, null);
++        this.isStraight = !this.block.isFlexibleRail(state, level, pos);
++        this.canMakeSlopes = this.block.canMakeSlopes(state, level, pos);
+         this.updateConnections(direction);
+     }
+ 
+@@ -141,6 +_,11 @@
+     }
+ 
+     private void connectTo(RailState rail) {
++        // Paper start - Fix some rails connecting improperly
++        if (!this.isValid() || !rail.isValid()) {
++            return;
++        }
++        // Paper end - Fix some rails connecting improperly
+         this.connections.add(rail.pos);
+         BlockPos north = this.pos.north();
+         BlockPos south = this.pos.south();
+@@ -177,7 +_,7 @@
+             }
+         }
+ 
+-        if (shape == RailShape.NORTH_SOUTH) {
++        if (shape == RailShape.NORTH_SOUTH && canMakeSlopes) {
+             if (BaseRailBlock.isRail(this.level, north.above())) {
+                 shape = RailShape.ASCENDING_NORTH;
+             }
+@@ -187,7 +_,7 @@
+             }
+         }
+ 
+-        if (shape == RailShape.EAST_WEST) {
++        if (shape == RailShape.EAST_WEST && canMakeSlopes) {
+             if (BaseRailBlock.isRail(this.level, east.above())) {
+                 shape = RailShape.ASCENDING_EAST;
+             }
+@@ -201,6 +_,10 @@
+             shape = RailShape.NORTH_SOUTH;
+         }
+ 
++        if (!this.block.isValidRailShape(shape)) { // Forge: allow rail block to decide if the new shape is valid
++            this.connections.remove(rail.pos);
++            return;
++        }
+         this.state = this.state.setValue(this.block.getShapeProperty(), shape);
+         this.level.setBlock(this.pos, this.state, 3);
+     }
+@@ -303,7 +_,7 @@
+             }
+         }
+ 
+-        if (shape == RailShape.NORTH_SOUTH) {
++        if (shape == RailShape.NORTH_SOUTH && canMakeSlopes) {
+             if (BaseRailBlock.isRail(this.level, north.above())) {
+                 shape = RailShape.ASCENDING_NORTH;
+             }
+@@ -313,7 +_,7 @@
+             }
+         }
+ 
+-        if (shape == RailShape.EAST_WEST) {
++        if (shape == RailShape.EAST_WEST && canMakeSlopes) {
+             if (BaseRailBlock.isRail(this.level, east.above())) {
+                 shape = RailShape.ASCENDING_EAST;
+             }
+@@ -323,7 +_,7 @@
+             }
+         }
+ 
+-        if (shape == null) {
++        if (shape == null || !this.block.isValidRailShape(shape)) { // Forge: allow rail block to decide if the new shape is valid
+             shape = defaultShape;
+         }
+ 
+@@ -331,10 +_,15 @@
+         this.state = this.state.setValue(this.block.getShapeProperty(), shape);
+         if (first || this.level.getBlockState(this.pos) != this.state) {
+             this.level.setBlock(this.pos, this.state, 3);
++            // Paper start - Fix some rails connecting improperly
++            if (!this.isValid()) {
++                return this;
++            }
++            // Paper end - Fix some rails connecting improperly
+ 
+             for (int i = 0; i < this.connections.size(); i++) {
+                 RailState neighbor = this.getRail(this.connections.get(i));
+-                if (neighbor != null) {
++                if (neighbor != null && neighbor.isValid()) { // Paper - Fix some rails connecting improperly
+                     neighbor.removeSoftConnections();
+                     if (neighbor.canConnectTo(this)) {
+                         neighbor.connectTo(this);
+@@ -347,6 +_,6 @@
+     }
+ 
+     public BlockState getState() {
+-        return this.state;
++        return this.level.getBlockState(this.pos); // Paper - Fix some rails connecting improperly
+     }
+ }

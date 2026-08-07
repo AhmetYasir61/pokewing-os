@@ -1,0 +1,79 @@
+--- a/net/minecraft/world/entity/monster/Strider.java
++++ b/net/minecraft/world/entity/monster/Strider.java
+@@ -90,17 +_,39 @@
+     public final ItemBasedSteering steering = new ItemBasedSteering(this.entityData, DATA_BOOST_TIME);
+     private @Nullable TemptGoal temptGoal;
+ 
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.striderBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
+     public Strider(EntityType<? extends Strider> strider, Level level) {
+         super(strider, level);
+         this.blocksBuilding = true;
+-        this.setPathfindingMalus(PathType.WATER, -1.0F);
++        if (this.isSensitiveToWater()) this.setPathfindingMalus(PathType.WATER, -1.0F);
+         this.setPathfindingMalus(PathType.LAVA, 0.0F);
+         this.setPathfindingMalus(PathType.FIRE_IN_NEIGHBOR, 0.0F);
+         this.setPathfindingMalus(PathType.FIRE, 0.0F);
+     }
+ 
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.striderAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.striderMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.striderScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
+     public static boolean checkStriderSpawnRules(
+-        EntityType<Strider> ignoredType, LevelAccessor level, EntitySpawnReason ignoredSpawnType, BlockPos pos, RandomSource ignoredRandom
++        EntityType<? extends Strider> ignoredType, LevelAccessor level, EntitySpawnReason ignoredSpawnType, BlockPos pos, RandomSource ignoredRandom
+     ) {
+         BlockPos.MutableBlockPos checkPos = pos.mutable();
+ 
+@@ -306,7 +_,14 @@
+                 || stateOn.is(BlockTags.STRIDER_WARM_BLOCKS)
+                 || this.getFluidHeight(FluidTags.LAVA) > 0.0;
+             boolean onWarmStrider = this.getVehicle() instanceof Strider strider && !strider.isSuffocating();
+-            this.setSuffocating(!inWarmBlocks && !onWarmStrider);
++            // CraftBukkit start
++            boolean suffocating = !inWarmBlocks && !onWarmStrider;
++            if (suffocating ^ this.isSuffocating()) {
++                if (org.bukkit.craftbukkit.event.CraftEventFactory.callStriderTemperatureChangeEvent(this, suffocating)) {
++                    this.setSuffocating(suffocating);
++                }
++            }
++            // CraftBukkit end
+         }
+ 
+         super.tick();
+@@ -399,6 +_,18 @@
+     @Override
+     public InteractionResult mobInteract(Player player, InteractionHand hand) {
+         boolean hasFood = this.isFood(player.getItemInHand(hand));
++        // Purpur start
++        if (level().purpurConfig.striderGiveSaddleBack && player.isSecondaryUseActive() && !hasFood && isSaddled() && !isVehicle()) {
++            this.setItemSlot(EquipmentSlot.SADDLE, ItemStack.EMPTY);
++            if (!player.getAbilities().instabuild) {
++                ItemStack saddle = new ItemStack(Items.SADDLE);
++                if (!player.getInventory().add(saddle)) {
++                    player.drop(saddle, false);
++                }
++            }
++            return InteractionResult.SUCCESS;
++        }
++        // Purpur end
+         if (!hasFood && this.isSaddled() && !this.isVehicle() && !player.isSecondaryUseActive()) {
+             if (!this.level().isClientSide()) {
+                 player.startRiding(this);

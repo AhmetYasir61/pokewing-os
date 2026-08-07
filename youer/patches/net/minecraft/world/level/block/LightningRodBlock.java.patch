@@ -1,0 +1,30 @@
+--- a/net/minecraft/world/level/block/LightningRodBlock.java
++++ b/net/minecraft/world/level/block/LightningRodBlock.java
+@@ -82,6 +_,13 @@
+     }
+ 
+     public void onLightningStrike(BlockState state, Level level, BlockPos pos) {
++        // Paper start - Call BlockRedstoneEvent
++        if (!state.getValue(POWERED)) {
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, true)) {
++                return;
++            }
++        }
++        // Paper end - Call BlockRedstoneEvent
+         level.setBlock(pos, state.setValue(POWERED, true), 3);
+         this.updateNeighbours(state, level, pos);
+         level.scheduleTick(pos, this, 8);
+@@ -95,6 +_,13 @@
+ 
+     @Override
+     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
++        // Paper start - Call BlockRedstoneEvent
++        if (state.getValue(POWERED)) {
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, false)) {
++                return;
++            }
++        }
++        // Paper end - Call BlockRedstoneEvent
+         level.setBlock(pos, state.setValue(POWERED, false), 3);
+         this.updateNeighbours(state, level, pos);
+     }

@@ -1,0 +1,57 @@
+--- a/net/minecraft/world/entity/monster/Guardian.java
++++ b/net/minecraft/world/entity/monster/Guardian.java
+@@ -57,6 +_,7 @@
+     private int clientSideAttackTime;
+     private boolean clientSideTouchedGround;
+     public @Nullable RandomStrollGoal randomStrollGoal;
++    public Guardian.GuardianAttackGoal guardianAttackGoal; // CraftBukkit - add field
+ 
+     public Guardian(EntityType<? extends Guardian> type, Level level) {
+         super(type, level);
+@@ -67,11 +_,33 @@
+         this.clientSideTailAnimationO = this.clientSideTailAnimation;
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.guardianTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.guardianMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.guardianScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.guardianAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     protected void registerGoals() {
+         MoveTowardsRestrictionGoal goal = new MoveTowardsRestrictionGoal(this, 1.0);
+         this.randomStrollGoal = new RandomStrollGoal(this, 1.0, 80);
+-        this.goalSelector.addGoal(4, new Guardian.GuardianAttackGoal(this));
++        this.goalSelector.addGoal(4, guardianAttackGoal = new Guardian.GuardianAttackGoal(this)); // CraftBukkit - assign field
+         this.goalSelector.addGoal(5, goal);
+         this.goalSelector.addGoal(7, this.randomStrollGoal);
+         this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
+@@ -301,6 +_,11 @@
+     public static boolean checkGuardianSpawnRules(
+         EntityType<? extends Guardian> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random
+     ) {
++        // Purpur start - Config to disable hostile mob spawn on ice
++        if (canSpawnInBlueAndPackedIce(level, pos)) {
++            return false;
++        }
++        // Purpur end - Config to disable hostile mob spawn on ice
+         return (random.nextInt(20) == 0 || !level.canSeeSkyFromBelowWater(pos))
+             && level.getDifficulty() != Difficulty.PEACEFUL
+             && (EntitySpawnReason.isSpawner(spawnReason) || level.getFluidState(pos).is(FluidTags.WATER))

@@ -1,0 +1,52 @@
+--- a/net/minecraft/world/entity/projectile/LlamaSpit.java
++++ b/net/minecraft/world/entity/projectile/LlamaSpit.java
+@@ -18,6 +_,7 @@
+ import net.minecraft.world.phys.EntityHitResult;
+ import net.minecraft.world.phys.HitResult;
+ import net.minecraft.world.phys.Vec3;
++import org.bukkit.event.entity.EntityRemoveEvent;
+ 
+ public class LlamaSpit extends Projectile {
+     public LlamaSpit(EntityType<? extends LlamaSpit> type, Level level) {
+@@ -34,6 +_,12 @@
+         );
+     }
+ 
++    // Purpur start - Ridables
++    public void projectileTick() {
++        super.tick();
++    }
++    // Purpur end - Ridables
++
+     @Override
+     protected double getDefaultGravity() {
+         return 0.06;
+@@ -44,15 +_,16 @@
+         super.tick();
+         Vec3 movement = this.getDeltaMovement();
+         HitResult hitResult = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
+-        this.hitTargetOrDeflectSelf(hitResult);
++        if (hitResult.getType() != HitResult.Type.MISS && !net.neoforged.neoforge.event.EventHooks.onProjectileImpact(this, hitResult))
++        this.preHitTargetOrDeflectSelf(hitResult); // CraftBukkit - projectile hit event
+         double x = this.getX() + movement.x;
+         double y = this.getY() + movement.y;
+         double z = this.getZ() + movement.z;
+         this.updateRotation();
+         if (this.level().getBlockStates(this.getBoundingBox()).noneMatch(BlockBehaviour.BlockStateBase::isAir)) {
+-            this.discard();
++            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
+         } else if (this.isInWater()) {
+-            this.discard();
++            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
+         } else {
+             this.setDeltaMovement(movement.scale(this.getAirDrag()));
+             this.applyGravity();
+@@ -81,7 +_,7 @@
+     protected void onHitBlock(BlockHitResult hitResult) {
+         super.onHitBlock(hitResult);
+         if (!this.level().isClientSide()) {
+-            this.discard();
++            this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
+         }
+     }
+ 

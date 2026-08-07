@@ -1,0 +1,357 @@
+--- a/net/minecraft/world/level/material/FlowingFluid.java
++++ b/net/minecraft/world/level/material/FlowingFluid.java
+@@ -30,6 +_,12 @@
+ import net.minecraft.world.phys.Vec3;
+ import net.minecraft.world.phys.shapes.Shapes;
+ import net.minecraft.world.phys.shapes.VoxelShape;
++import org.bukkit.block.BlockFace;
++import org.bukkit.craftbukkit.block.CraftBlock;
++import org.bukkit.craftbukkit.block.data.CraftBlockData;
++import org.bukkit.craftbukkit.event.CraftEventFactory;
++import org.bukkit.event.block.BlockFromToEvent;
++import org.bukkit.event.block.FluidLevelChangeEvent;
+ 
+ public abstract class FlowingFluid extends Fluid {
+     public static final BooleanProperty FALLING = BlockStateProperties.FALLING;
+@@ -46,6 +_,48 @@
+     });
+     private final Map<FluidState, VoxelShape> shapes = Maps.newIdentityHashMap();
+ 
++    // Paper start - fluid method optimisations
++    private FluidState sourceFalling;
++    private FluidState sourceNotFalling;
++
++    private static final int TOTAL_FLOWING_STATES = FALLING.getPossibleValues().size() * LEVEL.getPossibleValues().size();
++    private static final int MIN_LEVEL = LEVEL.getPossibleValues().stream().sorted().findFirst().get().intValue();
++
++    // index = (falling ? 1 : 0) + level*2
++    private FluidState[] flowingLookUp;
++    private volatile boolean init;
++
++    private static final int COLLISION_OCCLUSION_CACHE_SIZE = 2048;
++    private static final ThreadLocal<ca.spottedleaf.moonrise.patches.collisions.util.FluidOcclusionCacheKey[]> COLLISION_OCCLUSION_CACHE = ThreadLocal.withInitial(() -> new ca.spottedleaf.moonrise.patches.collisions.util.FluidOcclusionCacheKey[COLLISION_OCCLUSION_CACHE_SIZE]);
++
++
++    /**
++     * Due to init order, we need to use callbacks to initialise our state
++     */
++    private void init() {
++        synchronized (this) {
++            if (this.init) {
++                return;
++            }
++            this.flowingLookUp = new FluidState[TOTAL_FLOWING_STATES];
++            final FluidState defaultFlowState = this.getFlowing().defaultFluidState();
++            for (int i = 0; i < TOTAL_FLOWING_STATES; ++i) {
++                final int falling = i & 1;
++                final int level = (i >>> 1) + MIN_LEVEL;
++
++                this.flowingLookUp[i] = defaultFlowState.setValue(FALLING, falling == 1 ? Boolean.TRUE : Boolean.FALSE)
++                        .setValue(LEVEL, Integer.valueOf(level));
++            }
++
++            final FluidState defaultFallState = this.getSource().defaultFluidState();
++            this.sourceFalling = defaultFallState.setValue(FALLING, Boolean.TRUE);
++            this.sourceNotFalling = defaultFallState.setValue(FALLING, Boolean.FALSE);
++
++            this.init = true;
++        }
++    }
++    // Paper end - fluid method optimisations
++
+     @Override
+     protected void createFluidStateDefinition(StateDefinition.Builder<Fluid, FluidState> builder) {
+         builder.add(FALLING);
+@@ -125,6 +_,15 @@
+                 Fluid newBelowFluidType = newBelowFluid.getType();
+                 if (belowFluid.canBeReplacedWith(level, belowPos, newBelowFluidType, Direction.DOWN)
+                     && canHoldSpecificFluid(level, belowPos, belowState, newBelowFluidType)) {
++                    // CraftBukkit start
++                    org.bukkit.block.Block source = CraftBlock.at(level, pos);
++                    BlockFromToEvent event = new BlockFromToEvent(source, BlockFace.DOWN);
++                    level.getCraftServer().getPluginManager().callEvent(event);
++
++                    if (event.isCancelled()) {
++                        return;
++                    }
++                    // CraftBukkit end
+                     this.spreadTo(level, belowPos, belowState, Direction.DOWN, newBelowFluid);
+                     if (this.sourceNeighborCount(level, pos) >= 3) {
+                         this.spreadToSides(level, pos, fluidState, state);
+@@ -153,7 +_,18 @@
+                 Direction spread = entry.getKey();
+                 FluidState newNeighborFluid = entry.getValue();
+                 BlockPos neighborPos = pos.relative(spread);
+-                this.spreadTo(level, neighborPos, level.getBlockState(neighborPos), spread, newNeighborFluid);
++                final BlockState neighborState = level.getBlockStateIfLoaded(neighborPos); // Paper - Prevent chunk loading from fluid flowing
++                if (neighborState == null) continue; // Paper - Prevent chunk loading from fluid flowing
++                // CraftBukkit start
++                org.bukkit.block.Block source = org.bukkit.craftbukkit.block.CraftBlock.at(level, pos);
++                org.bukkit.event.block.BlockFromToEvent event = new org.bukkit.event.block.BlockFromToEvent(source, org.bukkit.craftbukkit.block.CraftBlock.notchToBlockFace(spread));
++                level.getCraftServer().getPluginManager().callEvent(event);
++
++                if (event.isCancelled()) {
++                    continue;
++                }
++                // CraftBukkit end
++                this.spreadTo(level, neighborPos, neighborState, spread, newNeighborFluid); // Paper - Prevent chunk loading from fluid flowing
+             }
+         }
+     }
+@@ -165,10 +_,11 @@
+ 
+         for (Direction direction : Direction.Plane.HORIZONTAL) {
+             BlockPos relativePos = mutablePos.setWithOffset(pos, direction);
+-            BlockState blockState = level.getBlockState(relativePos);
++            BlockState blockState = level.getBlockStateIfLoaded(relativePos); // Paper - Prevent chunk loading from fluid flowing
++            if (blockState == null) continue; // Paper - Prevent chunk loading from fluid flowing
+             FluidState fluidState = blockState.getFluidState();
+             if (fluidState.getType().isSame(this) && canPassThroughWall(direction, level, pos, state, relativePos, blockState)) {
+-                if (fluidState.isSource()) {
++                if (fluidState.isSource() && net.neoforged.neoforge.event.EventHooks.canCreateFluidSource(level, relativePos, blockState)) {
+                     neighbourSources++;
+                 }
+ 
+@@ -176,7 +_,7 @@
+             }
+         }
+ 
+-        if (neighbourSources >= 2 && this.canConvertToSource(level)) {
++        if (neighbourSources >= this.getRequiredSources(level)) { // Purpur - Implement infinite liquids
+             BlockState belowState = level.getBlockState(mutablePos.setWithOffset(pos, Direction.DOWN));
+             FluidState belowFluid = belowState.getFluidState();
+             if (belowState.isSolid() || this.isSourceBlockOfThisType(belowFluid)) {
+@@ -195,83 +_,102 @@
+         return amount <= 0 ? Fluids.EMPTY.defaultFluidState() : this.getFlowing(amount, false);
+     }
+ 
+-    private static boolean canPassThroughWall(
+-        Direction direction, BlockGetter level, BlockPos sourcePos, BlockState sourceState, BlockPos targetPos, BlockState targetState
+-    ) {
+-        if (!SharedConstants.DEBUG_DISABLE_LIQUID_SPREADING && (!SharedConstants.DEBUG_ONLY_GENERATE_HALF_THE_WORLD || targetPos.getZ() >= 0)) {
+-            VoxelShape targetShape = targetState.getCollisionShape(level, targetPos);
+-            if (targetShape == Shapes.block()) {
+-                return false;
+-            }
+-
+-            VoxelShape sourceShape = sourceState.getCollisionShape(level, sourcePos);
+-            if (sourceShape == Shapes.block()) {
+-                return false;
+-            }
+-
+-            if (sourceShape == Shapes.empty() && targetShape == Shapes.empty()) {
+-                return true;
+-            }
+-
+-            Object2ByteLinkedOpenHashMap<FlowingFluid.BlockStatePairKey> cache;
+-            if (!sourceState.getBlock().hasDynamicShape() && !targetState.getBlock().hasDynamicShape()) {
+-                cache = OCCLUSION_CACHE.get();
+-            } else {
+-                cache = null;
+-            }
+-
+-            FlowingFluid.BlockStatePairKey key;
+-            if (cache != null) {
+-                key = new FlowingFluid.BlockStatePairKey(sourceState, targetState, direction);
+-                byte cached = cache.getAndMoveToFirst(key);
+-                if (cached != 127) {
+-                    return cached != 0;
+-                }
+-            } else {
+-                key = null;
+-            }
+-
+-            boolean result = !Shapes.mergedFaceOccludes(sourceShape, targetShape, direction);
+-            if (cache != null) {
+-                if (cache.size() == 200) {
+-                    cache.removeLastByte();
+-                }
+-
+-                cache.putAndMoveToFirst(key, (byte)(result ? 1 : 0));
+-            }
+-
+-            return result;
+-        } else {
++    // Paper start - fluid method optimisations
++    private static boolean canPassThroughWall(final Direction direction, final BlockGetter level,
++                                              final BlockPos fromPos, final BlockState fromState,
++                                              final BlockPos toPos, final BlockState toState) {
++        if (((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)fromState).moonrise$emptyCollisionShape() & ((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)toState).moonrise$emptyCollisionShape()) {
++            // don't even try to cache simple cases
++            return true;
++        }
++
++        if (((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)fromState).moonrise$occludesFullBlock() | ((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)toState).moonrise$occludesFullBlock()) {
++            // don't even try to cache simple cases
+             return false;
+         }
++
++        final ca.spottedleaf.moonrise.patches.collisions.util.FluidOcclusionCacheKey[] cache = ((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)fromState).moonrise$hasCache() & ((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)toState).moonrise$hasCache() ?
++                COLLISION_OCCLUSION_CACHE.get() : null;
++
++        final int keyIndex
++                = (((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)fromState).moonrise$uniqueId1() ^ ((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)toState).moonrise$uniqueId2() ^ ((ca.spottedleaf.moonrise.patches.collisions.util.CollisionDirection)(Object)direction).moonrise$uniqueId())
++                & (COLLISION_OCCLUSION_CACHE_SIZE - 1);
++
++        if (cache != null) {
++            final ca.spottedleaf.moonrise.patches.collisions.util.FluidOcclusionCacheKey cached = cache[keyIndex];
++            if (cached != null && cached.first() == fromState && cached.second() == toState && cached.direction() == direction) {
++                return cached.result();
++            }
++        }
++
++        final VoxelShape shape1 = fromState.getCollisionShape(level, fromPos);
++        final VoxelShape shape2 = toState.getCollisionShape(level, toPos);
++
++        final boolean result = !Shapes.mergedFaceOccludes(shape1, shape2, direction);
++
++        if (cache != null) {
++            // we can afford to replace in-use keys more often due to the excessive caching the collision patch does in mergedFaceOccludes
++            cache[keyIndex] = new ca.spottedleaf.moonrise.patches.collisions.util.FluidOcclusionCacheKey(fromState, toState, direction, result);
++        }
++
++        return result;
+     }
++    // Paper end - fluid method optimisations
+ 
+     public abstract Fluid getFlowing();
+ 
+     public FluidState getFlowing(int amount, boolean falling) {
+-        return this.getFlowing().defaultFluidState().setValue(LEVEL, amount).setValue(FALLING, falling);
++        // Paper start - fluid method optimisations
++        if (!this.init) {
++            this.init();
++        }
++        final int index = (falling ? 1 : 0) | ((amount - MIN_LEVEL) << 1);
++        return this.flowingLookUp[index];
++        // Paper end - fluid method optimisations
+     }
+ 
+     public abstract Fluid getSource();
+ 
+     public FluidState getSource(boolean falling) {
+-        return this.getSource().defaultFluidState().setValue(FALLING, falling);
+-    }
+-
++        // Paper start - fluid method optimisations
++        if (!this.init) {
++            this.init();
++        }
++        return falling ? this.sourceFalling : this.sourceNotFalling;
++        // Paper end - fluid method optimisations
++    }
++
++    @Override
++    public boolean canConvertToSource(FluidState state, ServerLevel level, BlockPos pos) {
++        return this.canConvertToSource(level);
++    }
++
++    /**
++     * @deprecated Forge: Use {@link #canConvertToSource(FluidState, ServerLevel, BlockPos)} instead.
++     */
++    @Deprecated
+     protected abstract boolean canConvertToSource(ServerLevel level);
+ 
++    // Purpur start - Implement infinite liquids
++    protected int getRequiredSources(Level level) {
++        return 2;
++    }
++    // Purpur end - Implement infinite liquids
++
+     protected void spreadTo(LevelAccessor level, BlockPos pos, BlockState state, Direction direction, FluidState target) {
+         if (state.getBlock() instanceof LiquidBlockContainer container) {
+             container.placeLiquid(level, pos, state, target);
+         } else {
+             if (!state.isAir()) {
+-                this.beforeDestroyingBlock(level, pos, state);
++                this.beforeDestroyingBlock(level, pos, state, pos.relative(direction.getOpposite())); // Paper - Add BlockBreakBlockEvent
+             }
+ 
+             level.setBlock(pos, target.createLegacyBlock(), 3);
+         }
+     }
+ 
++    protected void beforeDestroyingBlock(LevelAccessor level, BlockPos pos, BlockState state, BlockPos source) { beforeDestroyingBlock(level, pos, state); } // Paper - Add BlockBreakBlockEvent
++
+     protected abstract void beforeDestroyingBlock(LevelAccessor level, BlockPos pos, BlockState state);
+ 
+     protected int getSlopeDistance(LevelReader level, BlockPos pos, int pass, Direction from, BlockState state, FlowingFluid.SpreadContext context) {
+@@ -280,7 +_,8 @@
+         for (Direction direction : Direction.Plane.HORIZONTAL) {
+             if (direction != from) {
+                 BlockPos testPos = pos.relative(direction);
+-                BlockState testState = context.getBlockState(testPos);
++                BlockState testState = context.getBlockStateIfLoaded(testPos); // Paper - Prevent chunk loading from fluid flowing
++                if (testState == null) continue; // Paper - Prevent chunk loading from fluid flowing
+                 FluidState testFluidState = testState.getFluidState();
+                 if (this.canPassThrough(level, this.getFlowing(), pos, state, direction, testPos, testState, testFluidState)) {
+                     if (context.isHole(testPos)) {
+@@ -357,7 +_,8 @@
+ 
+         for (Direction direction : Direction.Plane.HORIZONTAL) {
+             BlockPos testPos = pos.relative(direction);
+-            BlockState testState = level.getBlockState(testPos);
++            BlockState testState = level.getBlockStateIfLoaded(testPos); // Paper - Prevent chunk loading from fluid flowing
++            if (testState == null) continue; // Paper - Prevent chunk loading from fluid flowing
+             FluidState testFluidState = testState.getFluidState();
+             if (this.canMaybePassThrough(level, pos, state, direction, testPos, testState, testFluidState)) {
+                 FluidState newFluid = this.getNewLiquid(level, testPos, testState);
+@@ -432,12 +_,26 @@
+             if (newFluidState.isEmpty()) {
+                 fluidState = newFluidState;
+                 blockState = Blocks.AIR.defaultBlockState();
++                // CraftBukkit start
++                FluidLevelChangeEvent event = CraftEventFactory.callFluidLevelChangeEvent(level, pos, blockState);
++                if (event.isCancelled()) {
++                    return;
++                }
++                blockState = ((CraftBlockData) event.getNewData()).getState();
++                // CraftBukkit end
+                 level.setBlock(pos, blockState, 3);
+             } else if (newFluidState != fluidState) {
+                 fluidState = newFluidState;
+-                blockState = fluidState.createLegacyBlock();
++                blockState = newFluidState.createLegacyBlock();
++                // CraftBukkit start
++                FluidLevelChangeEvent event = CraftEventFactory.callFluidLevelChangeEvent(level, pos, blockState);
++                if (event.isCancelled()) {
++                    return;
++                }
++                blockState = ((CraftBlockData) event.getNewData()).getState();
++                // CraftBukkit end
+                 level.setBlock(pos, blockState, 3);
+-                level.scheduleTick(pos, fluidState.getType(), tickDelay);
++                level.scheduleTick(pos, newFluidState.getType(), tickDelay);
+             }
+         }
+ 
+@@ -504,8 +_,27 @@
+             return this.getBlockState(pos, this.getCacheKey(pos));
+         }
+ 
+-        private BlockState getBlockState(BlockPos pos, short key) {
+-            return this.stateCache.computeIfAbsent(key, k -> this.level.getBlockState(pos));
++        // Paper start - Prevent chunk loading from fluid flowing
++        public @org.jspecify.annotations.Nullable BlockState getBlockStateIfLoaded(BlockPos pos) {
++            return this.getBlockState(pos, this.getCacheKey(pos), false);
++        }
++        // Paper end - Prevent chunk loading from fluid flowing
++
++        private BlockState getBlockState(final BlockPos pos, final short key) {
++            // Paper start - Prevent chunk loading from fluid flowing
++            return this.getBlockState(pos, key, true);
++        }
++
++        private @org.jspecify.annotations.Nullable BlockState getBlockState(final BlockPos pos, final short key, final boolean load) {
++            BlockState blockState = this.stateCache.get(key);
++            if (blockState == null) {
++                blockState = load ? this.level.getBlockState(pos) : this.level.getBlockStateIfLoaded(pos);
++                if (blockState != null) {
++                    this.stateCache.put(key, blockState);
++                }
++            }
++            return blockState;
++            // Paper end - Prevent chunk loading from fluid flowing
+         }
+ 
+         public boolean isHole(BlockPos pos) {

@@ -26,8 +26,10 @@ plugin dereferences it during `onEnable`.
 `Bukkit.getBukkitVersion()` returns `1.21.5-R0.1-SNAPSHOT` and `Bukkit.getMinecraftVersion()` returns
 `1.21.5`. The server logs which version it is reporting just before plugins load.
 
-`Versioning.getCurrentApiVersion()` is deliberately **not** shimmed, so a plugin's declared
-`api-version` is still validated against the real `26.2`.
+Two things are deliberately **not** shimmed. `Versioning.getCurrentApiVersion()` keeps returning the
+real version, so a plugin's declared `api-version` is still validated honestly. So does
+`Bukkit.getVersion()` — that is the human-facing string behind `/version` and the startup banner, and
+a server that lies there is a server nobody can debug.
 
 **Configuration** — `youer-config/compat.properties`, or the `youer.compat.legacy-version` system
 property, which wins:

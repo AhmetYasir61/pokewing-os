@@ -638,20 +638,26 @@ def installerDeps = {
 
 dependencies installerDeps
 
-// Youer - plugin compat: Adventure 5 dropped the gson-package legacy hover event API, which plugins
-// built against Adventure 4.x (ItemsAdder among them) still call, so they die with a NoSuchMethodError
-// as soon as they touch a component serializer. Bundle a patched serializer that puts the API back.
-def isAdventureGson = { artifact ->
-    artifact.moduleVersion.id.group == 'net.kyori' && artifact.moduleVersion.id.name == 'adventure-text-serializer-gson'
+// Youer - plugin compat: Adventure 5 renamed and re-typed API that plugins built against 4.x still
+// call, so they die with NoSuchMethodError/NoSuchFieldError during onEnable — ItemsAdder among them.
+// Bundle patched Adventure artifacts that put the removed members back. See AdventureCompatPatcher.
+def patchAdventure = [:] // "group:name" -> patch task
+configurations.libraries.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+    def id = artifact.moduleVersion.id
+    if (id.group != 'net.kyori') return
+    def module = com.mohistmc.youer.gradle.AdventureCompatPatcher.Module.forArtifact(id.name)
+    if (module == null) return
+    // API -> patchAdventureApi, JSON_SERIALIZER -> patchAdventureJsonSerializer
+    def suffix = module.name().split('_').collect { it.toLowerCase().capitalize() }.join()
+    patchAdventure["$id.group:$id.name"] = tasks.register("patchAdventure$suffix",
+            com.mohistmc.youer.gradle.PatchAdventureJar) {
+        it.module = module
+        inputJar = artifact.file
+        outputJar = layout.buildDirectory.file("youer-compat/${artifact.file.name}")
+    }
 }
-def adventureGsonArtifact = configurations.libraries.resolvedConfiguration.resolvedArtifacts.find(isAdventureGson)
-def patchAdventureGson = adventureGsonArtifact == null ? null
-        : tasks.register('patchAdventureGson', com.mohistmc.youer.gradle.PatchAdventureGsonJar) {
-            inputJar = adventureGsonArtifact.file
-            outputJar = layout.buildDirectory.file("youer-compat/${adventureGsonArtifact.file.name}")
-        }
 
-task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':youerlauncher').tasks.jar, patchAdventureGson].findAll { it != null }) {
+task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':youerlauncher').tasks.jar] + patchAdventure.values()) {
     archiveClassifier = 'server'
     archiveExtension = 'jar'
     archiveBaseName = 'youer'
@@ -687,10 +693,9 @@ task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':
 
     configurations.libraries.resolvedConfiguration.resolvedArtifacts.collect {
         def moduleVersion = it.moduleVersion
-        // Youer - ship the compat-patched Adventure gson serializer instead of the stock artifact
-        def source = (patchAdventureGson != null && isAdventureGson(it))
-                ? patchAdventureGson.flatMap { t -> t.outputJar }
-                : it.file
+        // Youer - ship the compat-patched Adventure artifacts instead of the stock ones
+        def patchTask = patchAdventure["${moduleVersion.id.group}:${moduleVersion.id.name}".toString()]
+        def source = patchTask == null ? it.file : patchTask.flatMap { t -> t.outputJar }
         from(source) {
             into("META-INF/libraries/${moduleVersion.id.group.replace('.', '/')}/${moduleVersion.id.name}/${moduleVersion.id.version}/")
         }

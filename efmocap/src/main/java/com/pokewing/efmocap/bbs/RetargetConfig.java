@@ -126,20 +126,24 @@ public class RetargetConfig {
         m.put("Torso", "low_body");
         m.put("Chest", "body");
         m.put("Head", "head");
+        // Limbs are two-segment on EFMocap's own actor model (right_arm ->
+        // right_forearm -> right_hand), so elbows and knees have somewhere to
+        // go. BBS's stock player rig has no such child bones and simply ignores
+        // the extra channels, which keeps this map usable on both.
         m.put("Shoulder_R", "right_arm");
         m.put("Arm_R", "right_arm");
-        m.put("Elbow_R", "right_arm");
-        m.put("Hand_R", "right_arm");
+        m.put("Elbow_R", "right_forearm");
+        m.put("Hand_R", "right_hand");
         m.put("Shoulder_L", "left_arm");
         m.put("Arm_L", "left_arm");
-        m.put("Elbow_L", "left_arm");
-        m.put("Hand_L", "left_arm");
+        m.put("Elbow_L", "left_forearm");
+        m.put("Hand_L", "left_hand");
         m.put("Thigh_R", "right_leg");
-        m.put("Leg_R", "right_leg");
-        m.put("Knee_R", "right_leg");
+        m.put("Leg_R", "right_shin");
+        m.put("Knee_R", "right_shin");
         m.put("Thigh_L", "left_leg");
-        m.put("Leg_L", "left_leg");
-        m.put("Knee_L", "left_leg");
+        m.put("Leg_L", "left_shin");
+        m.put("Knee_L", "left_shin");
         // Tool_R / Tool_L are weapon anchors -- usually left unmapped.
         return c;
     }

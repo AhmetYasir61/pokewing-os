@@ -39,6 +39,16 @@ public final class BBSAssets {
         return bbsModelsDir().resolve("efmocap");
     }
 
+    /**
+     * The actor model shipped in our jar under
+     * {@code assets/bbs/assets/models/efmocap/actor}. BBS reads the geometry
+     * from there; this is the writable overlay beside it, which is where its
+     * animations have to live.
+     */
+    public static Path actorDir() {
+        return installedDir().resolve("actor");
+    }
+
     /** Drop models here; they get mirrored into BBS on the next launch. */
     public static Path sourceDir() {
         return FMLPaths.CONFIGDIR.get().resolve("efmocap").resolve("bbs-models");

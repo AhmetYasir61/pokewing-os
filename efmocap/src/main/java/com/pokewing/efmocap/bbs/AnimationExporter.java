@@ -33,7 +33,7 @@ public final class AnimationExporter {
      * copying files; otherwise they stay in our config dir.
      */
     public static Path outputDir() {
-        if (BBSBridge.isLoaded()) return BBSAssets.installedDir();
+        if (BBSBridge.isLoaded()) return BBSAssets.actorDir();
         return FMLPaths.CONFIGDIR.get().resolve("efbbs").resolve("exported");
     }
 

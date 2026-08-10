@@ -1,0 +1,22 @@
+{
+ "texture": "assets:models/efmocap/actor/actor.png",
+ "pose_group": "player/steve",
+ "procedural": false,
+ "culling": false,
+ "items_main": [
+  "right_arm_item"
+ ],
+ "items_off": [
+  "left_arm_item"
+ ],
+ "scale": [
+  0.9375,
+  0.9375,
+  0.9375
+ ],
+ "look_at": {
+  "head": "head",
+  "pitch": true,
+  "head_limit": 45
+ }
+}

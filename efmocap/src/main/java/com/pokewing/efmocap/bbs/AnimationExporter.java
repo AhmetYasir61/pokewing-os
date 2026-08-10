@@ -1,4 +1,4 @@
-package com.pokewing.efbbs;
+package com.pokewing.efmocap.bbs;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

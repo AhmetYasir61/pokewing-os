@@ -63,9 +63,17 @@ public final class ClientSystems {
         }
 
         if (!VideoRecorder.INSTANCE.isOffline()) {
-            ReplayDirector.INSTANCE.tick();
+            // While a BBS film is playing it owns the timeline: our actors are
+            // posed from its playhead so they act inside its shot, and BBS's
+            // camera and export see them like anything else in the scene.
+            var film = com.pokewing.efmocap.bbs.BBSBridge.film();
+            if (film.playing) {
+                ReplayDirector.INSTANCE.renderAt(film.tick);
+            } else {
+                ReplayDirector.INSTANCE.tick();
+                CameraDirector.INSTANCE.tick();
+            }
             CarrySystem.INSTANCE.tick();
-            CameraDirector.INSTANCE.tick();
         }
     }
 
@@ -232,6 +240,9 @@ public final class ClientSystems {
                                     return ok ? 1 : 0; })))
                 .then(Commands.literal("clear").executes(c -> {
                     ReplayDirector.INSTANCE.clearAll(); msg("§eklonlar temizlendi"); return 1; }))
+                // Epic Fight -> BBS animation export, folded in from the old
+                // standalone bridge mod so there's a single jar to install.
+                .then(com.pokewing.efmocap.bbs.ExportCommand.node())
                 // --- camera ---
                 .then(Commands.literal("cam")
                         .then(Commands.literal("add").executes(c -> {

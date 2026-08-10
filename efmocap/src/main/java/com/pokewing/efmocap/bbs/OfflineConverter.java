@@ -1,4 +1,4 @@
-package com.pokewing.efbbs;
+package com.pokewing.efmocap.bbs;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

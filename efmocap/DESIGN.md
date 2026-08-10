@@ -82,6 +82,24 @@ Commands: `/efmocap rec start|stop`, `scene`, `restart`, `list`,
 record fighter B reacting (`K`…`K`), then press `N` — both clones play together,
 looping, so you can keep adding layers and shoot the result.
 
+## BBS integration
+
+BBS is the natural camera operator and character builder, so EFMocap defers to
+it rather than competing with it. While a BBS film is playing, that film owns
+the timeline: our actors are posed from its playhead each tick, so they perform
+inside its shot and BBS's camera, preview and export see them like anything
+else in the scene. Our own camera only drives playback when no film is running.
+
+The bridge is reflection-only (`bbs/BBSBridge`): BBS ships as a Fabric mod
+reaching Forge through Sinytra Connector, and EFMocap has to keep working with
+BBS absent. Entry points used: `BBSModClient.getFilms()` for the controller map,
+then the controller's `getTick()`, `duration`, `paused` and `hasFinished()`.
+
+Still to come: registering an EFMocap form type through
+`FormUtilsClient.register(Class, IFormRendererFactory)` so a take can be picked
+as a form directly inside BBS's own character UI, the way Emoticons adds its
+models.
+
 ## Attachments
 
 Cosmetic parts are Wavefront `.obj` files dropped into
@@ -102,5 +120,6 @@ Z-up rig space into Minecraft's Y-up.
   `config/efmocap/takes/*.json`, multi-clone scene staging, per-take playback.
 - Phases 3–5 (cinematic camera, ffmpeg MP4 export, timeline UI) next.
 
-The existing `epicfight-bbs-bridge` (geo-actor path) remains a working option for
-filming in BBS while EFMocap matures.
+The old `epicfight-bbs-bridge` mod has been folded in: its Epic Fight animation
+exporter now lives under `bbs/` and is reachable as `/efmocap bbsexport`, so
+there is a single mod and a single jar to install.

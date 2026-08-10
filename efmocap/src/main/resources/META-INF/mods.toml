@@ -36,3 +36,11 @@ nothing.
     versionRange="*"
     ordering="AFTER"
     side="BOTH"
+
+# BBS (via Sinytra Connector) acts as the camera and timeline when present.
+[[dependencies.${mod_id}]]
+    modId="bbs_mod"
+    mandatory=false
+    versionRange="*"
+    ordering="AFTER"
+    side="CLIENT"

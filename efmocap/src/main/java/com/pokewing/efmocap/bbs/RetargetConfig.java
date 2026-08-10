@@ -1,4 +1,4 @@
-package com.pokewing.efbbs;
+package com.pokewing.efmocap.bbs;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -76,7 +76,7 @@ public class RetargetConfig {
                 }
             }
         } catch (Exception e) {
-            EpicFightBBSBridge.LOG.warn("[efbbs] Failed to read retarget.json, using defaults", e);
+            com.pokewing.efmocap.EFMocap.LOG.warn("[efbbs] Failed to read retarget.json, using defaults", e);
         }
         RetargetConfig cfg = defaults();
         cfg.save();
@@ -106,7 +106,7 @@ public class RetargetConfig {
                 GSON.toJson(this, w);
             }
         } catch (IOException e) {
-            EpicFightBBSBridge.LOG.warn("[efbbs] Failed to write retarget.json", e);
+            com.pokewing.efmocap.EFMocap.LOG.warn("[efbbs] Failed to write retarget.json", e);
         }
     }
 

@@ -1,4 +1,4 @@
-package com.pokewing.efbbs;
+package com.pokewing.efmocap.bbs;
 
 /**
  * Small math helpers for converting Epic Fight transforms into the Euler-degree

@@ -1,4 +1,4 @@
-package com.pokewing.efbbs;
+package com.pokewing.efmocap.bbs;
 
 /**
  * Decomposes the 4x4 row-major transform matrices found in Epic Fight's

@@ -120,7 +120,9 @@ public abstract class StudioScreen extends Screen {
         g.drawString(font, "EFMocap", 10, 9, Theme.TEXT, false);
         g.drawString(font, "§8" + title.getString(), 70, 9, Theme.TEXT_DIM, false);
 
-        String live = (MocapRecorder.INSTANCE.isRecording() ? "§c● KAYIT  " : "")
+        var film = com.pokewing.efmocap.bbs.BBSBridge.film();
+        String live = (film.playing ? "§d● BBS filmi sürüyor  " : "")
+                + (MocapRecorder.INSTANCE.isRecording() ? "§c● KAYIT  " : "")
                 + (VideoRecorder.INSTANCE.isActive() ? "§c● VİDEO  " : "")
                 + "§8" + TakeLibrary.INSTANCE.count() + " çekim · "
                 + CharacterLibrary.INSTANCE.count() + " karakter · "

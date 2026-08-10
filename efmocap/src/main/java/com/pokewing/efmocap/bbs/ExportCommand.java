@@ -1,4 +1,4 @@
-package com.pokewing.efbbs;
+package com.pokewing.efmocap.bbs;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -22,9 +22,9 @@ import java.util.List;
 public final class ExportCommand {
     private ExportCommand() {}
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("efbbs")
-                .requires(src -> src.hasPermission(2))
+    /** Subtree grafted under /efmocap, so one mod owns one command root. */
+    public static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> node() {
+        return Commands.literal("bbsexport")
                 .then(Commands.literal("list").executes(ctx -> list(ctx.getSource())))
                 .then(Commands.literal("exportall").executes(ctx -> exportAll(ctx.getSource())))
                 .then(Commands.literal("reloadconfig").executes(ctx -> {
@@ -36,11 +36,11 @@ public final class ExportCommand {
                 .then(Commands.literal("export")
                         .then(Commands.argument("key", StringArgumentType.greedyString())
                                 .executes(ctx -> exportOne(ctx.getSource(),
-                                        StringArgumentType.getString(ctx, "key"))))));
+                                        StringArgumentType.getString(ctx, "key")))));
     }
 
     private static boolean guard(CommandSourceStack src) {
-        if (!EpicFightBBSBridge.isEpicFightLoaded()) {
+        if (!com.pokewing.efmocap.EFMocap.isEpicFightLoaded()) {
             src.sendFailure(Component.literal("[efbbs] Epic Fight is not installed."));
             return false;
         }
@@ -62,7 +62,7 @@ public final class ExportCommand {
             return keys.size();
         } catch (Exception e) {
             src.sendFailure(Component.literal("[efbbs] list failed: " + e.getMessage()));
-            EpicFightBBSBridge.LOG.error("[efbbs] list failed", e);
+            com.pokewing.efmocap.EFMocap.LOG.error("[efbbs] list failed", e);
             return 0;
         }
     }
@@ -77,7 +77,7 @@ public final class ExportCommand {
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("[efbbs] export failed: " + e.getMessage()));
-            EpicFightBBSBridge.LOG.error("[efbbs] export failed for {}", keyStr, e);
+            com.pokewing.efmocap.EFMocap.LOG.error("[efbbs] export failed for {}", keyStr, e);
             return 0;
         }
     }
@@ -94,7 +94,7 @@ public final class ExportCommand {
                     ok++;
                 } catch (Exception e) {
                     fail++;
-                    EpicFightBBSBridge.LOG.warn("[efbbs] skip {}: {}", key, e.getMessage());
+                    com.pokewing.efmocap.EFMocap.LOG.warn("[efbbs] skip {}: {}", key, e.getMessage());
                 }
             }
         } catch (Exception e) {

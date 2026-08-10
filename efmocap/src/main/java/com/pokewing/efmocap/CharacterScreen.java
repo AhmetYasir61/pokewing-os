@@ -114,10 +114,18 @@ public class CharacterScreen extends StudioScreen {
                 "Dosyaları değiştirdiysen yeniden okur", () -> {
             lib.reloadModels();
             com.pokewing.efmocap.bbs.BBSForms.reload();
+            int installed = com.pokewing.efmocap.bbs.BBSAssets.install();
             status = "§b" + lib.availableModels().size() + " obj, "
-                    + com.pokewing.efmocap.bbs.BBSForms.available().size() + " BBS formu";
+                    + com.pokewing.efmocap.bbs.BBSForms.available().size() + " BBS formu"
+                    + (installed > 0 ? ", " + installed + " dosya BBS'e kuruldu" : "");
             rebuild();
         });
+
+        py += 22;
+        btn(px, py, 226, "BBS model klasörü",
+                "Buraya attıkların BBS'te 'efmocap' kategorisi olarak görünür", () ->
+                net.minecraft.Util.getPlatform().openFile(
+                        com.pokewing.efmocap.bbs.BBSAssets.sourceDirEnsured().toFile()));
 
         py += 24;
         for (int i = 0; i < c.attachments.size() && py < tlY - 120; i++) {

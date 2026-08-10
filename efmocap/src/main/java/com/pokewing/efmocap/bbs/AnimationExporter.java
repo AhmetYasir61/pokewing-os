@@ -27,7 +27,13 @@ public final class AnimationExporter {
 
     private AnimationExporter() {}
 
+    /**
+     * Where converted animations go. With BBS installed that's straight into
+     * its own model folder, so they show up beside the model without anyone
+     * copying files; otherwise they stay in our config dir.
+     */
     public static Path outputDir() {
+        if (BBSBridge.isLoaded()) return BBSAssets.installedDir();
         return FMLPaths.CONFIGDIR.get().resolve("efbbs").resolve("exported");
     }
 

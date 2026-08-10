@@ -125,6 +125,18 @@ Mojmap Forge classpath cannot resolve, even though at runtime they are the
 ordinary classes. Those are read reflectively through `BBSForms.stackOf` rather
 than named.
 
+### Installing into BBS's asset tree
+
+BBS turns every folder under `config/bbs/assets/models` into a category in its
+form picker — that's where "Modeller (emoticons)" comes from. EFMocap claims one
+the same way: anything dropped into `config/efmocap/bbs-models` is mirrored into
+`config/bbs/assets/models/efmocap` at client setup (`bbs/BBSAssets`), so it shows
+up as its own category with nothing copied by hand. The mirror only writes
+files that changed and never deletes, because BBS's own editor saves into that
+folder too. Epic Fight animations converted with `/efmocap bbsexport` are
+written straight there as well, so a model arrives with its animations already
+beside it, which is what BBS's loaders expect.
+
 ## Attachments
 
 Cosmetic parts are Wavefront `.obj` files dropped into

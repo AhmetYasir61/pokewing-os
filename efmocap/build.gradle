@@ -66,10 +66,12 @@ if (!bbsJars.empty) {
     dependencies {
         bbsapiCompileOnly bbsJars
     }
+    // `from` wires the task dependency itself — making `classes` depend on
+    // bbsapiClasses instead would be circular, since bbsapi compiles against
+    // main's output.
     tasks.named('jar', Jar).configure {
         from sourceSets.bbsapi.output
     }
-    tasks.named('classes').configure { dependsOn 'bbsapiClasses' }
     logger.lifecycle("efmocap: building the BBS form type against ${bbsJars.files*.name}")
 } else {
     logger.lifecycle('efmocap: no bbs*.jar in libs/ — skipping the BBS form type')

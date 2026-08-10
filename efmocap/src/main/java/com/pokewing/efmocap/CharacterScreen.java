@@ -113,7 +113,9 @@ public class CharacterScreen extends StudioScreen {
         btn(px + 242, py, 100, "Modelleri yenile",
                 "Dosyaları değiştirdiysen yeniden okur", () -> {
             lib.reloadModels();
-            status = "§b" + lib.availableModels().size() + " model bulundu";
+            com.pokewing.efmocap.bbs.BBSForms.reload();
+            status = "§b" + lib.availableModels().size() + " obj, "
+                    + com.pokewing.efmocap.bbs.BBSForms.available().size() + " BBS formu";
             rebuild();
         });
 
@@ -152,6 +154,20 @@ public class CharacterScreen extends StudioScreen {
             btn(px + 176, py, 140, "Doku: " + (a.texture.isEmpty() ? "karakter skini" : a.texture),
                     "Ek için ayrı PNG kullan", () -> {
                 a.texture = cycleSkin(a.texture);
+                lib.put(c); rebuild();
+            });
+
+            py += 22;
+            // A BBS form wins over the obj, so BBS's own editor can build the part.
+            btn(px, py, 316, "BBS formu: " + (a.bbsForm.isEmpty() ? "yok (obj kullanılıyor)" : a.bbsForm),
+                    "BBS'te tasarlayıp config/efmocap/forms içine attığın formlar", () -> {
+                List<String> forms = com.pokewing.efmocap.bbs.BBSForms.available();
+                if (forms.isEmpty()) {
+                    status = "§cconfig/efmocap/forms içine BBS formu (.json) koy";
+                    return;
+                }
+                int i = forms.indexOf(a.bbsForm) + 1;
+                a.bbsForm = i >= forms.size() ? "" : forms.get(i);
                 lib.put(c); rebuild();
             });
 

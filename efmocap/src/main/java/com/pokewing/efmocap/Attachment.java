@@ -12,6 +12,12 @@ package com.pokewing.efmocap;
 public class Attachment {
     /** OBJ filename under config/efmocap/attachments ("" = nothing to draw). */
     public String model = "";
+    /**
+     * BBS form exported into config/efmocap/forms. When set it wins over
+     * {@link #model}, letting BBS's own character editor build the part while
+     * Epic Fight keeps animating the body it hangs from.
+     */
+    public String bbsForm = "";
     /** Optional PNG in the same folder; empty falls back to the character skin. */
     public String texture = "";
     /** Epic Fight joint this rides on. */
@@ -31,7 +37,8 @@ public class Attachment {
     }
 
     public String describe() {
-        String m = model.isEmpty() ? "(model yok)" : model.replaceAll("(?i)\\.obj$", "");
+        String m = !bbsForm.isEmpty() ? "BBS: " + bbsForm.replaceAll("(?i)\\.json$", "")
+                : model.isEmpty() ? "(model yok)" : model.replaceAll("(?i)\\.obj$", "");
         return m + " → " + bone;
     }
 }

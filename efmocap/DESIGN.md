@@ -95,10 +95,18 @@ reaching Forge through Sinytra Connector, and EFMocap has to keep working with
 BBS absent. Entry points used: `BBSModClient.getFilms()` for the controller map,
 then the controller's `getTick()`, `duration`, `paused` and `hasFinished()`.
 
+BBS is also the character builder. Export a form from BBS's own editor into
+`config/efmocap/forms` and an attachment can use it instead of an `.obj`: BBS
+draws the part with its own renderer while Epic Fight keeps animating the bone
+it hangs from, so its whole model/texture/body-part system is available without
+rebuilding any of it here. Entry points: `DataToString.mapFromString` ->
+`FormUtils.fromData` for loading, then `MCEntity` + `FormRenderingContext` ->
+`FormUtilsClient.render` for drawing.
+
 Still to come: registering an EFMocap form type through
 `FormUtilsClient.register(Class, IFormRendererFactory)` so a take can be picked
-as a form directly inside BBS's own character UI, the way Emoticons adds its
-models.
+from inside BBS's UI as well — that one needs a compile dependency on BBS,
+since it means subclassing `Form`.
 
 ## Attachments
 

@@ -61,15 +61,16 @@ public final class AttachmentRenderer {
             int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(ex, ey, ez));
 
             for (Attachment a : c.attachments) {
-                if (a.model == null || a.model.isEmpty()) continue;
-                ObjModel model = CharacterLibrary.INSTANCE.model(a.model);
-                if (model == null || model.isEmpty()) continue;
+                boolean useForm = a.bbsForm != null && !a.bbsForm.isEmpty();
+                ObjModel model = null;
+                if (!useForm) {
+                    if (a.model == null || a.model.isEmpty()) continue;
+                    model = CharacterLibrary.INSTANCE.model(a.model);
+                    if (model == null || model.isEmpty()) continue;
+                }
 
                 float[] bone = EpicFightBridge.boneMatrix(patch, a.bone, partial);
                 if (bone == null) continue;
-
-                ResourceLocation tex = textureFor(c, a);
-                VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 
                 stack.pushPose();
                 stack.translate(ex - cam.x, ey - cam.y, ez - cam.z);
@@ -93,7 +94,16 @@ public final class AttachmentRenderer {
                 float s = a.scale * (float) Settings.attachScale;
                 stack.scale(s, s, s);
 
-                emit(model, stack, vc, light);
+                if (useForm) {
+                    // BBS draws its own form; it manages its buffers itself.
+                    com.pokewing.efmocap.bbs.BBSForms.render(
+                            com.pokewing.efmocap.bbs.BBSForms.load(a.bbsForm),
+                            clone, stack, light, OverlayTexture.NO_OVERLAY, partial);
+                } else {
+                    VertexConsumer vc = buffers.getBuffer(
+                            RenderType.entityCutoutNoCull(textureFor(c, a)));
+                    emit(model, stack, vc, light);
+                }
                 stack.popPose();
             }
         }

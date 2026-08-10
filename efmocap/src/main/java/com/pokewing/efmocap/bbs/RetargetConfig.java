@@ -114,36 +114,37 @@ public class RetargetConfig {
     public static RetargetConfig defaults() {
         RetargetConfig c = new RetargetConfig();
         Map<String, String> m = c.jointToBone;
-        // Epic Fight biped armature joints (verified from epicfight jar) on the
-        // left -> BBS default player model bone names on the right (anchor,
-        // low_body, head, left_arm/right_arm, left_leg/right_leg -- verified from
-        // BBS's player/alex rig). Edit the right side to match YOUR model's bones.
+        // Epic Fight biped armature joints (verified from the epicfight jar) on
+        // the left -> BBS bone names on the right, read off BBS's own emoticons
+        // rig (emoticons/steve/default.bobj). Edit the right side to match YOUR
+        // model's bones.
         // NOTE: "Root" is intentionally NOT mapped here -- its raw Epic Fight
         // orientation would tip the whole model. The root bone (anchor) instead
         // receives only recorded root motion (position + body yaw).
-        // Two-segment spine: BBS low_body (waist) -> body (upper chest, parent
-        // of the arms) -> torso mesh. Head hangs off low_body.
-        m.put("Torso", "low_body");
-        m.put("Chest", "body");
+        // Two-segment spine. Note the naming is BBS's, not anatomy's: `body`
+        // is the waist and `low_body` the chest that carries the arms and head.
+        m.put("Torso", "body");
+        m.put("Chest", "low_body");
         m.put("Head", "head");
-        // Limbs are two-segment on EFMocap's own actor model (right_arm ->
-        // right_forearm -> right_hand), so elbows and knees have somewhere to
-        // go. BBS's stock player rig has no such child bones and simply ignores
-        // the extra channels, which keeps this map usable on both.
+        // Limbs are two-segment, so elbows and knees get their own bone instead
+        // of collapsing into the shoulder and hip. These are BBS's own emoticons
+        // bone names (including the asymmetric `low_leg_right`), which EFMocap's
+        // actor model copies, so one animation drives both. BBS's stock cubic
+        // player rig has no lower segments and just ignores those channels.
         m.put("Shoulder_R", "right_arm");
         m.put("Arm_R", "right_arm");
-        m.put("Elbow_R", "right_forearm");
-        m.put("Hand_R", "right_hand");
+        m.put("Elbow_R", "low_right_arm");
+        m.put("Hand_R", "low_right_arm.end");
         m.put("Shoulder_L", "left_arm");
         m.put("Arm_L", "left_arm");
-        m.put("Elbow_L", "left_forearm");
-        m.put("Hand_L", "left_hand");
+        m.put("Elbow_L", "low_left_arm");
+        m.put("Hand_L", "low_left_arm.end");
         m.put("Thigh_R", "right_leg");
-        m.put("Leg_R", "right_shin");
-        m.put("Knee_R", "right_shin");
+        m.put("Leg_R", "low_leg_right");
+        m.put("Knee_R", "low_leg_right");
         m.put("Thigh_L", "left_leg");
-        m.put("Leg_L", "left_shin");
-        m.put("Knee_L", "left_shin");
+        m.put("Leg_L", "low_left_leg");
+        m.put("Knee_L", "low_left_leg");
         // Tool_R / Tool_L are weapon anchors -- usually left unmapped.
         return c;
     }

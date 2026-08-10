@@ -6,12 +6,20 @@ BBS reads its models straight out of jar resources under
 models still render with their ``config/`` texture folders empty. So EFMocap
 ships its own model the same way, and this script authors it.
 
-The rig deliberately mirrors BBS's own player bone names (anchor, low_body,
-body, torso, head, left_arm/right_arm, left_leg/right_leg), so the Epic Fight
-retarget map already in RetargetConfig lands on it unchanged. On top of that
-each limb is split into two segments with a child bone, so Epic Fight's elbow
-and knee rotations have somewhere to go instead of being folded into the
-shoulder and hip.
+The rig copies BBS's own bone names and hierarchy, taken from the emoticons
+model that ships with BBS (`emoticons/steve/default.bobj`):
+
+    anchor -> body -> low_body -> head
+                      low_body -> left_arm  -> low_left_arm
+                      low_body -> right_arm -> low_right_arm
+              body -> left_leg  -> low_left_leg
+              body -> right_leg -> low_leg_right
+
+Two things fall out of matching it. The limbs are already split at the elbow
+and knee there, so Epic Fight's elbow/knee rotations get their own bone instead
+of collapsing into the shoulder and hip. And because the names are BBS's and
+not ours, one exported Epic Fight animation drives this actor and BBS's own
+emoticons models alike.
 
 Run from the efmocap directory:  python3 tools/gen_actor_model.py
 """
@@ -61,8 +69,8 @@ def limb(groups, name, child, parent, origin, x, y_top, z, w, h, d, uv, uv_over=
     """A two-segment limb: ``name`` is the upper half, ``child`` the lower.
 
     Splitting at the halfway point puts a joint where the elbow or knee is, and
-    keeps the upper segment under the name BBS's player rig uses so existing
-    retargets keep working.
+    both names come from BBS's emoticons rig so one animation drives this actor
+    and BBS's own models alike.
     """
     half = h // 2
     mid = y_top - half
@@ -87,9 +95,11 @@ def limb(groups, name, child, parent, origin, x, y_top, z, w, h, d, uv, uv_over=
 def build():
     g = {}
 
-    g["anchor"] = {"origin": [0, 16, 0], "parent": None}
-    g["low_body"] = {"origin": [0, 12, 0], "parent": "anchor"}
-    g["body"] = {"origin": [0, 24, 0], "parent": "low_body"}
+    # Spine, in BBS's emoticons order: the waist is `body`, the chest that
+    # carries the arms and head is `low_body`.
+    g["anchor"] = {"origin": [0, 12, 0], "parent": None}
+    g["body"] = {"origin": [0, 18, 0], "parent": "anchor"}
+    g["low_body"] = {"origin": [0, 24, 0], "parent": "body"}
 
     g["head"] = {
         "origin": [0, 24, 0], "parent": "low_body",
@@ -101,36 +111,41 @@ def build():
                        [0, 28, 0], 0.5)],
     }
 
-    g["torso"] = {
-        "origin": [0, 24, 0], "parent": "body",
-        "cubes": [
-            cube([-4, 12, -2], [8, 12, 4], box_uvs(16, 16, 8, 12, 4), [0, 24, 0]),
-            cube([-4, 12, -2], [8, 12, 4], box_uvs(16, 32, 8, 12, 4), [0, 24, 0], 0.25),
-        ],
-    }
+    # The torso is split at the waist too, so bending `low_body` actually moves
+    # the chest instead of only carrying the limbs around.
+    for bone, y0, y_from, y_to in (("low_body", 18, 0, 6), ("body", 12, 6, 12)):
+        origin = g[bone]["origin"]
+        g[bone]["cubes"] = [
+            cube([-4, y0, -2], [8, 6, 4],
+                 box_uvs(16, 16, 8, 12, 4, y_from, y_to), origin),
+            cube([-4, y0, -2], [8, 6, 4],
+                 box_uvs(16, 32, 8, 12, 4, y_from, y_to), origin, 0.25),
+        ]
 
-    # Classic 4-wide arms, split at the elbow.
-    limb(g, "right_arm", "right_forearm", "body", [6, 22, 0],
+    # Classic 4-wide arms off the chest, split at the elbow.
+    limb(g, "right_arm", "low_right_arm", "low_body", [6, 22, 0],
          4, 24, -2, 4, 12, 4, (40, 16), (40, 32))
-    limb(g, "left_arm", "left_forearm", "body", [-6, 22, 0],
+    limb(g, "left_arm", "low_left_arm", "low_body", [-6, 22, 0],
          -8, 24, -2, 4, 12, 4, (32, 48), (48, 48))
 
-    # Legs hang off the anchor, as in BBS's player rig, and split at the knee.
-    limb(g, "right_leg", "right_shin", "anchor", [2, 12, 0],
+    # Legs off the waist, split at the knee. The right leg's lower segment is
+    # `low_leg_right`, not `low_right_leg` — that asymmetry is BBS's, and
+    # matching it is the whole point.
+    limb(g, "right_leg", "low_leg_right", "body", [2, 12, 0],
          0, 12, -2, 4, 12, 4, (0, 16), (0, 32))
-    limb(g, "left_leg", "left_shin", "anchor", [-2, 12, 0],
+    limb(g, "left_leg", "low_left_leg", "body", [-2, 12, 0],
          -4, 12, -2, 4, 12, 4, (16, 48), (0, 48))
 
     # Empty tips, so Epic Fight's Hand_* / foot joints have a target and
     # attachments can hang off them.
-    g["right_hand"] = {"origin": [6, 12, 0], "parent": "right_forearm"}
-    g["left_hand"] = {"origin": [-6, 12, 0], "parent": "left_forearm"}
-    g["right_foot"] = {"origin": [2, 0, 0], "parent": "right_shin"}
-    g["left_foot"] = {"origin": [-2, 0, 0], "parent": "left_shin"}
+    g["low_right_arm.end"] = {"origin": [6, 12, 0], "parent": "low_right_arm"}
+    g["low_left_arm.end"] = {"origin": [-6, 12, 0], "parent": "low_left_arm"}
+    g["low_leg_right.end"] = {"origin": [2, 0, 0], "parent": "low_leg_right"}
+    g["low_left_leg.end"] = {"origin": [-2, 0, 0], "parent": "low_left_leg"}
 
     # Item anchors, so held weapons land in the hand during a fight scene.
-    g["right_arm_item"] = {"origin": [5.5, 12, 0], "parent": "right_forearm"}
-    g["left_arm_item"] = {"origin": [-5.5, 12, 0], "parent": "left_forearm"}
+    g["right_arm_item"] = {"origin": [5.5, 12, 0], "parent": "low_right_arm"}
+    g["left_arm_item"] = {"origin": [-5.5, 12, 0], "parent": "low_left_arm"}
 
     return {"version": "0.7.2", "animations": {},
             "model": {"texture": [TEX_W, TEX_H], "groups": g}}

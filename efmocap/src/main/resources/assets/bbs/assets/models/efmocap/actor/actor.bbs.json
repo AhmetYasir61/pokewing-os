@@ -10,26 +10,252 @@
    "anchor": {
     "origin": [
      0,
-     16,
+     12,
      0
     ],
     "parent": null
    },
-   "low_body": {
+   "body": {
     "origin": [
      0,
-     12,
+     18,
      0
     ],
-    "parent": "anchor"
+    "parent": "anchor",
+    "cubes": [
+     {
+      "origin": [
+       0,
+       18,
+       0
+      ],
+      "from": [
+       -4,
+       12,
+       -2
+      ],
+      "size": [
+       8,
+       6,
+       4
+      ],
+      "uvs": {
+       "right": [
+        16,
+        26,
+        20,
+        32
+       ],
+       "front": [
+        20,
+        26,
+        28,
+        32
+       ],
+       "left": [
+        28,
+        26,
+        32,
+        32
+       ],
+       "back": [
+        32,
+        26,
+        40,
+        32
+       ],
+       "top": [
+        28,
+        20,
+        20,
+        16
+       ],
+       "bottom": [
+        36,
+        16,
+        28,
+        20
+       ]
+      }
+     },
+     {
+      "origin": [
+       0,
+       18,
+       0
+      ],
+      "from": [
+       -4,
+       12,
+       -2
+      ],
+      "size": [
+       8,
+       6,
+       4
+      ],
+      "uvs": {
+       "right": [
+        16,
+        42,
+        20,
+        48
+       ],
+       "front": [
+        20,
+        42,
+        28,
+        48
+       ],
+       "left": [
+        28,
+        42,
+        32,
+        48
+       ],
+       "back": [
+        32,
+        42,
+        40,
+        48
+       ],
+       "top": [
+        28,
+        36,
+        20,
+        32
+       ],
+       "bottom": [
+        36,
+        32,
+        28,
+        36
+       ]
+      },
+      "offset": 0.25
+     }
+    ]
    },
-   "body": {
+   "low_body": {
     "origin": [
      0,
      24,
      0
     ],
-    "parent": "low_body"
+    "parent": "body",
+    "cubes": [
+     {
+      "origin": [
+       0,
+       24,
+       0
+      ],
+      "from": [
+       -4,
+       18,
+       -2
+      ],
+      "size": [
+       8,
+       6,
+       4
+      ],
+      "uvs": {
+       "right": [
+        16,
+        20,
+        20,
+        26
+       ],
+       "front": [
+        20,
+        20,
+        28,
+        26
+       ],
+       "left": [
+        28,
+        20,
+        32,
+        26
+       ],
+       "back": [
+        32,
+        20,
+        40,
+        26
+       ],
+       "top": [
+        28,
+        20,
+        20,
+        16
+       ],
+       "bottom": [
+        36,
+        16,
+        28,
+        20
+       ]
+      }
+     },
+     {
+      "origin": [
+       0,
+       24,
+       0
+      ],
+      "from": [
+       -4,
+       18,
+       -2
+      ],
+      "size": [
+       8,
+       6,
+       4
+      ],
+      "uvs": {
+       "right": [
+        16,
+        36,
+        20,
+        42
+       ],
+       "front": [
+        20,
+        36,
+        28,
+        42
+       ],
+       "left": [
+        28,
+        36,
+        32,
+        42
+       ],
+       "back": [
+        32,
+        36,
+        40,
+        42
+       ],
+       "top": [
+        28,
+        36,
+        20,
+        32
+       ],
+       "bottom": [
+        36,
+        32,
+        28,
+        36
+       ]
+      },
+      "offset": 0.25
+     }
+    ]
    },
    "head": {
     "origin": [
@@ -162,134 +388,13 @@
      }
     ]
    },
-   "torso": {
-    "origin": [
-     0,
-     24,
-     0
-    ],
-    "parent": "body",
-    "cubes": [
-     {
-      "origin": [
-       0,
-       24,
-       0
-      ],
-      "from": [
-       -4,
-       12,
-       -2
-      ],
-      "size": [
-       8,
-       12,
-       4
-      ],
-      "uvs": {
-       "right": [
-        16,
-        20,
-        20,
-        32
-       ],
-       "front": [
-        20,
-        20,
-        28,
-        32
-       ],
-       "left": [
-        28,
-        20,
-        32,
-        32
-       ],
-       "back": [
-        32,
-        20,
-        40,
-        32
-       ],
-       "top": [
-        28,
-        20,
-        20,
-        16
-       ],
-       "bottom": [
-        36,
-        16,
-        28,
-        20
-       ]
-      }
-     },
-     {
-      "origin": [
-       0,
-       24,
-       0
-      ],
-      "from": [
-       -4,
-       12,
-       -2
-      ],
-      "size": [
-       8,
-       12,
-       4
-      ],
-      "uvs": {
-       "right": [
-        16,
-        36,
-        20,
-        48
-       ],
-       "front": [
-        20,
-        36,
-        28,
-        48
-       ],
-       "left": [
-        28,
-        36,
-        32,
-        48
-       ],
-       "back": [
-        32,
-        36,
-        40,
-        48
-       ],
-       "top": [
-        28,
-        36,
-        20,
-        32
-       ],
-       "bottom": [
-        36,
-        32,
-        28,
-        36
-       ]
-      },
-      "offset": 0.25
-     }
-    ]
-   },
    "right_arm": {
     "origin": [
      6,
      22,
      0
     ],
-    "parent": "body",
+    "parent": "low_body",
     "cubes": [
      {
       "origin": [
@@ -404,7 +509,7 @@
      }
     ]
    },
-   "right_forearm": {
+   "low_right_arm": {
     "origin": [
      6,
      18,
@@ -531,7 +636,7 @@
      22,
      0
     ],
-    "parent": "body",
+    "parent": "low_body",
     "cubes": [
      {
       "origin": [
@@ -646,7 +751,7 @@
      }
     ]
    },
-   "left_forearm": {
+   "low_left_arm": {
     "origin": [
      -6,
      18,
@@ -773,7 +878,7 @@
      12,
      0
     ],
-    "parent": "anchor",
+    "parent": "body",
     "cubes": [
      {
       "origin": [
@@ -888,7 +993,7 @@
      }
     ]
    },
-   "right_shin": {
+   "low_leg_right": {
     "origin": [
      2,
      6,
@@ -1015,7 +1120,7 @@
      12,
      0
     ],
-    "parent": "anchor",
+    "parent": "body",
     "cubes": [
      {
       "origin": [
@@ -1130,7 +1235,7 @@
      }
     ]
    },
-   "left_shin": {
+   "low_left_leg": {
     "origin": [
      -2,
      6,
@@ -1251,37 +1356,37 @@
      }
     ]
    },
-   "right_hand": {
+   "low_right_arm.end": {
     "origin": [
      6,
      12,
      0
     ],
-    "parent": "right_forearm"
+    "parent": "low_right_arm"
    },
-   "left_hand": {
+   "low_left_arm.end": {
     "origin": [
      -6,
      12,
      0
     ],
-    "parent": "left_forearm"
+    "parent": "low_left_arm"
    },
-   "right_foot": {
+   "low_leg_right.end": {
     "origin": [
      2,
      0,
      0
     ],
-    "parent": "right_shin"
+    "parent": "low_leg_right"
    },
-   "left_foot": {
+   "low_left_leg.end": {
     "origin": [
      -2,
      0,
      0
     ],
-    "parent": "left_shin"
+    "parent": "low_left_leg"
    },
    "right_arm_item": {
     "origin": [
@@ -1289,7 +1394,7 @@
      12,
      0
     ],
-    "parent": "right_forearm"
+    "parent": "low_right_arm"
    },
    "left_arm_item": {
     "origin": [
@@ -1297,7 +1402,7 @@
      12,
      0
     ],
-    "parent": "left_forearm"
+    "parent": "low_left_arm"
    }
   }
  }

@@ -107,10 +107,14 @@ public final class BBSAssets {
         return written[0];
     }
 
-    /** Only the file types BBS's model loaders read. */
+    /**
+     * Only the file types BBS's model loaders read: {@code .bbs.json} cubic
+     * models and their config, {@code .bobj} skinned meshes (the format its own
+     * emoticons models ship in), Blockbench sources, and textures.
+     */
     private static boolean isAsset(Path p) {
         String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
-        return n.endsWith(".json") || n.endsWith(".png") || n.endsWith(".obj")
-                || n.endsWith(".mtl");
+        return n.endsWith(".json") || n.endsWith(".png") || n.endsWith(".bobj")
+                || n.endsWith(".bbmodel") || n.endsWith(".obj") || n.endsWith(".mtl");
     }
 }

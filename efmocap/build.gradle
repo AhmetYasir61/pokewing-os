@@ -48,6 +48,33 @@ dependencies {
     //   compileOnly fg.deobf(files('libs/epicfight-20.14.17.jar'))
 }
 
+// --- Optional BBS form type -------------------------------------------------
+// Registering a form type inside BBS's own UI (the way Emoticons does) means
+// subclassing BBS's `Form`, which reflection can't do. Those few classes live
+// in src/bbsapi and are compiled ONLY when a BBS jar is in libs/ — drop
+// bbs-mod-*.jar there to get them. Without it the build is unchanged and the
+// mod simply skips the registration at runtime.
+def bbsJars = fileTree('libs') { include 'bbs*.jar' }
+
+if (!bbsJars.empty) {
+    sourceSets {
+        bbsapi {
+            java.srcDir 'src/bbsapi/java'
+            compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        }
+    }
+    dependencies {
+        bbsapiCompileOnly bbsJars
+    }
+    tasks.named('jar', Jar).configure {
+        from sourceSets.bbsapi.output
+    }
+    tasks.named('classes').configure { dependsOn 'bbsapiClasses' }
+    logger.lifecycle("efmocap: building the BBS form type against ${bbsJars.files*.name}")
+} else {
+    logger.lifecycle('efmocap: no bbs*.jar in libs/ — skipping the BBS form type')
+}
+
 tasks.named('processResources', ProcessResources).configure {
     var replaceProperties = [
         minecraft_version: minecraft_version, forge_version: forge_version,

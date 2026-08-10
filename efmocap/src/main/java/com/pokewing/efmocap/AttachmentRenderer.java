@@ -15,7 +15,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 /**
@@ -102,7 +101,7 @@ public final class AttachmentRenderer {
                 } else {
                     VertexConsumer vc = buffers.getBuffer(
                             RenderType.entityCutoutNoCull(textureFor(c, a)));
-                    emit(model, stack, vc, light);
+                    ObjRender.emit(model, stack, vc, light);
                 }
                 stack.popPose();
             }
@@ -120,21 +119,5 @@ public final class AttachmentRenderer {
             if (rl != null) return rl;
         }
         return CloneEntity.SKELETON;
-    }
-
-    private static void emit(ObjModel model, PoseStack stack, VertexConsumer vc, int light) {
-        Matrix4f pose = stack.last().pose();
-        Matrix3f normal = stack.last().normal();
-        for (ObjModel.Tri t : model.tris) {
-            for (int i = 0; i < 3; i++) {
-                vc.vertex(pose, t.x[i], t.y[i], t.z[i])
-                        .color(255, 255, 255, 255)
-                        .uv(t.u[i], t.v[i])
-                        .overlayCoords(OverlayTexture.NO_OVERLAY)
-                        .uv2(light)
-                        .normal(normal, t.nx[i], t.ny[i], t.nz[i])
-                        .endVertex();
-            }
-        }
     }
 }

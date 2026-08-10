@@ -91,6 +91,30 @@ public final class BBSForms {
     }
 
     /**
+     * Hand BBS a form type of our own, so EFMocap models can be picked from
+     * inside BBS's editor (the way Emoticons adds its own forms).
+     *
+     * <p>The implementation subclasses BBS's {@code Form}, which reflection
+     * can't do, so it lives in the optional {@code bbsapi} source set that is
+     * only compiled when a BBS jar sits in {@code efmocap/libs/}. Looking it up
+     * by name keeps that entirely off the main classpath: no jar, no class, no
+     * form type — and nothing else changes.</p>
+     */
+    public static void registerFormType() {
+        if (!BBSBridge.isLoaded()) return;
+        try {
+            Class.forName("com.pokewing.efmocap.bbs.form.BBSFormRegistry")
+                    .getMethod("register").invoke(null);
+            EFMocap.LOG.info("[efmocap] registered EFMocap form type with BBS");
+        } catch (ClassNotFoundException e) {
+            EFMocap.LOG.info("[efmocap] BBS form type not built into this jar "
+                    + "(no BBS jar in libs/ at build time) — skipping");
+        } catch (Throwable t) {
+            EFMocap.LOG.warn("[efmocap] could not register the EFMocap form type", t);
+        }
+    }
+
+    /**
      * Draw a form with BBS's renderer using the transform already on the stack,
      * so callers can place it on a bone first.
      */

@@ -334,6 +334,14 @@ public final class ClientSystems {
             event.registerEntityRenderer(ModEntities.CAMERA.get(), NoopRenderer::new);
         }
 
+        @SubscribeEvent
+        public static void onClientSetup(
+                net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+            // BBS registers its form types during its own client init, so queue
+            // ours behind the setup phase rather than racing it.
+            event.enqueueWork(com.pokewing.efmocap.bbs.BBSForms::registerFormType);
+        }
+
         private static net.minecraft.client.KeyMapping key(String id, int code) {
             return new net.minecraft.client.KeyMapping(
                     "key.efmocap." + id, KeyConflictContext.IN_GAME,

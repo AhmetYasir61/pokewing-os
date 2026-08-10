@@ -103,10 +103,15 @@ rebuilding any of it here. Entry points: `DataToString.mapFromString` ->
 `FormUtils.fromData` for loading, then `MCEntity` + `FormRenderingContext` ->
 `FormUtilsClient.render` for drawing.
 
-Still to come: registering an EFMocap form type through
-`FormUtilsClient.register(Class, IFormRendererFactory)` so a take can be picked
-from inside BBS's UI as well — that one needs a compile dependency on BBS,
-since it means subclassing `Form`.
+The traffic runs both ways: EFMocap also hands BBS a **form type of its own**,
+the way Emoticons does, so an attachment `.obj` can be picked, placed and
+animated from inside BBS's editor and films. That half can't be reflection —
+`FormUtilsClient.register(Class, IFormRendererFactory)` requires subclassing
+`Form` — so it lives in the optional `src/bbsapi` source set, compiled only when
+a `bbs*.jar` is present in `efmocap/libs/`. `BBSForms.registerFormType()` looks
+its entry point up by name at client setup, so with no jar at build time the
+class simply isn't there and the registration is skipped; the rest of the mod,
+and the build, are unaffected either way.
 
 ## Attachments
 

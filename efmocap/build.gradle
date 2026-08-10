@@ -54,9 +54,17 @@ dependencies {
 // in src/bbsapi and are compiled ONLY when a BBS jar is in libs/ — drop
 // bbs-mod-*.jar there to get them. Without it the build is unchanged and the
 // mod simply skips the registration at runtime.
+//
+// It is also behind an explicit switch (`bbs_form_type` in gradle.properties,
+// or -Pbbs_form_type=true), because BBS is mapped for Fabric: its signatures
+// mention Minecraft classes under intermediary names (class_4587 …) that a
+// Mojmap Forge classpath cannot resolve. Until every one of those is reached
+// reflectively instead, a jar sitting in libs/ must not be able to break the
+// normal build on its own.
 def bbsJars = fileTree('libs') { include 'bbs*.jar' }
+def wantFormType = (findProperty('bbs_form_type') ?: 'false').toString().toBoolean()
 
-if (!bbsJars.empty) {
+if (!bbsJars.empty && wantFormType) {
     sourceSets {
         bbsapi {
             java.srcDir 'src/bbsapi/java'
@@ -74,7 +82,8 @@ if (!bbsJars.empty) {
     }
     logger.lifecycle("efmocap: building the BBS form type against ${bbsJars.files*.name}")
 } else {
-    logger.lifecycle('efmocap: no bbs*.jar in libs/ — skipping the BBS form type')
+    logger.lifecycle('efmocap: BBS form type off '
+            + "(jar: ${!bbsJars.empty}, bbs_form_type: ${wantFormType})")
 }
 
 tasks.named('processResources', ProcessResources).configure {

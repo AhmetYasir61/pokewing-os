@@ -150,6 +150,24 @@ public final class BBSForms {
         }
     }
 
+    /**
+     * Read {@code FormRenderingContext.stack}.
+     *
+     * <p>BBS is Fabric-mapped, so that field is declared as {@code class_4587}
+     * — unresolvable on a Mojmap Forge classpath, even though at runtime it is
+     * exactly a {@link PoseStack}. Our form renderer therefore asks for it here
+     * instead of naming the type.</p>
+     */
+    public static PoseStack stackOf(Object renderingContext) {
+        try {
+            Object v = renderingContext.getClass().getField("stack").get(renderingContext);
+            return v instanceof PoseStack ps ? ps : null;
+        } catch (Throwable t) {
+            EFMocap.LOG.warn("[efmocap] no PoseStack on the BBS rendering context", t);
+            return null;
+        }
+    }
+
     /** BBS wants its own entity abstraction; wrap each clone once. */
     private static Object wrap(Entity entity) {
         Object cached = ENTITY_WRAPPERS.get(entity);

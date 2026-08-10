@@ -1,7 +1,8 @@
 package com.pokewing.efmocap.bbs.form;
 
-import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.resources.Link;
 
 /**
  * Entry point for the optional BBS form type. Called reflectively by
@@ -11,10 +12,13 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 public final class BBSFormRegistry {
     private BBSFormRegistry() {}
 
+    /** Serialised type key, so saved films can find the form again. */
+    private static final Link TYPE = Link.create("efmocap:model");
+
     public static void register() {
-        FormUtils.getFactory().register(
-                mchorse.bbs_mod.utils.resources.Link.create("efmocap:model"),
-                EFMocapForm.class);
+        // The architect maps type key -> class, which is what (de)serialisation
+        // and BBS's "add form" menu both go through.
+        BBSMod.getForms().register(TYPE, EFMocapForm.class);
         FormUtilsClient.register(EFMocapForm.class, EFMocapFormRenderer::new);
     }
 }

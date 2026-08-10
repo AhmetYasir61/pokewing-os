@@ -108,10 +108,22 @@ the way Emoticons does, so an attachment `.obj` can be picked, placed and
 animated from inside BBS's editor and films. That half can't be reflection —
 `FormUtilsClient.register(Class, IFormRendererFactory)` requires subclassing
 `Form` — so it lives in the optional `src/bbsapi` source set, compiled only when
-a `bbs*.jar` is present in `efmocap/libs/`. `BBSForms.registerFormType()` looks
-its entry point up by name at client setup, so with no jar at build time the
-class simply isn't there and the registration is skipped; the rest of the mod,
-and the build, are unaffected either way.
+a `bbs*.jar` is present in `efmocap/libs/` and `bbs_form_type=true`.
+`BBSForms.registerFormType()` looks its entry point up by name at client setup,
+so with no jar at build time the class simply isn't there and the registration
+is skipped; the rest of the mod, and the build, are unaffected either way.
+
+Verified against bbs 2.4 (1.20.1): `BBSMod.getForms()` is a
+`MapFactory<Form, Void>`, so the type key goes in with
+`register(Link.create("efmocap:model"), EFMocapForm.class)` and the renderer
+with `FormUtilsClient.register(Class, IFormRendererFactory)`. `FormRenderer`'s
+`render` is final — it pushes the stack, applies the form's transforms and then
+calls the overridable `render3D`, which is where the mesh goes. One wrinkle
+shapes the code: BBS is Fabric-mapped, so members that mention Minecraft carry
+intermediary names (`FormRenderingContext.stack` is a `class_4587`) that a
+Mojmap Forge classpath cannot resolve, even though at runtime they are the
+ordinary classes. Those are read reflectively through `BBSForms.stackOf` rather
+than named.
 
 ## Attachments
 

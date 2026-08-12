@@ -60,9 +60,11 @@ public final class FaceProfile {
      */
     public int lineColor = 0xFF101010;
     public int scleraColor = 0xFFF4F1EA;
+    public int scleraColorRight = 0xFFF4F1EA;
     public int eyeColor = 0xFF3A6BA5;
     public int eyeColorRight = 0xFF3A6BA5;
     public int pupilColor = 0xFF101010;
+    public int pupilColorRight = 0xFF101010;
 
     /** Iris size as a fraction of the eye; the rest of the eye is sclera. */
     public float irisScale = 0.55F;
@@ -109,6 +111,13 @@ public final class FaceProfile {
     /** Use the webcam tracker when it is streaming. */
     public boolean useTracker = true;
 
+    /** Copies every left-eye colour onto the right eye. */
+    public void mirrorEyeColors() {
+        this.eyeColorRight = this.eyeColor;
+        this.scleraColorRight = this.scleraColor;
+        this.pupilColorRight = this.pupilColor;
+    }
+
     public FaceStyle styleEnum() {
         return FaceStyle.byName(this.style);
     }
@@ -125,7 +134,9 @@ public final class FaceProfile {
         p.mouthScale = this.mouthScale;
         p.lineColor = this.lineColor;
         p.scleraColor = this.scleraColor;
+        p.scleraColorRight = this.scleraColorRight;
         p.pupilColor = this.pupilColor;
+        p.pupilColorRight = this.pupilColorRight;
         p.eyeColor = this.eyeColor;
         p.eyeColorRight = this.eyeColorRight;
         p.irisScale = this.irisScale;
@@ -165,7 +176,9 @@ public final class FaceProfile {
         buf.writeFloat(this.mouthScale);
         buf.writeInt(this.lineColor);
         buf.writeInt(this.scleraColor);
+        buf.writeInt(this.scleraColorRight);
         buf.writeInt(this.pupilColor);
+        buf.writeInt(this.pupilColorRight);
         buf.writeInt(this.eyeColor);
         buf.writeInt(this.eyeColorRight);
         buf.writeFloat(this.irisScale);
@@ -254,7 +267,9 @@ public final class FaceProfile {
         p.mouthScale = buf.readFloat();
         p.lineColor = buf.readInt();
         p.scleraColor = buf.readInt();
+        p.scleraColorRight = buf.readInt();
         p.pupilColor = buf.readInt();
+        p.pupilColorRight = buf.readInt();
         p.eyeColor = buf.readInt();
         p.eyeColorRight = buf.readInt();
         p.irisScale = buf.readFloat();

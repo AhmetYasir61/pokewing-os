@@ -108,13 +108,15 @@ public final class FaceRenderer {
             float top = sy - halfH * open;
             float bottom = sy + halfH * open;
             int iris = left ? profile.eyeColor : profile.eyeColorRight;
+            int sclera = left ? profile.scleraColor : profile.scleraColorRight;
+            int pupil = left ? profile.pupilColor : profile.pupilColorRight;
             // Mirroring the right eye keeps the pair symmetric; without it the
             // same sprite is cloned and an asymmetric eye points the wrong way.
             boolean mirror = !left && profile.mirrorRightEye;
 
             if (profile.drawSclera) {
                 quad(poseStack, buffer, sx - halfW, sx + halfW, top, bottom,
-                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, profile.scleraColor, light);
+                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, sclera, light);
             }
 
             // The moving part: hand-drawn art if there is any, otherwise an iris
@@ -138,7 +140,7 @@ public final class FaceRenderer {
                     float pupilHalfH = irisHalfH * profile.pupilScale;
                     quad(poseStack, buffer, ix - pupilHalfW, ix + pupilHalfW,
                             iy - pupilHalfH, iy + pupilHalfH,
-                            BLANK_U, BLANK_U, BLANK_V, BLANK_V, profile.pupilColor, light);
+                            BLANK_U, BLANK_U, BLANK_V, BLANK_V, pupil, light);
                 }
             }
 

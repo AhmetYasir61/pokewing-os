@@ -72,6 +72,9 @@
   "pokeface.menu.brow_length": "Kaş uzunluğu",
   "pokeface.menu.brow_thickness": "Kaş kalınlığı",
   "pokeface.menu.brow_y": "Kaş Y",
-  "pokeface.menu.color_sclera": "Göz akı",
-  "pokeface.menu.color_pupil": "Göz bebeği"
+  "pokeface.menu.color_sclera_left": "Göz akı (Sol)",
+  "pokeface.menu.color_sclera_right": "Göz akı (Sağ)",
+  "pokeface.menu.color_pupil_left": "Göz bebeği (Sol)",
+  "pokeface.menu.color_pupil_right": "Göz bebeği (Sağ)",
+  "pokeface.menu.match_eyes": "Sağ gözü sola eşitle"
 }

@@ -72,6 +72,9 @@
   "pokeface.menu.brow_length": "Brow length",
   "pokeface.menu.brow_thickness": "Brow thickness",
   "pokeface.menu.brow_y": "Brow Y",
-  "pokeface.menu.color_sclera": "Eye white",
-  "pokeface.menu.color_pupil": "Pupil"
+  "pokeface.menu.color_sclera_left": "Eye white (L)",
+  "pokeface.menu.color_sclera_right": "Eye white (R)",
+  "pokeface.menu.color_pupil_left": "Pupil (L)",
+  "pokeface.menu.color_pupil_right": "Pupil (R)",
+  "pokeface.menu.match_eyes": "Match right eye to left"
 }

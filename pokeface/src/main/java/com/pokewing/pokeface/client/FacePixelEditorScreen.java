@@ -182,10 +182,12 @@ public final class FacePixelEditorScreen extends Screen {
 
         // Live preview so the effect on the head is visible while painting.
         if (this.minecraft != null && this.minecraft.player != null) {
-            int px = this.width / 2 - 30;
-            int py = this.height - 30;
-            InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, px, py, 60, 0.0F, -20.0F,
-                    this.minecraft.player);
+            int scale = 45;
+            int px = this.width / 2 + 125;
+            int feetY = this.height - 20;
+            graphics.fill(px - 40, feetY - Math.round(scale * 1.9F) - 8, px + 40, feetY + 6, 0x60000000);
+            InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, px, feetY, scale,
+                    0.0F, -20.0F, this.minecraft.player);
         }
     }
 

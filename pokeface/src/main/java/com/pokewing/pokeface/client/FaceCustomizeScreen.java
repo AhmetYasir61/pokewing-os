@@ -38,7 +38,7 @@ public final class FaceCustomizeScreen extends Screen {
     private int scroll;
 
     /** Preview camera. Zoom is scroll-wheel driven so any GUI scale is usable. */
-    private int previewScale = 110;
+    private int previewScale = 60;
     private float previewYaw;
     private float previewPitch;
     private boolean draggingPreview;
@@ -190,14 +190,23 @@ public final class FaceCustomizeScreen extends Screen {
         if (this.minecraft == null || this.minecraft.player == null) {
             return;
         }
-        int px = this.width / 2 - 150;
-        int py = this.height / 2 + this.previewScale / 2;
-        int box = this.previewScale;
-        graphics.fill(px - box / 2 - 6, py - box - 12, px + box / 2 + 6, py + 10, 0x60000000);
-        InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, px, py, box,
-                this.previewYaw, this.previewPitch, this.minecraft.player);
-        graphics.drawCenteredString(this.font,
-                Component.translatable("pokeface.menu.preview_hint"), px, py + 14, 0x808080);
+        // renderEntityInInventory scales by entity height, so a player ends up
+        // about 1.9 * scale pixels tall. The panel and the feet position are
+        // derived from that instead of from the scale directly, otherwise the
+        // model grows out of its box and drifts off centre as you zoom.
+        int modelHeight = Math.round(this.previewScale * 1.9F);
+        int panelWidth = Math.max(90, Math.round(this.previewScale * 1.6F));
+        int centerX = Math.max(panelWidth / 2 + 8, this.width / 2 - 170);
+        int centerY = this.height / 2 - 10;
+        int top = centerY - modelHeight / 2;
+        int feetY = top + modelHeight;
+
+        graphics.fill(centerX - panelWidth / 2, top - 8,
+                centerX + panelWidth / 2, feetY + 8, 0x60000000);
+        InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, centerX, feetY,
+                this.previewScale, this.previewYaw, this.previewPitch, this.minecraft.player);
+        graphics.drawCenteredString(this.font, Component.translatable("pokeface.menu.preview_hint"),
+                centerX, feetY + 14, 0x808080);
     }
 
     private void drawSwatches(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -249,7 +258,7 @@ public final class FaceCustomizeScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (mouseX < this.width / 2.0 - 40) {
-            this.previewScale = Mth.clamp(this.previewScale + (int) Math.signum(delta) * 12, 40, 320);
+            this.previewScale = Mth.clamp(this.previewScale + (int) Math.signum(delta) * 6, 20, 160);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
@@ -258,8 +267,10 @@ public final class FaceCustomizeScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (this.draggingPreview) {
-            this.previewYaw -= (float) dragX * 0.05F;
-            this.previewPitch = Mth.clamp(this.previewPitch - (float) dragY * 0.05F, -1.5F, 1.5F);
+            // These are the cursor-offset components the vanilla helper takes, so
+            // they move one-for-one with the drag rather than in tiny fractions.
+            this.previewYaw = Mth.clamp(this.previewYaw - (float) dragX, -120.0F, 120.0F);
+            this.previewPitch = Mth.clamp(this.previewPitch - (float) dragY, -60.0F, 60.0F);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);

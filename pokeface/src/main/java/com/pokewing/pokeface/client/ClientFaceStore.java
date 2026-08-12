@@ -17,6 +17,10 @@ public final class ClientFaceStore {
     }
 
     public static void put(UUID id, FaceState state) {
+        if (state == null) {
+            STATES.remove(id);
+            return;
+        }
         STATES.put(id, state);
     }
 

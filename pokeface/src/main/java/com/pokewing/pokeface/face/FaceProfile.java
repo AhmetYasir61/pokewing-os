@@ -101,6 +101,14 @@ public final class FaceProfile {
     public int[] facePixels = new int[FACE_PIXELS];
     public boolean paintEnabled = true;
 
+    /** OBJ attachments (ears, tails, horns) anchored to the head or the body. */
+    public java.util.List<Attachment> attachments = new java.util.ArrayList<>();
+
+    /** Render the iris and pupil fullbright, so they glow in the dark. */
+    public boolean eyeGlow;
+    /** Extra halo drawn around a glowing eye; 0 disables it. */
+    public float eyeGlowSpread = 0.35F;
+
     /**
      * Optional hand-drawn eye sprite. {@link #eyeArtSize} is the edge length in
      * pixels (one of {@link #EYE_ART_SIZES}); 0 means "use the built-in sprite

@@ -40,7 +40,7 @@
   "pokeface.expression.tired": "Tired",
   "pokeface.expression.sad": "Sad",
   "pokeface.menu.pixel_editor": "Pixel editor...",
-  "pokeface.menu.preview_hint": "scroll: zoom - drag: rotate",
+  "pokeface.menu.preview_hint": "scroll: zoom",
   "pokeface.editor.title": "Face pixel editor",
   "pokeface.editor.brush": "Brush",
   "pokeface.editor.eraser": "Eraser",
@@ -101,5 +101,11 @@
   "pokeface.attach.visible": "Visible",
   "pokeface.attach.folder": "Models: %s",
   "pokeface.anchor.head": "Head",
-  "pokeface.anchor.body": "Body"
+  "pokeface.anchor.body": "Body",
+  "pokeface.chars.search": "Search characters",
+  "pokeface.chars.save_new": "Save new",
+  "pokeface.chars.rename": "Name",
+  "pokeface.chars.rename_ok": "OK",
+  "pokeface.chars.new_name": "Character %s",
+  "pokeface.chars.empty": "No saved characters yet"
 }

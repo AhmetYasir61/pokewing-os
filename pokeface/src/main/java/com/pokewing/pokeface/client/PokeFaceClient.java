@@ -75,6 +75,9 @@ public final class PokeFaceClient {
     private static void clientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             localProfile = FaceProfile.load(profilePath());
+            com.pokewing.pokeface.face.CharacterLibrary.setDirectory(
+                    profilePath().getParent().resolve("characters"));
+            com.pokewing.pokeface.face.CharacterLibrary.load();
             com.pokewing.pokeface.model.ModelLibrary.reload();
             ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                     () -> new ConfigScreenHandler.ConfigScreenFactory(
@@ -114,6 +117,12 @@ public final class PokeFaceClient {
 
     public static FaceProfile localProfile() {
         return localProfile;
+    }
+
+    /** Swaps the worn face for a saved character's, then syncs and persists it. */
+    public static void wearProfile(FaceProfile profile) {
+        localProfile = profile.copy();
+        saveLocalProfile();
     }
 
     /** Persists the profile and tells everyone who can see us about it. */

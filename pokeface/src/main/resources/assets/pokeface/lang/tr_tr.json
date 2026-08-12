@@ -40,7 +40,7 @@
   "pokeface.expression.tired": "Yorgun",
   "pokeface.expression.sad": "Üzgün",
   "pokeface.menu.pixel_editor": "Piksel editörü...",
-  "pokeface.menu.preview_hint": "tekerlek: yakınlaştır - sürükle: döndür",
+  "pokeface.menu.preview_hint": "tekerlek: yakınlaştır",
   "pokeface.editor.title": "Yüz piksel editörü",
   "pokeface.editor.brush": "Fırça",
   "pokeface.editor.eraser": "Silgi",
@@ -101,5 +101,11 @@
   "pokeface.attach.visible": "Görünür",
   "pokeface.attach.folder": "Modeller: %s",
   "pokeface.anchor.head": "Kafa",
-  "pokeface.anchor.body": "Gövde"
+  "pokeface.anchor.body": "Gövde",
+  "pokeface.chars.search": "Karakter ara",
+  "pokeface.chars.save_new": "Yeni kaydet",
+  "pokeface.chars.rename": "İsim",
+  "pokeface.chars.rename_ok": "Tamam",
+  "pokeface.chars.new_name": "Karakter %s",
+  "pokeface.chars.empty": "Henüz kayıtlı karakter yok"
 }

@@ -3,6 +3,7 @@ package com.pokewing.pokeface.client;
 import com.pokewing.pokeface.PokeFaceConfig;
 import com.pokewing.pokeface.compat.EpicFightCompat;
 import com.pokewing.pokeface.compat.VoiceChatCompat;
+import com.pokewing.pokeface.face.CharacterLibrary;
 import com.pokewing.pokeface.face.FaceDirector;
 import com.pokewing.pokeface.face.FaceProfile;
 import com.pokewing.pokeface.face.FaceStyle;
@@ -11,8 +12,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
@@ -37,20 +38,88 @@ public final class FaceCustomizeScreen extends Screen {
     private int colorTarget;   // 0 line, 1 eye, 2 mouth inner, 3 teeth
     private int scroll;
 
-    /** Preview camera. Zoom is scroll-wheel driven so any GUI scale is usable. */
-    private int previewScale = 60;
-    private float previewYaw;
-    private float previewPitch;
-    private boolean draggingPreview;
+    /** Face preview size, in screen pixels per skin pixel. Scroll to zoom. */
+    private int previewScale = 12;
+
+    // Character library panel, laid out down the left edge.
+    private static final int LIST_X = 10;
+    private static final int LIST_WIDTH = 230;
+    private static final int ROW_HEIGHT = 34;
+    private EditBox searchBox;
+    private EditBox renameBox;
+    private CharacterLibrary.Character renaming;
+    /** The saved character the right-hand controls are editing, if any. */
+    private CharacterLibrary.Character editing;
+    private int listScroll;
 
     public FaceCustomizeScreen(Screen parent) {
         super(Component.translatable("pokeface.menu.title"));
         this.parent = parent;
     }
 
+    private int listTop() {
+        return 62;
+    }
+
+    private int listBottom() {
+        return this.height - 40;
+    }
+
+    private int visibleRows() {
+        return Math.max(1, (listBottom() - listTop()) / ROW_HEIGHT);
+    }
+
+    private java.util.List<CharacterLibrary.Character> filtered() {
+        return CharacterLibrary.search(this.searchBox == null ? "" : this.searchBox.getValue());
+    }
+
+    private void clampScroll() {
+        int max = Math.max(0, filtered().size() * ROW_HEIGHT - (listBottom() - listTop()));
+        this.listScroll = Mth.clamp(this.listScroll, 0, max);
+    }
+
     @Override
     protected void init() {
         this.working = PokeFaceClient.localProfile();
+
+        // Character library: search at the top, the list below, both down the
+        // left edge so the editor controls keep the right half to themselves.
+        String previousQuery = this.searchBox == null ? "" : this.searchBox.getValue();
+        this.searchBox = new EditBox(this.font, LIST_X, 24, LIST_WIDTH - 74, 18,
+                Component.translatable("pokeface.chars.search"));
+        this.searchBox.setHint(Component.translatable("pokeface.chars.search"));
+        this.searchBox.setValue(previousQuery);
+        this.searchBox.setResponder(v -> {
+            this.listScroll = 0;
+            clampScroll();
+        });
+        addRenderableWidget(this.searchBox);
+
+        addRenderableWidget(Button.builder(Component.translatable("pokeface.chars.save_new"),
+                b -> {
+                    CharacterLibrary.Character created =
+                            CharacterLibrary.create(defaultName(), this.working);
+                    this.renaming = created;
+                    rebuildWidgets();
+                }).bounds(LIST_X + LIST_WIDTH - 70, 24, 70, 18).build());
+
+        if (this.renaming != null) {
+            String startingName = this.renaming.name;
+            this.renameBox = new EditBox(this.font, LIST_X, listTop() - 20, LIST_WIDTH - 74, 18,
+                    Component.translatable("pokeface.chars.rename"));
+            this.renameBox.setValue(startingName);
+            this.renameBox.setMaxLength(48);
+            addRenderableWidget(this.renameBox);
+            addRenderableWidget(Button.builder(Component.translatable("pokeface.chars.rename_ok"),
+                    b -> {
+                        this.renaming.name = this.renameBox.getValue().isBlank()
+                                ? startingName : this.renameBox.getValue();
+                        CharacterLibrary.save(this.renaming);
+                        this.renaming = null;
+                        rebuildWidgets();
+                    }).bounds(LIST_X + LIST_WIDTH - 70, listTop() - 20, 70, 18).build());
+        }
+
         int x = this.width / 2 - 20;
         int y = 40;
         int w = 150;
@@ -178,6 +247,109 @@ public final class FaceCustomizeScreen extends Screen {
                 b -> onClose()).bounds(x + 78, y, 72, h).build());
     }
 
+    private String defaultName() {
+        return Component.translatable("pokeface.chars.new_name",
+                CharacterLibrary.all().size() + 1).getString();
+    }
+
+    /**
+     * The character list: a face thumbnail, the name, and edit / rename / delete
+     * on the right. Only the rows on screen are drawn and hit-tested, so the list
+     * costs the same whether it holds five characters or a thousand.
+     */
+    private void renderCharacterList(GuiGraphics graphics, int mouseX, int mouseY) {
+        java.util.List<CharacterLibrary.Character> characters = filtered();
+        int top = listTop();
+        int bottom = listBottom();
+        graphics.fill(LIST_X - 4, top - 4, LIST_X + LIST_WIDTH + 4, bottom + 4, 0x70000000);
+
+        if (characters.isEmpty()) {
+            graphics.drawString(this.font, Component.translatable("pokeface.chars.empty"),
+                    LIST_X + 6, top + 6, 0x909090, false);
+            return;
+        }
+
+        int first = this.listScroll / ROW_HEIGHT;
+        int last = Math.min(characters.size(), first + visibleRows() + 1);
+        for (int i = first; i < last; i++) {
+            CharacterLibrary.Character character = characters.get(i);
+            int y = top + i * ROW_HEIGHT - this.listScroll;
+            if (y + ROW_HEIGHT < top || y > bottom) {
+                continue;
+            }
+            boolean hovered = mouseX >= LIST_X && mouseX <= LIST_X + LIST_WIDTH
+                    && mouseY >= y && mouseY < y + ROW_HEIGHT;
+            graphics.fill(LIST_X, y, LIST_X + LIST_WIDTH, y + ROW_HEIGHT - 2,
+                    hovered ? 0x50FFFFFF : 0x40000000);
+
+            FacePreview.draw(graphics, LIST_X + 3, y + 3, 3, character.profile,
+                    PokeFaceClient.director().current());
+
+            graphics.drawString(this.font, character.name, LIST_X + 34, y + 5, 0xFFFFFF, false);
+            graphics.drawString(this.font, Component.translatable(
+                            character.profile.styleEnum().translationKey()),
+                    LIST_X + 34, y + 17, 0x909090, false);
+
+            drawRowButton(graphics, rowButtonX(0), y + 6, "E", mouseX, mouseY);
+            drawRowButton(graphics, rowButtonX(1), y + 6, "R", mouseX, mouseY);
+            drawRowButton(graphics, rowButtonX(2), y + 6, "X", mouseX, mouseY);
+        }
+    }
+
+    private int rowButtonX(int index) {
+        return LIST_X + LIST_WIDTH - 20 - (2 - index) * 22;
+    }
+
+    private void drawRowButton(GuiGraphics graphics, int x, int y, String label, int mouseX, int mouseY) {
+        boolean hovered = mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18;
+        graphics.fill(x, y, x + 18, y + 18, hovered ? 0xFF5A5A5A : 0xFF303030);
+        graphics.renderOutline(x, y, 18, 18, 0xFF101010);
+        graphics.drawCenteredString(this.font, label, x + 9, y + 5, 0xFFFFFF);
+    }
+
+    /** @return true when the click landed on a row control. */
+    private boolean clickCharacterList(double mouseX, double mouseY) {
+        if (mouseX < LIST_X || mouseX > LIST_X + LIST_WIDTH
+                || mouseY < listTop() || mouseY > listBottom()) {
+            return false;
+        }
+        java.util.List<CharacterLibrary.Character> characters = filtered();
+        int index = (int) ((mouseY - listTop() + this.listScroll) / ROW_HEIGHT);
+        if (index < 0 || index >= characters.size()) {
+            return false;
+        }
+        CharacterLibrary.Character character = characters.get(index);
+        int y = listTop() + index * ROW_HEIGHT - this.listScroll + 6;
+        for (int i = 0; i < 3; i++) {
+            int bx = rowButtonX(i);
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+                switch (i) {
+                    case 0 -> {
+                        // Edit: wear it, so every control on the right edits it.
+                        PokeFaceClient.wearProfile(character.profile);
+                        this.working = PokeFaceClient.localProfile();
+                        this.editing = character;
+                    }
+                    case 1 -> this.renaming = character;
+                    default -> {
+                        CharacterLibrary.delete(character);
+                        if (this.editing == character) {
+                            this.editing = null;
+                        }
+                    }
+                }
+                rebuildWidgets();
+                return true;
+            }
+        }
+        // Clicking the row itself also wears the character.
+        PokeFaceClient.wearProfile(character.profile);
+        this.working = PokeFaceClient.localProfile();
+        this.editing = character;
+        rebuildWidgets();
+        return true;
+    }
+
     private static void copyInto(FaceProfile from, FaceProfile to) {
         to.eyeOffsetX = from.eyeOffsetX;
         to.eyeOffsetY = from.eyeOffsetY;
@@ -255,36 +427,31 @@ public final class FaceCustomizeScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFF);
 
         renderPreview(graphics);
+        renderCharacterList(graphics, mouseX, mouseY);
 
         drawSwatches(graphics, mouseX, mouseY);
         drawStatus(graphics);
     }
 
     /**
-     * Live preview of your own character. Scroll to zoom and drag to spin, so the
-     * face stays readable at any GUI scale instead of being a few pixels tall.
+     * Live preview of the face being edited.
+     *
+     * <p>Drawn flat by {@link FacePreview} rather than by rendering the player
+     * entity: under Epic Fight the entity goes through a patched renderer whose
+     * armature is not posed for a menu, which is what made the preview come out
+     * stretched and broken.
      */
     private void renderPreview(GuiGraphics graphics) {
         if (this.minecraft == null || this.minecraft.player == null) {
             return;
         }
-        // renderEntityInInventory scales by entity height, so a player ends up
-        // about 1.9 * scale pixels tall. The panel and the feet position are
-        // derived from that instead of from the scale directly, otherwise the
-        // model grows out of its box and drifts off centre as you zoom.
-        int modelHeight = Math.round(this.previewScale * 1.9F);
-        int panelWidth = Math.max(90, Math.round(this.previewScale * 1.6F));
-        int centerX = Math.max(panelWidth / 2 + 8, this.width / 2 - 170);
-        int centerY = this.height / 2 - 10;
-        int top = centerY - modelHeight / 2;
-        int feetY = top + modelHeight;
-
-        graphics.fill(centerX - panelWidth / 2, top - 8,
-                centerX + panelWidth / 2, feetY + 8, 0x60000000);
-        InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, centerX, feetY,
-                this.previewScale, this.previewYaw, this.previewPitch, this.minecraft.player);
+        int size = 8 * this.previewScale;
+        int px = this.width / 2 - 150 - size / 2;
+        int py = this.height / 2 - size / 2;
+        FacePreview.draw(graphics, px, py, this.previewScale, this.working,
+                PokeFaceClient.director().current());
         graphics.drawCenteredString(this.font, Component.translatable("pokeface.menu.preview_hint"),
-                centerX, feetY + 14, 0x808080);
+                px + size / 2, py + size + 6, 0x808080);
     }
 
     private void drawSwatches(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -349,35 +516,22 @@ public final class FaceCustomizeScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (mouseX < LIST_X + LIST_WIDTH) {
+            // Over the character list: scroll it. Elsewhere on the left: zoom.
+            this.listScroll = Math.max(0, this.listScroll - (int) Math.signum(delta) * ROW_HEIGHT);
+            clampScroll();
+            return true;
+        }
         if (mouseX < this.width / 2.0 - 40) {
-            this.previewScale = Mth.clamp(this.previewScale + (int) Math.signum(delta) * 6, 20, 160);
+            this.previewScale = Mth.clamp(this.previewScale + (int) Math.signum(delta) * 2, 4, 32);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (this.draggingPreview) {
-            // These are the cursor-offset components the vanilla helper takes, so
-            // they move one-for-one with the drag rather than in tiny fractions.
-            this.previewYaw = Mth.clamp(this.previewYaw - (float) dragX, -120.0F, 120.0F);
-            this.previewPitch = Mth.clamp(this.previewPitch - (float) dragY, -60.0F, 60.0F);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        this.draggingPreview = false;
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (mouseX < this.width / 2.0 - 40) {
-            this.draggingPreview = true;
+        if (clickCharacterList(mouseX, mouseY)) {
             return true;
         }
         int x = this.width / 2 - 20;
@@ -394,6 +548,11 @@ public final class FaceCustomizeScreen extends Screen {
 
     @Override
     public void onClose() {
+        if (this.editing != null) {
+            // Edits made while a saved character is worn belong to that character.
+            this.editing.profile = this.working.copy();
+            CharacterLibrary.save(this.editing);
+        }
         PokeFaceClient.saveLocalProfile();
         if (this.minecraft != null) {
             this.minecraft.setScreen(this.parent);

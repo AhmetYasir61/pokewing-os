@@ -1,6 +1,7 @@
 package com.pokewing.pokeface.client;
 
 import com.pokewing.pokeface.market.Checkout;
+import com.pokewing.pokeface.market.MarketAuth;
 import com.pokewing.pokeface.market.MarketClient;
 import com.pokewing.pokeface.market.MarketConfig;
 import com.pokewing.pokeface.market.MarketItem;
@@ -115,7 +116,9 @@ public final class MarketScreen extends Screen {
     private void reload() {
         this.loading = true;
         this.status = "";
-        MarketClient.catalog().thenAccept(list -> {
+        // Sign in first, so anything already owned comes back as "Install" even
+        // on a fresh config folder; the catalog itself does not need it.
+        MarketAuth.signIn().thenCompose(ok -> MarketClient.catalog()).thenAccept(list -> {
             if (this.minecraft != null) {
                 this.minecraft.execute(() -> {
                     this.items.clear();

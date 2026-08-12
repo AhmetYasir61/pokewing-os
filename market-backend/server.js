@@ -57,23 +57,62 @@ const readCatalog = () => store.read(CATALOG_FILE, []);
 const readOwners = () => store.read(OWNERS_FILE, {});
 
 /**
- * A player's identity for entitlement purposes. The mod sends the store session
- * token it was given; anything unrecognised is simply "not signed in", which is
- * a valid state — the catalog is public, only downloads are not.
+ * A player's identity for entitlement purposes: the account UUID, resolved from
+ * the session token the mod was issued.
+ *
+ * <p>Entitlements are keyed by UUID rather than by name on purpose. A purchase
+ * has to outlive a config wipe, a reinstall and a new PC, and it must not follow
+ * a name to whoever claims it next — names change hands, UUIDs do not.
  */
 function playerOf(req) {
   const header = req.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   if (!token) return null;
   const owners = readOwners();
-  return owners.tokens?.[token] || null;
+  const session = owners.tokens?.[token];
+  if (!session) return null;
+  return typeof session === 'string' ? session : session.uuid;
 }
 
-function owns(player, itemId) {
-  if (!player) return false;
+function owns(uuid, itemId) {
+  if (!uuid) return false;
   const owners = readOwners();
-  return (owners.players?.[player] || []).includes(itemId);
+  return (owners.players?.[uuid] || []).includes(itemId);
 }
+
+/** Grants an item permanently. Idempotent, so a replayed webhook is harmless. */
+function grant(uuid, name, itemId) {
+  const owners = readOwners();
+  owners.players = owners.players || {};
+  owners.names = owners.names || {};
+  const owned = new Set(owners.players[uuid] || []);
+  owned.add(String(itemId));
+  owners.players[uuid] = [...owned];
+  if (name) owners.names[uuid] = name;
+  store.write(OWNERS_FILE, owners);
+}
+
+/** Looks up the UUID behind a Minecraft name, for webhooks that only carry one. */
+async function uuidForName(name) {
+  const owners = readOwners();
+  const known = Object.entries(owners.names || {}).find(
+    ([, value]) => String(value).toLowerCase() === String(name).toLowerCase(),
+  );
+  if (known) return known[0];
+  try {
+    const res = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`);
+    if (!res.ok) return null;
+    const profile = await res.json();
+    return dashed(profile.id);
+  } catch {
+    return null;
+  }
+}
+
+const dashed = (id) =>
+  id && id.length === 32
+    ? `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`
+    : id;
 
 const app = express();
 app.disable('x-powered-by');
@@ -181,7 +220,7 @@ const slug = (value) =>
  * The signature is verified before anything is granted — an unauthenticated
  * "they paid, honest" endpoint would hand out every cosmetic in the catalog.
  */
-app.post('/api/tebex/webhook', express.raw({ type: '*/*' }), (req, res) => {
+app.post('/api/tebex/webhook', express.raw({ type: '*/*' }), async (req, res) => {
   const raw = req.body?.toString('utf8') || '';
   if (!verifyTebex(req, raw)) return res.status(401).json({ error: 'bad signature' });
 
@@ -197,21 +236,22 @@ app.post('/api/tebex/webhook', express.raw({ type: '*/*' }), (req, res) => {
     return res.json({ id: payload.id });
   }
 
-  const player = payload?.subject?.customer?.username_id
-    || payload?.subject?.customer?.username
-    || payload?.subject?.username;
+  const customer = payload?.subject?.customer || payload?.subject || {};
+  const name = customer.username?.username || customer.username || customer.name;
   const packages = payload?.subject?.products || payload?.subject?.packages || [];
-  if (!player || packages.length === 0) return res.json({ ok: true });
+  if (!name || packages.length === 0) return res.json({ ok: true });
 
-  const owners = readOwners();
-  owners.players = owners.players || {};
-  const owned = new Set(owners.players[player] || []);
+  // Resolve to the UUID so the purchase is bound to the account, not the name
+  // it happened to be bought under.
+  const uuid = dashed(customer.username?.id || customer.uuid) || (await uuidForName(name));
+  if (!uuid) {
+    console.warn('[market] could not resolve a UUID for', name, '- purchase not granted');
+    return res.status(202).json({ ok: false, reason: 'unresolved player' });
+  }
   for (const pkg of packages) {
     const id = pkg.custom?.cosmeticId || pkg.id;
-    if (id) owned.add(String(id));
+    if (id) grant(uuid, name, id);
   }
-  owners.players[player] = [...owned];
-  store.write(OWNERS_FILE, owners);
   res.json({ ok: true });
 });
 
@@ -230,19 +270,44 @@ function verifyTebex(req, raw) {
 }
 
 /**
- * Issues the session token the mod stores. A token is just a handle to a player
- * name here — it buys nothing and pays for nothing, so a leaked one costs the
- * holder their download entitlements and nothing else.
+ * Signs a player in, using the same handshake a Minecraft server uses.
+ *
+ * <p>The mod tells Mojang it is joining a session id, then posts that id here;
+ * this asks Mojang who actually joined it. That is what makes the identity
+ * trustworthy: no password reaches this service, and nobody can collect someone
+ * else's purchases by typing their name. A token is only a handle to the
+ * resulting UUID — it buys nothing, so a leaked one costs downloads and nothing
+ * more.
  */
-app.post('/api/session', (req, res) => {
-  const player = (req.body?.player || '').trim();
-  if (!player) return res.status(400).json({ error: 'player required' });
+app.post('/api/session', async (req, res) => {
+  const username = (req.body?.username || '').trim();
+  const serverId = (req.body?.serverId || '').trim();
+  if (!username || !serverId) {
+    return res.status(400).json({ error: 'username and serverId required' });
+  }
+  let profile;
+  try {
+    const url = 'https://sessionserver.mojang.com/session/minecraft/hasJoined'
+      + `?username=${encodeURIComponent(username)}&serverId=${encodeURIComponent(serverId)}`;
+    const response = await fetch(url);
+    if (response.status !== 200) {
+      return res.status(401).json({ error: 'session not verified by Mojang' });
+    }
+    profile = await response.json();
+  } catch (err) {
+    console.warn('[market] Mojang verification failed', err);
+    return res.status(502).json({ error: 'could not reach Mojang' });
+  }
+
+  const uuid = dashed(profile.id);
   const token = crypto.randomBytes(24).toString('hex');
   const owners = readOwners();
   owners.tokens = owners.tokens || {};
-  owners.tokens[token] = player;
+  owners.names = owners.names || {};
+  owners.tokens[token] = { uuid, name: profile.name, issuedAt: Date.now() };
+  owners.names[uuid] = profile.name;
   store.write(OWNERS_FILE, owners);
-  res.json({ token });
+  res.json({ token, uuid, name: profile.name });
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

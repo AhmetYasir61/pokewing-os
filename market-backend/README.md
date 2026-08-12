@@ -11,8 +11,22 @@ Kullanıcı hiçbir şey yazmıyor; bu servis o adresi karşılıyor.
 | `GET /api/download/:id` | Paketin kendisi. Sahiplik burada tekrar kontrol edilir. |
 | `POST /api/publish` | Üretici model yükler (zip gövde + isim/fiyat başlıkları). |
 | `POST /api/tebex/webhook` | Tebex "ödeme tamamlandı" der; sahiplik burada verilir. |
-| `POST /api/session` | Modun sakladığı oturum token'ını üretir. |
+| `POST /api/session` | Mojang oturum doğrulamasıyla oyuncuyu tanır, token üretir. |
 | `GET /api/health` | Ayakta mı. |
+
+## Kimlik ve kalıcı sahiplik
+
+Satın alınan kozmetik **hesaba** bağlanır, kayıt dosyasına veya isme değil.
+Sahiplik `entitlements.json` içinde **UUID** ile tutulur; oyuncu config'ini
+silse, oyunu yeniden kursa, başka bilgisayara geçse de ürünleri geri gelir.
+İsimle tutulmaz çünkü isimler el değiştirir.
+
+Kimlik, bir Minecraft sunucusunun kullandığı el sıkışmanın aynısıyla doğrulanır:
+mod Mojang'a "şu oturuma katılıyorum" der, bu servis Mojang'a "o oturuma kim
+katıldı" diye sorar. Böylece buraya hiçbir parola gelmez ve kimse başkasının
+adını yazarak onun satın aldıklarını toplayamaz. Token yalnızca UUID'ye bir
+tutamaçtır — hiçbir şey satın alamaz, sızması indirme hakkından fazlasına mal
+olmaz.
 
 ## Ödeme
 

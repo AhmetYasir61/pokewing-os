@@ -195,7 +195,7 @@ public final class MarketClient {
     }
 
     private static HttpRequest.Builder authorised(HttpRequest.Builder builder) {
-        String token = MarketConfig.get().token();
+        String token = MarketAuth.token();
         if (!token.isEmpty()) {
             builder.header("Authorization", "Bearer " + token);
         }

@@ -69,8 +69,14 @@ public final class SkinOverride {
         if (skin == null) {
             return;
         }
-        boolean wanted = profile.paintEnabled && hasPaint(profile);
-        int hash = wanted ? Arrays.hashCode(profile.normalisedPixels()) : 0;
+        // Either a painted face or a chosen skin means the worn texture is not
+        // the account's own any more.
+        boolean painting = profile.paintEnabled && hasPaint(profile);
+        boolean wearingSkin = profile.skin != null && !profile.skin.isEmpty()
+                && SkinLibrary.has(profile.skin);
+        boolean wanted = painting || wearingSkin;
+        int hash = wanted ? Arrays.hashCode(profile.normalisedPixels())
+                * 31 + (wearingSkin ? profile.skin.hashCode() : 0) : 0;
 
         if (!skin.equals(entry.location)) {
             // The player changed skin: drop the cached original, it belongs to
@@ -92,14 +98,24 @@ public final class SkinOverride {
         }
 
         try {
-            if (entry.original == null) {
+            // A chosen skin replaces the base outright; otherwise the account's
+            // own texture is read back off the GPU and painted onto.
+            NativeImage base = wearingSkin ? SkinLibrary.image(profile.skin) : null;
+            if (base == null) {
+                if (entry.original == null) {
+                    entry.original = readTexture(skin);
+                }
+                base = entry.original;
+            } else if (entry.original == null) {
                 entry.original = readTexture(skin);
             }
-            if (entry.original == null) {
+            if (base == null) {
                 return;
             }
-            NativeImage composited = copyOf(entry.original);
-            paint(composited, profile);
+            NativeImage composited = copyOf(base);
+            if (painting) {
+                paint(composited, profile);
+            }
             Minecraft.getInstance().getTextureManager().register(skin, new DynamicTexture(composited));
             entry.appliedHash = hash;
             entry.active = true;

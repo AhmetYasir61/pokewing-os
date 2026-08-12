@@ -90,6 +90,15 @@ public final class FaceProfile {
     public int mouthInnerColor = 0xFF7A1F28;
     public int teethColor = 0xFFF2EAD8;
 
+    /**
+     * Skin PNG this character wears, from {@code config/pokeface/skins}
+     * ("" = the account's own skin). Per character rather than per account, so
+     * one person can play a whole cast.
+     */
+    public String skin = "";
+    /** Alex-style thin arms for this character's skin. */
+    public boolean slimArms = false;
+
     /** Read the head pixels from the worn skin instead of the atlas background. */
     public boolean useSkinHead = true;
     /**
@@ -181,6 +190,8 @@ public final class FaceProfile {
         p.mirrorRightEye = this.mirrorRightEye;
         p.mouthInnerColor = this.mouthInnerColor;
         p.teethColor = this.teethColor;
+        p.skin = this.skin;
+        p.slimArms = this.slimArms;
         p.useSkinHead = this.useSkinHead;
         p.paintEnabled = this.paintEnabled;
         p.facePixels = this.facePixels.clone();
@@ -230,6 +241,8 @@ public final class FaceProfile {
         buf.writeBoolean(this.mirrorRightEye);
         buf.writeInt(this.mouthInnerColor);
         buf.writeInt(this.teethColor);
+        buf.writeUtf(this.skin, 128);
+        buf.writeBoolean(this.slimArms);
         buf.writeBoolean(this.useSkinHead);
         buf.writeBoolean(this.paintEnabled);
         for (int pixel : normalisedPixels()) {
@@ -379,6 +392,8 @@ public final class FaceProfile {
         p.mirrorRightEye = buf.readBoolean();
         p.mouthInnerColor = buf.readInt();
         p.teethColor = buf.readInt();
+        p.skin = buf.readUtf(128);
+        p.slimArms = buf.readBoolean();
         p.useSkinHead = buf.readBoolean();
         p.paintEnabled = buf.readBoolean();
         for (int i = 0; i < FACE_PIXELS; i++) {

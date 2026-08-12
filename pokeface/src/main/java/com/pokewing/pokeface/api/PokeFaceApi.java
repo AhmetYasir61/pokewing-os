@@ -99,6 +99,34 @@ public final class PokeFaceApi {
         return false;
     }
 
+    /**
+     * The skin texture a saved character wears, for a mod that renders its own
+     * stand-ins and needs to dress them.
+     *
+     * @return the texture location, or null when the character has no skin of
+     *         its own and should keep whatever it was going to use
+     */
+    public static net.minecraft.resources.ResourceLocation skinFor(String characterName) {
+        for (CharacterLibrary.Character character : CharacterLibrary.all()) {
+            if (character.name.equalsIgnoreCase(characterName)) {
+                String skin = character.profile.skin;
+                return skin == null || skin.isEmpty() ? null
+                        : com.pokewing.pokeface.client.SkinLibrary.location(skin);
+            }
+        }
+        return null;
+    }
+
+    /** True when a saved character asked for Alex-style arms. */
+    public static boolean slimArmsFor(String characterName) {
+        for (CharacterLibrary.Character character : CharacterLibrary.all()) {
+            if (character.name.equalsIgnoreCase(characterName)) {
+                return character.profile.slimArms;
+            }
+        }
+        return false;
+    }
+
     /** Forgets an entity's face, e.g. when a clone is despawned. */
     public static void clear(UUID player) {
         if (player != null) {

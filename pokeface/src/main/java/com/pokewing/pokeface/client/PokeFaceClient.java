@@ -79,6 +79,7 @@ public final class PokeFaceClient {
                     profilePath().getParent().resolve("characters"));
             com.pokewing.pokeface.face.CharacterLibrary.load();
             com.pokewing.pokeface.model.ModelLibrary.reload();
+            SkinLibrary.reload();
             ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                     () -> new ConfigScreenHandler.ConfigScreenFactory(
                             (mc, parent) -> new FaceCustomizeScreen(parent)));

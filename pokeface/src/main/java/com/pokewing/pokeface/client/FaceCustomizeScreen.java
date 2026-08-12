@@ -194,6 +194,30 @@ public final class FaceCustomizeScreen extends Screen {
         this.scroll = y + 22;   // swatch row is drawn manually below the widgets
 
         y = this.scroll + 4;
+        // Skin picker: per character, from the skins folder.
+        addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.skin",
+                        this.working.skin.isEmpty()
+                                ? Component.translatable("pokeface.menu.skin_default").getString()
+                                : this.working.skin),
+                b -> {
+                    this.working.skin = SkinLibrary.next(this.working.skin);
+                    PokeFaceClient.saveLocalProfile();
+                    rebuildWidgets();
+                }).bounds(x, y, 96, h).build());
+        addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.skin_folder"),
+                b -> {
+                    SkinLibrary.reload();
+                    net.minecraft.Util.getPlatform().openFile(SkinLibrary.directory().toFile());
+                    rebuildWidgets();
+                }).bounds(x + 100, y, 50, h).build());
+        y += 24;
+        addRenderableWidget(CycleButton.onOffBuilder(this.working.slimArms)
+                .create(x, y, 150, h, Component.translatable("pokeface.menu.slim_arms"),
+                        (b, v) -> {
+                            this.working.slimArms = v;
+                            PokeFaceClient.saveLocalProfile();
+                        }));
+        y += 24;
         addRenderableWidget(CycleButton.onOffBuilder(this.working.useSkinHead)
                 .create(x, y, w, h, Component.translatable("pokeface.menu.use_skin_head"),
                         (b, v) -> this.working.useSkinHead = v));
@@ -383,6 +407,8 @@ public final class FaceCustomizeScreen extends Screen {
         to.browLength = from.browLength;
         to.browThickness = from.browThickness;
         to.browOffsetY = from.browOffsetY;
+        to.skin = from.skin;
+        to.slimArms = from.slimArms;
         to.eyeGlow = from.eyeGlow;
         to.eyeGlowSpread = from.eyeGlowSpread;
         to.mouthInnerColor = from.mouthInnerColor;

@@ -134,5 +134,9 @@
   "pokeface.publish.submit": "Publish",
   "pokeface.publish.no_models": "No models in the folder",
   "pokeface.publish.sending": "Sending %s...",
-  "pokeface.publish.note": "Your .obj and .png are uploaded with the price. Listing and payouts are the store's."
+  "pokeface.publish.note": "Your .obj and .png are uploaded with the price. Listing and payouts are the store's.",
+  "pokeface.menu.skin": "Skin: %s",
+  "pokeface.menu.skin_default": "account",
+  "pokeface.menu.skin_folder": "Folder",
+  "pokeface.menu.slim_arms": "Slim arms"
 }

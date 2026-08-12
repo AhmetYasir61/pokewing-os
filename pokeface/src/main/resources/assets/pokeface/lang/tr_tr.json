@@ -134,5 +134,9 @@
   "pokeface.publish.submit": "Yayınla",
   "pokeface.publish.no_models": "Klasörde model yok",
   "pokeface.publish.sending": "%s gönderiliyor...",
-  "pokeface.publish.note": ".obj ve .png dosyan fiyatla birlikte yüklenir. Listeleme ve ödemeler mağazanın işidir."
+  "pokeface.publish.note": ".obj ve .png dosyan fiyatla birlikte yüklenir. Listeleme ve ödemeler mağazanın işidir.",
+  "pokeface.menu.skin": "Skin: %s",
+  "pokeface.menu.skin_default": "hesabınki",
+  "pokeface.menu.skin_folder": "Klasör",
+  "pokeface.menu.slim_arms": "İnce kol"
 }

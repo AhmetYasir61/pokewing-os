@@ -3,6 +3,7 @@ package com.pokewing.pokeface.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.pokewing.pokeface.PokeFace;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.world.entity.player.Player;
 
 import java.lang.reflect.Array;
@@ -19,13 +20,18 @@ import java.lang.reflect.Method;
  * <pre>
  *   poseStack.mulPose(Y, 180deg)                  // EF's mulPoseStack, verbatim
  *   mulStack(poseStack, patch.getModelMatrix(pt)) // body/root transform
+ *   if (upsideDown) translate(0, bbHeight + 0.1, 0), mulPose(Z, 180deg)
+ *   if (crouching)  translate(0, 0.15, 0)         // PatchedLivingEntityRenderer
  *   mulStack(poseStack, new OpenMatrix4f().scale(-1, -1, 1)
  *                           .mulFront(armature.getPoseMatrices()[headId]))
  * </pre>
  *
  * <p>The 180 degree Y rotation is the part that is easy to miss and the part that
  * detaches the face from the player when it is missing: Epic Fight applies it in
- * {@code PatchedEntityRenderer.mulPoseStack} before anything else. The joint
+ * {@code PatchedEntityRenderer.mulPoseStack} before anything else. The crouch
+ * offset is the other easy miss — {@code PatchedLivingEntityRenderer} adds it
+ * after the model matrix, which is why the face slid off the head the moment the
+ * player crouched. The joint
  * matrices come from {@code armature.getPoseMatrices()} — the live array Epic
  * Fight hands to its own layers, already posed for this frame — rather than from
  * a separately computed pose, which does not carry the same bind composition.
@@ -139,6 +145,13 @@ public final class EpicFightHeadPose {
             poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
             if (modelMatrix != null) {
                 mulStack.invoke(null, poseStack, modelMatrix);
+            }
+            if (LivingEntityRenderer.isEntityUpsideDown(player)) {
+                poseStack.translate(0.0D, player.getBbHeight() + 0.1D, 0.0D);
+                poseStack.mulPose(Axis.ZP.rotationDegrees(180.0F));
+            }
+            if (player.isCrouching()) {
+                poseStack.translate(0.0D, 0.15D, 0.0D);
             }
             mulStack.invoke(null, poseStack, headMatrix);
             return true;

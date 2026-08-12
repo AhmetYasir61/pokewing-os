@@ -1,0 +1,48 @@
+{
+  "key.categories.pokeface": "PokeFace",
+  "key.pokeface.wheel": "Reaction çarkı",
+  "key.pokeface.menu": "Yüz menüsü",
+  "key.pokeface.toggle_tracker": "Yüz kamerasını aç/kapat",
+
+  "pokeface.menu.title": "Yüz ve Reaksiyonlar",
+  "pokeface.menu.style": "Tasarım",
+  "pokeface.menu.eye_x": "Göz X",
+  "pokeface.menu.eye_y": "Göz Y",
+  "pokeface.menu.eye_spacing": "Göz aralığı",
+  "pokeface.menu.eye_scale": "Göz boyutu",
+  "pokeface.menu.mouth_x": "Ağız X",
+  "pokeface.menu.mouth_y": "Ağız Y",
+  "pokeface.menu.mouth_scale": "Ağız boyutu",
+  "pokeface.menu.color_target": "Renk",
+  "pokeface.menu.color_line": "Çizgi / kaş",
+  "pokeface.menu.color_eye": "Göz",
+  "pokeface.menu.color_mouth": "Ağız içi",
+  "pokeface.menu.color_teeth": "Dişler",
+  "pokeface.menu.use_skin_head": "Skin kafasını kullan",
+  "pokeface.menu.use_camera": "Yüz kamerası",
+  "pokeface.menu.voice_mouth": "Voice chat ağzı",
+  "pokeface.menu.reset": "Sıfırla",
+
+  "pokeface.wheel.title": "Reaksiyonlar",
+
+  "pokeface.status.camera": "Kaynak: kamera",
+  "pokeface.status.reaction": "Kaynak: reaksiyon",
+  "pokeface.status.idle": "Kaynak: rastgele animasyon",
+  "pokeface.status.epicfight": "Epic Fight: %s",
+  "pokeface.status.voicechat": "Voice chat: %s",
+
+  "pokeface.style.default": "Varsayılan",
+  "pokeface.style.anime": "Anime",
+  "pokeface.style.toon": "Çizgi film",
+  "pokeface.style.sharp": "Keskin",
+  "pokeface.style.pixel": "Piksel",
+
+  "pokeface.expression.neutral": "Nötr",
+  "pokeface.expression.happy": "Mutlu",
+  "pokeface.expression.angry": "Sinirli",
+  "pokeface.expression.hurt": "Acı",
+  "pokeface.expression.surprised": "Şaşkın",
+  "pokeface.expression.focused": "Odaklı",
+  "pokeface.expression.tired": "Yorgun",
+  "pokeface.expression.sad": "Üzgün"
+}

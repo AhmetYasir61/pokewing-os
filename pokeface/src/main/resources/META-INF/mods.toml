@@ -1,0 +1,50 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+Facial and eye reactions for Minecraft characters, built as an Epic Fight
+add-on. The face is driven by a webcam tracker when one is streaming; when no
+camera is selected or found it falls back to gameplay reactions (taking a hit,
+Epic Fight battle mode, low health) and a procedural idle animator, so the face
+is never frozen. Mouth movement can be driven by the Simple Voice Chat
+microphone. Eyes, mouth, colours and art style are configured per player from
+the in-game menu.
+
+Epic Fight and Simple Voice Chat are BOTH optional: they are reached through
+reflection only, with no mixins and no renderer replacement, so this cannot
+break Epic Fight, RealCamera or a Sinytra Connector setup.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="epicfight"
+    mandatory=false
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="voicechat"
+    mandatory=false
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"

@@ -2,6 +2,7 @@ package com.pokewing.pokeface.api;
 
 import com.pokewing.pokeface.client.ClientFaceStore;
 import com.pokewing.pokeface.client.PokeFaceClient;
+import com.pokewing.pokeface.face.CharacterLibrary;
 import com.pokewing.pokeface.face.Expression;
 import com.pokewing.pokeface.face.FaceState;
 
@@ -63,6 +64,39 @@ public final class PokeFaceApi {
         if (player != null) {
             ClientFaceStore.putProfile(player, PokeFaceClient.localProfile().copy());
         }
+    }
+
+    /**
+     * Names of the saved characters, so a filming tool can offer them as a cast
+     * list rather than making the user retype names.
+     */
+    public static java.util.List<String> characterNames() {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (CharacterLibrary.Character character : CharacterLibrary.all()) {
+            names.add(character.name);
+        }
+        return names;
+    }
+
+    /**
+     * Dresses an entity in a saved character's whole look — eye colours and
+     * style, brows, the painted face, the ears and tail attachments — rather than
+     * in whatever the local player happens to be wearing. This is what lets each
+     * clone in a scene be its own character.
+     *
+     * @return false when no character by that name is saved
+     */
+    public static boolean applyCharacterTo(UUID player, String characterName) {
+        if (player == null || characterName == null || characterName.isEmpty()) {
+            return false;
+        }
+        for (CharacterLibrary.Character character : CharacterLibrary.all()) {
+            if (character.name.equalsIgnoreCase(characterName)) {
+                ClientFaceStore.putProfile(player, character.profile.copy());
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Forgets an entity's face, e.g. when a clone is despawned. */

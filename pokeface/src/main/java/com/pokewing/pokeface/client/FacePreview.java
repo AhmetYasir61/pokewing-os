@@ -5,7 +5,7 @@ import com.pokewing.pokeface.face.FaceState;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
@@ -60,10 +60,10 @@ public final class FacePreview {
     }
 
     private static ResourceLocation skin() {
-        if (Minecraft.getInstance().player instanceof AbstractClientPlayer player) {
-            return player.getSkinTextureLocation();
-        }
-        return null;
+        // LocalPlayer already is an AbstractClientPlayer, so this only needs a
+        // null check - a pattern match here is a compile error, not a narrowing.
+        LocalPlayer player = Minecraft.getInstance().player;
+        return player == null ? null : player.getSkinTextureLocation();
     }
 
     private static void drawEyes(GuiGraphics graphics, int ox, int oy, int scale,

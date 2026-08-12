@@ -12,13 +12,11 @@ Bu doküman 4 bölümden oluşuyor:
 
 ## 1. Donanım
 
-Senin makinen: **55 GB DDR5 RAM + Ryzen 9 (9950X sınıfı) + nested virtualization**.
-
-> Küçük not: "Ryzen 9 950X" diye bir model yok — muhtemelen **9950X** (Zen 5) veya **7950X**. İkisi de bu iş için üst segment.
+Senin makinen: **AMD Ryzen 9 9950X (Zen 5, 16C/32T, 5.7 GHz boost) + 55 GB DDR5 + nested virtualization**.
 
 ### Yeterli mi? Fazlasıyla.
 
-FiveM sunucusunun performansı **neredeyse tamamen tek çekirdek (single-thread) hızına** bağlıdır. `FXServer` ana oyun döngüsünü tek bir thread'de çalıştırır; 16 çekirdeğin çoğu boşta durur. 9950X'in single-thread skoru piyasadaki en iyilerden biri, yani:
+FiveM sunucusunun performansı **neredeyse tamamen tek çekirdek (single-thread) hızına** bağlıdır. `FXServer` ana oyun döngüsünü tek bir thread'de çalıştırır; 16 çekirdeğin çoğu boşta durur. 9950X'in single-thread skoru piyasadaki en iyilerden biri — FiveM barındırma için şu an alınabilecek en iyi CPU sınıfı bu. Yani:
 
 | Kaynak | Gereken | Sende |
 |---|---|---|
@@ -41,6 +39,48 @@ FiveM sunucusunun performansı **neredeyse tamamen tek çekirdek (single-thread)
 sudo apt install -y linux-cpupower
 sudo cpupower frequency-set -g performance
 ```
+
+### 9950X'e özel ayarlar
+
+**1. `amd_pstate` sürücüsü.** Zen 5'te doğru scaling driver `amd-pstate-epp`. Kontrol et:
+
+```bash
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver
+```
+
+`acpi-cpufreq` görüyorsan performans dalgalanır. Kernel parametresine ekle (`/etc/default/grub` → `GRUB_CMDLINE_LINUX_DEFAULT`), sonra `update-grub` + reboot:
+
+```
+amd_pstate=active
+```
+
+Ardından EPP'yi performansa çek:
+```bash
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference
+```
+
+**2. Kernel sürümü.** Zen 5 desteği için **kernel 6.8+** gerekir. Debian 12'nin varsayılanı 6.1 — `bookworm-backports`'tan güncelle:
+
+```bash
+echo "deb http://deb.debian.org/debian bookworm-backports main" | sudo tee /etc/apt/sources.list.d/backports.list
+sudo apt update
+sudo apt -t bookworm-backports install linux-image-amd64
+```
+
+**3. CCD pinning.** 9950X iki CCD'lidir (0-7 ve 8-15). FXServer'ın ana thread'i CCD'ler arası zıplarsa cache miss yer ve tick süresi dalgalanır. Sunucuyu tek CCD'ye sabitle:
+
+```bash
+# systemd servis dosyasında [Service] altına:
+CPUAffinity=0-7
+```
+
+İkinci bir FiveM sunucusu çalıştıracaksan onu `8-15`'e ver — böylece birbirlerinin L3 cache'ini bozmazlar. Tek sunucuda bile bu ayar hitch'leri gözle görülür azaltır.
+
+**4. SMT.** Kapatma. FiveM tek thread'e yaslanır ama MySQL/panel/asset serving thread'lerden faydalanır.
+
+**5. RAM.** DDR5'te EXPO profilini BIOS'tan aç; 4800 MT/s stock'ta çalışıyorsa bellek gecikmesi tick süresine yansır. 55 GB tek kanal değil, çift kanal (2x veya 4x DIMM) olduğunu doğrula.
+
+**6. Nested VM + affinity uyarısı.** Hypervisor konuk CPU'ları fiziksel çekirdeklere sabitlemiyorsa (`vcpupin` / CPU pinning) misafir içindeki `CPUAffinity` bir işe yaramaz — host tarafında da pinning yapman gerekir. Proxmox'ta VM > Options > CPU affinity, veya `qm set <vmid> --affinity 0-7`.
 
 ### Beklenen performans
 

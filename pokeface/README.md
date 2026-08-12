@@ -102,8 +102,35 @@ Menüye ayrıca mod listesindeki **Configure** düğmesinden de girilir.
   döndür** (arayüz ölçeğinden bağımsız). Altta hangi kaynağın aktif olduğu
   (kamera / reaksiyon / idle) ve Epic Fight + voice chat durumu yazar.
 
+- **Parlayan gözler:** iris ve göz bebeği fullbright çizilir, çevresine hafif bir
+  hale eklenir. Vanilla'nın `RenderType.eyes` tipi kullanıldığı için Iris/Oculus
+  shader paketleri bunu emissive olarak okur — karanlıkta gerçekten ışıldar.
+
 Ayarlar `config/pokeface/face-profile.json` dosyasına yazılır ve seni gören
 oyunculara otomatik gönderilir, yani herkes aynı yüzü görür.
+
+## Kulak / kuyruk (OBJ eklentileri)
+
+`config/pokeface/models/` klasörüne **`isim.obj` + `isim.png`** ikilisini
+bırakman yeterli. Blockbench'in OBJ export'u da Blender'ın OBJ export'u da bu
+ikiliyi üretir; MTL dosyasına gerek yok, doku aynı isimli PNG'den okunur.
+
+Menüde **Kulak / kuyruk (OBJ)...** ekranından:
+
+- **Ekle / Kaldır**, aynı anda 16 eklentiye kadar.
+- **Bağlantı:** *Kafa* veya *Gövde*. Kafaya bağlananlar kafa kemiğini, gövdeye
+  bağlananlar gövde kemiğini takip eder — Epic Fight animasyonları dahil.
+- **X / Y / Z** konum (model pikseli, yani 1/16 blok), **Döndür X / Y / Z**
+  (derece), **Ölçek**.
+- **Parla:** eklenti de gözler gibi fullbright çizilir.
+- **Model klasörünü yenile:** oyunu kapatmadan yeni model ekleyip taratırsın.
+
+Modeller **istemci tarafı dosyalardır**: karşındaki oyuncunun senin kulaklarını
+görmesi için aynı dosyaların onda da olması gerekir (resource pack mantığı).
+Ağ üzerinden sadece modelin adı ve yerleşimi gider, geometri değil.
+
+Blockbench'ten export ederken modeli Minecraft ölçeğinde (16 birim = 1 blok)
+bırakırsan hiçbir dönüşüm gerekmez; kafa pivotu orijindir, +Y aşağı, -Z öndür.
 
 ## Yüz kamerası kurulumu
 

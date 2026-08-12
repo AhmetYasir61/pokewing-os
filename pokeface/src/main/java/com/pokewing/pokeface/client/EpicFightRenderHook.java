@@ -2,6 +2,7 @@ package com.pokewing.pokeface.client;
 
 import com.pokewing.pokeface.PokeFaceConfig;
 import com.pokewing.pokeface.compat.EpicFightCompat;
+import com.pokewing.pokeface.face.Attachment;
 import com.pokewing.pokeface.face.FaceState;
 
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -48,7 +49,15 @@ public final class EpicFightRenderHook {
         HANDLED.add(player.getUUID());
         FaceRenderer.renderInHeadSpace(event.getPoseStack(), event.getMultiBufferSource(), state,
                 PokeFaceClient.profileFor(player), event.getPackedLight());
+        AttachmentRenderer.render(event.getPoseStack(), event.getMultiBufferSource(),
+                PokeFaceClient.profileFor(player), Attachment.Anchor.HEAD, event.getPackedLight());
         event.getPoseStack().popPose();
+
+        if (EpicFightHeadPose.applyBody(event.getPoseStack(), player, event.getPartialTick())) {
+            AttachmentRenderer.render(event.getPoseStack(), event.getMultiBufferSource(),
+                    PokeFaceClient.profileFor(player), Attachment.Anchor.BODY, event.getPackedLight());
+            event.getPoseStack().popPose();
+        }
     }
 
     /** Prevents the vanilla layer from drawing a second face over the EF one. */

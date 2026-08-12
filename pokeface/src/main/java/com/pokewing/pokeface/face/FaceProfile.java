@@ -24,6 +24,9 @@ public final class FaceProfile {
     public static final int FACE_SIZE = 8;
     public static final int FACE_PIXELS = FACE_SIZE * FACE_SIZE;
 
+    /** Cap on attachments, so a malformed packet cannot spin up a huge list. */
+    public static final int MAX_ATTACHMENTS = 16;
+
     /** Selectable eye canvas resolutions. */
     public static final int[] EYE_ART_SIZES = {4, 8, 16, 32};
 
@@ -123,6 +126,16 @@ public final class FaceProfile {
         this.pupilColorRight = this.pupilColor;
     }
 
+    public java.util.List<Attachment> normalisedAttachments() {
+        if (this.attachments == null) {
+            this.attachments = new java.util.ArrayList<>();
+        }
+        while (this.attachments.size() > MAX_ATTACHMENTS) {
+            this.attachments.remove(this.attachments.size() - 1);
+        }
+        return this.attachments;
+    }
+
     public FaceStyle styleEnum() {
         return FaceStyle.byName(this.style);
     }
@@ -166,6 +179,12 @@ public final class FaceProfile {
         p.eyeArtSize = this.eyeArtSize;
         p.eyeArt = this.eyeArt.clone();
         p.eyeArtRight = this.eyeArtRight.clone();
+        p.eyeGlow = this.eyeGlow;
+        p.eyeGlowSpread = this.eyeGlowSpread;
+        p.attachments = new java.util.ArrayList<>();
+        for (Attachment attachment : this.attachments) {
+            p.attachments.add(attachment.copy());
+        }
         p.voiceChatMouth = this.voiceChatMouth;
         p.useTracker = this.useTracker;
         return p;
@@ -207,6 +226,13 @@ public final class FaceProfile {
         buf.writeBoolean(this.paintEnabled);
         for (int pixel : normalisedPixels()) {
             buf.writeInt(pixel);
+        }
+        buf.writeBoolean(this.eyeGlow);
+        buf.writeFloat(this.eyeGlowSpread);
+        java.util.List<Attachment> list = normalisedAttachments();
+        buf.writeVarInt(list.size());
+        for (Attachment attachment : list) {
+            attachment.write(buf);
         }
         buf.writeVarInt(hasEyeArt() ? this.eyeArtSize : 0);
         if (hasEyeArt()) {
@@ -349,6 +375,12 @@ public final class FaceProfile {
         p.paintEnabled = buf.readBoolean();
         for (int i = 0; i < FACE_PIXELS; i++) {
             p.facePixels[i] = buf.readInt();
+        }
+        p.eyeGlow = buf.readBoolean();
+        p.eyeGlowSpread = buf.readFloat();
+        int attachmentCount = Math.min(buf.readVarInt(), MAX_ATTACHMENTS);
+        for (int i = 0; i < attachmentCount; i++) {
+            p.attachments.add(Attachment.read(buf));
         }
         int eyeSize = buf.readVarInt();
         // Clamped against the known sizes so a malformed packet cannot make the

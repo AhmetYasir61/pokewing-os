@@ -46,6 +46,8 @@ import java.lang.reflect.Method;
 public final class EpicFightHeadPose {
 
     private static final String[] HEAD_JOINT_NAMES = {"Head", "head", "Head_Root"};
+    /** Torso joint names across Epic Fight's armatures, best match first. */
+    private static final String[] BODY_JOINT_NAMES = {"Torso", "Chest", "Spine", "Root", "Rot"};
 
     private static boolean resolved;
     private static boolean available;
@@ -110,6 +112,15 @@ public final class EpicFightHeadPose {
      * @return true when the stack was transformed; the caller must then pop it.
      */
     public static boolean apply(PoseStack poseStack, Player player, float partialTick) {
+        return apply(poseStack, player, partialTick, HEAD_JOINT_NAMES);
+    }
+
+    /** Same, for the torso — the anchor body attachments hang from. */
+    public static boolean applyBody(PoseStack poseStack, Player player, float partialTick) {
+        return apply(poseStack, player, partialTick, BODY_JOINT_NAMES);
+    }
+
+    private static boolean apply(PoseStack poseStack, Player player, float partialTick, String[] jointNames) {
         resolve();
         if (!available) {
             return false;
@@ -123,7 +134,7 @@ public final class EpicFightHeadPose {
             if (armature == null) {
                 return false;
             }
-            Object joint = findHeadJoint(armature);
+            Object joint = findJoint(armature, jointNames);
             if (joint == null) {
                 return false;
             }
@@ -161,8 +172,8 @@ public final class EpicFightHeadPose {
         }
     }
 
-    private static Object findHeadJoint(Object armature) throws Exception {
-        for (String name : HEAD_JOINT_NAMES) {
+    private static Object findJoint(Object armature, String[] jointNames) throws Exception {
+        for (String name : jointNames) {
             Object joint = searchJointByName.invoke(armature, name);
             if (joint != null) {
                 return joint;

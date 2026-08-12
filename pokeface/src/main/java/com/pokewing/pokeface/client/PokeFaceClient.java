@@ -75,6 +75,7 @@ public final class PokeFaceClient {
     private static void clientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             localProfile = FaceProfile.load(profilePath());
+            com.pokewing.pokeface.model.ModelLibrary.reload();
             ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                     () -> new ConfigScreenHandler.ConfigScreenFactory(
                             (mc, parent) -> new FaceCustomizeScreen(parent)));

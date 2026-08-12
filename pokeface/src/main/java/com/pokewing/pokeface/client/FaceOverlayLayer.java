@@ -2,6 +2,7 @@ package com.pokewing.pokeface.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.pokewing.pokeface.PokeFaceConfig;
+import com.pokewing.pokeface.face.Attachment;
 import com.pokewing.pokeface.face.FaceProfile;
 import com.pokewing.pokeface.face.FaceState;
 
@@ -40,13 +41,21 @@ public final class FaceOverlayLayer extends RenderLayer<AbstractClientPlayer, Pl
             return;
         }
         FaceProfile profile = PokeFaceClient.profileFor(player);
-        ModelPart head = getParentModel().head;
-
         SkinOverride.sync(player, profile);
 
+        ModelPart head = getParentModel().head;
         poseStack.pushPose();
         head.translateAndRotate(poseStack);
         FaceRenderer.renderInHeadSpace(poseStack, buffers, state, profile, light);
+        AttachmentRenderer.render(poseStack, buffers, profile, Attachment.Anchor.HEAD, light);
+        poseStack.popPose();
+
+        // Tails and the like hang off the torso, which moves independently of
+        // the head, so they get their own bone.
+        ModelPart body = getParentModel().body;
+        poseStack.pushPose();
+        body.translateAndRotate(poseStack);
+        AttachmentRenderer.render(poseStack, buffers, profile, Attachment.Anchor.BODY, light);
         poseStack.popPose();
     }
 }

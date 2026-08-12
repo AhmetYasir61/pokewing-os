@@ -7,6 +7,7 @@ import com.pokewing.pokeface.PokeFaceConfig;
 import com.pokewing.pokeface.face.FaceProfile;
 import com.pokewing.pokeface.face.FaceState;
 
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -80,12 +81,17 @@ public final class FaceRenderer {
         int col = face.expression.ordinal() % COLUMNS;
         int row = profile.styleEnum().row() % ROWS;
 
-        drawEyes(poseStack, buffer, face, profile, col, row, light);
+        // RenderType.eyes is the fullbright, additive type vanilla uses for
+        // glowing eyes; shader packs read it as emissive, so a glowing iris
+        // lights up under Iris/Oculus the same way spider eyes do.
+        VertexConsumer glowBuffer = profile.eyeGlow ? buffers.getBuffer(RenderType.eyes(ATLAS)) : null;
+
+        drawEyes(poseStack, buffer, glowBuffer, face, profile, col, row, light);
         drawMouth(poseStack, buffer, face, profile, col, row, light);
     }
 
-    private static void drawEyes(PoseStack poseStack, VertexConsumer buffer, FaceState face,
-                                 FaceProfile profile, int col, int row, int light) {
+    private static void drawEyes(PoseStack poseStack, VertexConsumer buffer, VertexConsumer glowBuffer,
+                                 FaceState face, FaceProfile profile, int col, int row, int light) {
         float halfW = 1.0F * profile.eyeScale;                 // model pixels
         float halfH = 1.0F * profile.eyeScale;
         float spacing = profile.eyeSpacing * 0.5F;
@@ -141,21 +147,32 @@ public final class FaceRenderer {
             float ix = sx + Mth.clamp(gazeX, -slackX, slackX);
             float iy = sy + Mth.clamp(gazeY, -slackY, slackY);
 
+            // The moving parts glow; the white stays lit by the world so the eye
+            // still reads as an eye rather than a floating light.
+            VertexConsumer irisBuffer = glowBuffer != null ? glowBuffer : buffer;
+            int irisLight = glowBuffer != null ? LightTexture.FULL_BRIGHT : light;
+
             if (profile.hasEyeArt()) {
                 // A right eye drawn by hand is used as it is; only the shared
                 // sprite is mirrored to keep the pair symmetric.
                 boolean mirrorArt = mirror && !profile.hasSeparateRightEye();
-                drawEyeArt(poseStack, buffer, profile, left, ix - irisHalfW, ix + irisHalfW,
-                        iy - irisHalfH, iy + irisHalfH, mirrorArt, light);
+                if (glowBuffer != null && profile.eyeGlowSpread > 0.01F) {
+                    drawGlowHalo(poseStack, glowBuffer, profile, ix, iy, irisHalfW, irisHalfH, iris);
+                }
+                drawEyeArt(poseStack, irisBuffer, profile, left, ix - irisHalfW, ix + irisHalfW,
+                        iy - irisHalfH, iy + irisHalfH, mirrorArt, irisLight);
             } else {
-                quadAt(poseStack, buffer, ix - irisHalfW, ix + irisHalfW, iy - irisHalfH, iy + irisHalfH,
-                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, iris, light, DEPTH_IRIS);
+                if (glowBuffer != null && profile.eyeGlowSpread > 0.01F) {
+                    drawGlowHalo(poseStack, glowBuffer, profile, ix, iy, irisHalfW, irisHalfH, iris);
+                }
+                quadAt(poseStack, irisBuffer, ix - irisHalfW, ix + irisHalfW, iy - irisHalfH, iy + irisHalfH,
+                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, iris, irisLight, DEPTH_IRIS);
                 if (profile.pupilScale > 0.05F) {
                     float pupilHalfW = irisHalfW * profile.pupilScale;
                     float pupilHalfH = irisHalfH * profile.pupilScale;
-                    quadAt(poseStack, buffer, ix - pupilHalfW, ix + pupilHalfW,
+                    quadAt(poseStack, irisBuffer, ix - pupilHalfW, ix + pupilHalfW,
                             iy - pupilHalfH, iy + pupilHalfH,
-                            BLANK_U, BLANK_U, BLANK_V, BLANK_V, pupil, light, DEPTH_PUPIL);
+                            BLANK_U, BLANK_U, BLANK_V, BLANK_V, pupil, irisLight, DEPTH_PUPIL);
                 }
             }
 
@@ -206,6 +223,20 @@ public final class FaceRenderer {
      * independent of the on-head size, so a detailed eye stays detailed when the
      * eye size slider is turned down.
      */
+    /**
+     * A soft, larger, dimmer copy of the iris drawn behind it on the glow layer.
+     * Additive blending makes it read as light spilling past the eye, which is
+     * what sells the effect without needing a real bloom pass.
+     */
+    private static void drawGlowHalo(PoseStack poseStack, VertexConsumer glowBuffer, FaceProfile profile,
+                                     float ix, float iy, float irisHalfW, float irisHalfH, int color) {
+        float spread = 1.0F + Mth.clamp(profile.eyeGlowSpread, 0.0F, 2.0F);
+        int faded = (color & 0x00FFFFFF) | (Math.round(60.0F) << 24);
+        quadAt(poseStack, glowBuffer, ix - irisHalfW * spread, ix + irisHalfW * spread,
+                iy - irisHalfH * spread, iy + irisHalfH * spread,
+                BLANK_U, BLANK_U, BLANK_V, BLANK_V, faded, LightTexture.FULL_BRIGHT, DEPTH_IRIS);
+    }
+
     private static void drawEyeArt(PoseStack poseStack, VertexConsumer buffer, FaceProfile profile,
                                    boolean left, float x0, float x1, float y0, float y1,
                                    boolean mirror, int light) {

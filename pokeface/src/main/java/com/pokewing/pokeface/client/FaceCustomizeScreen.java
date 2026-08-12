@@ -142,6 +142,18 @@ public final class FaceCustomizeScreen extends Screen {
                         (b, v) -> this.working.voiceChatMouth = v));
         y += 28;
 
+        addRenderableWidget(CycleButton.onOffBuilder(this.working.eyeGlow)
+                .create(x, y, 150, h, Component.translatable("pokeface.menu.eye_glow"),
+                        (b, v) -> this.working.eyeGlow = v));
+        y += 24;
+        addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.attachments"),
+                b -> {
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreen(new AttachmentScreen(this, this.working));
+                    }
+                }).bounds(x, y, 150, h).build());
+        y += 24;
+
         // Matching both eyes by hand is the common case, so it gets a button.
         addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.match_eyes"),
                 b -> this.working.mirrorEyeColors()).bounds(x, y, 150, h).build());
@@ -192,6 +204,8 @@ public final class FaceCustomizeScreen extends Screen {
         to.browLength = from.browLength;
         to.browThickness = from.browThickness;
         to.browOffsetY = from.browOffsetY;
+        to.eyeGlow = from.eyeGlow;
+        to.eyeGlowSpread = from.eyeGlowSpread;
         to.mouthInnerColor = from.mouthInnerColor;
         to.teethColor = from.teethColor;
     }

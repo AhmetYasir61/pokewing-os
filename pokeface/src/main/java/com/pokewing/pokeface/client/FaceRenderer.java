@@ -46,14 +46,7 @@ public final class FaceRenderer {
     /** Eye row, in model pixels above the head pivot (Y is down, hence negative). */
     private static final float EYE_ROW_PX = -4.5F;
     /** Mouth row, in model pixels above the head pivot. */
-    private static final float MOUTH_ROW_PX = -2.0F;
-    /** The drawable face box, in model pixels: the head's 8x8 front, inset by a
-     * half pixel so nothing bleeds onto the sides of the head. */
-    private static final float FACE_TOP = -7.5F;
-    private static final float FACE_BOTTOM = -0.5F;
-    private static final float FACE_HALF_WIDTH = 3.5F;
-    /** Minimum clear space between two features, in model pixels. */
-    private static final float GAP = 0.4F;
+    private static final float MOUTH_ROW_PX = -2.5F;
     /**
      * Depth layering, in blocks. +Z is away from the viewer, so the white of the
      * eye sits slightly deeper than the iris and the pupil sits slightly proud of
@@ -77,56 +70,6 @@ public final class FaceRenderer {
     }
 
     /**
-     * Where each feature is allowed to be, in model pixels off the head pivot.
-     *
-     * <p>The sliders are deliberately generous, which means an eye big enough to
-     * reach the mouth, brows that sit on the eyes, or two eyes wide enough to
-     * meet in the middle of the face. Rather than letting those overlap, the
-     * layout is solved once per frame: the eyes claim their band first, the brows
-     * are pushed above them and the mouth below them, and everything is clamped
-     * inside the face box. A setting that would collide is clamped, not honoured.
-     */
-    private record Layout(float eyeHalfW, float eyeHalfH, float eyeSpacing, float eyeConverge,
-                          float eyeCenterY, float browBottom, float mouthTop, float mouthBottom) {
-    }
-
-    private static Layout solveLayout(FaceProfile profile, FaceState face) {
-        float eyeHalfW = Mth.clamp(profile.eyeScale, 0.3F, 1.8F);
-        float eyeHalfH = Mth.clamp(profile.eyeScale, 0.3F, 1.6F);
-
-        // Eyes must not meet in the middle, and must not run off the face edge.
-        float minSpacing = 2.0F * (eyeHalfW + GAP * 0.5F);
-        float maxSpacing = 2.0F * (FACE_HALF_WIDTH - eyeHalfW);
-        float spacing = Mth.clamp(profile.eyeSpacing, minSpacing, Math.max(minSpacing, maxSpacing));
-        // Convergence may close the middle gap but never cross it.
-        float convergeLimit = Math.max(0.0F, spacing * 0.5F - eyeHalfW - GAP * 0.5F);
-        float converge = Mth.clamp(profile.eyeConverge, -convergeLimit, convergeLimit);
-
-        // The brow needs room above the eye, the mouth needs room below it.
-        float browRoom = profile.drawBrows ? profile.browThickness + profile.browTilt + GAP : 0.0F;
-        float highest = FACE_TOP + browRoom + eyeHalfH;
-        float lowest = FACE_BOTTOM - GAP * 2.0F - eyeHalfH - 1.0F;
-        float eyeCenterY = Mth.clamp(EYE_ROW_PX + profile.eyeOffsetY, highest, Math.max(highest, lowest));
-
-        float eyeTop = eyeCenterY - eyeHalfH;
-        float eyeBottom = eyeCenterY + eyeHalfH;
-
-        float mouthHalfH = (0.3F + Mth.clamp(face.mouthOpen, 0.0F, 1.0F) * 1.4F) * profile.mouthScale;
-        float mouthCenter = MOUTH_ROW_PX + profile.mouthOffsetY - face.mouthSmile * 0.3F;
-        float mouthTop = mouthCenter - mouthHalfH;
-        float mouthBottom = mouthCenter + mouthHalfH;
-        // Push the mouth down out of the eyes, then trim it at the chin rather
-        // than letting it grow back up into them when it opens wide.
-        float shift = Math.max(0.0F, (eyeBottom + GAP) - mouthTop);
-        mouthTop += shift;
-        mouthBottom = Math.min(mouthBottom + shift, FACE_BOTTOM);
-        mouthTop = Math.min(mouthTop, mouthBottom - 0.25F);
-
-        return new Layout(eyeHalfW, eyeHalfH, spacing, converge, eyeCenterY,
-                eyeTop - GAP, mouthTop, mouthBottom);
-    }
-
-    /**
      * Renders the face. {@code poseStack} must already be transformed onto the
      * head bone — see {@link FaceOverlayLayer} for the vanilla path and
      * {@link EpicFightRenderHook} for the Epic Fight path.
@@ -136,21 +79,18 @@ public final class FaceRenderer {
         VertexConsumer buffer = buffers.getBuffer(RenderType.entityTranslucent(ATLAS));
         int col = face.expression.ordinal() % COLUMNS;
         int row = profile.styleEnum().row() % ROWS;
-        Layout layout = solveLayout(profile, face);
 
-        drawEyes(poseStack, buffer, face, profile, layout, col, row, light);
-        drawMouth(poseStack, buffer, face, profile, layout, col, row, light);
+        drawEyes(poseStack, buffer, face, profile, col, row, light);
+        drawMouth(poseStack, buffer, face, profile, col, row, light);
     }
 
     private static void drawEyes(PoseStack poseStack, VertexConsumer buffer, FaceState face,
-                                 FaceProfile profile, Layout layout, int col, int row, int light) {
-        float halfW = layout.eyeHalfW();
-        float halfH = layout.eyeHalfH();
-        float spacing = layout.eyeSpacing() * 0.5F;
-        float centerY = layout.eyeCenterY();                   // Y is down: - is up
-        // Keep the whole pair on the face however far the offset is pushed.
-        float centerLimit = Math.max(0.0F, FACE_HALF_WIDTH - spacing - halfW);
-        float centerX = Mth.clamp(profile.eyeOffsetX, -centerLimit, centerLimit);
+                                 FaceProfile profile, int col, int row, int light) {
+        float halfW = 1.0F * profile.eyeScale;                 // model pixels
+        float halfH = 1.0F * profile.eyeScale;
+        float spacing = profile.eyeSpacing * 0.5F;
+        float centerY = EYE_ROW_PX + profile.eyeOffsetY;       // Y is down: - is up
+        float centerX = profile.eyeOffsetX;
 
         // Blink squashes the eye vertically around its centre, which reads the
         // same way at any scale and needs no extra atlas frames.
@@ -171,13 +111,9 @@ public final class FaceRenderer {
             // Convergence turns each eye toward the middle of the face, which is
             // what makes a pair read as looking at something instead of staring
             // in parallel. It is inward on both sides, hence the opposite signs.
-            float converge = left ? layout.eyeConverge() : -layout.eyeConverge();
-            // Per-eye nudges are limited to what is left inside the eye's own band.
-            float nudgeLimit = Math.max(0.0F, spacing - halfW - GAP * 0.5F);
-            float perEyeX = Mth.clamp(left ? profile.eyeLeftOffsetX : profile.eyeRightOffsetX,
-                    -nudgeLimit, nudgeLimit);
-            float perEyeY = Mth.clamp(left ? profile.eyeLeftOffsetY : profile.eyeRightOffsetY,
-                    -GAP, Math.max(0.0F, layout.mouthTop() - GAP - (centerY + halfH)));
+            float converge = left ? profile.eyeConverge : -profile.eyeConverge;
+            float perEyeX = left ? profile.eyeLeftOffsetX : profile.eyeRightOffsetX;
+            float perEyeY = left ? profile.eyeLeftOffsetY : profile.eyeRightOffsetY;
             float sx = centerX + (left ? -spacing : spacing) + converge + perEyeX;
             float sy = centerY + perEyeY;
             float open = left ? openL : openR;
@@ -224,7 +160,7 @@ public final class FaceRenderer {
             }
 
             if (profile.drawBrows) {
-                drawBrow(poseStack, buffer, profile, face, layout, sx, left, light);
+                drawBrow(poseStack, buffer, profile, face, sx, sy - halfH, left, light);
             }
         }
     }
@@ -238,17 +174,12 @@ public final class FaceRenderer {
      * brow value raises the whole brow instead, for surprise.
      */
     private static void drawBrow(PoseStack poseStack, VertexConsumer buffer, FaceProfile profile,
-                                 FaceState face, Layout layout, float eyeCenterX, boolean left, int light) {
+                                 FaceState face, float eyeCenterX, float eyeTop, boolean left, int light) {
         int steps = 4;
         float halfLength = profile.browLength * 0.5F;
         float thickness = profile.browThickness;
         float raise = Math.max(0.0F, face.brow) * 0.8F;
-        // The brow lives strictly between the top of the face and the eye band,
-        // tilt included, so a long tilt can never drop onto the eye.
-        float tiltRoom = Math.max(0.0F, -face.brow) * profile.browTilt;
-        float lowest = layout.browBottom() - thickness - tiltRoom;
-        float baseY = Mth.clamp(-0.7F + layout.eyeCenterY() - layout.eyeHalfH() + profile.browOffsetY - raise,
-                FACE_TOP, Math.max(FACE_TOP, lowest));
+        float baseY = eyeTop - 0.7F + profile.browOffsetY - raise;
         // Negative brow = angry: drop the inner end by up to browTilt pixels.
         float tilt = Math.max(0.0F, -face.brow) * profile.browTilt;
         float stepW = (halfLength * 2.0F) / steps;
@@ -296,16 +227,12 @@ public final class FaceRenderer {
     }
 
     private static void drawMouth(PoseStack poseStack, VertexConsumer buffer, FaceState face,
-                                  FaceProfile profile, Layout layout, int col, int row, int light) {
-        float halfW = Math.min(1.6F * profile.mouthScale, FACE_HALF_WIDTH - 0.2F);
+                                  FaceProfile profile, int col, int row, int light) {
+        float halfW = 1.6F * profile.mouthScale;
         float open = Mth.clamp(face.mouthOpen, 0.0F, 1.0F);
-        // The band was solved against the eyes already; the mouth just fills it.
-        float top = layout.mouthTop();
-        float bottom = layout.mouthBottom();
-        float halfH = (bottom - top) * 0.5F;
-        float cy = (top + bottom) * 0.5F;
-        float cxLimit = Math.max(0.0F, FACE_HALF_WIDTH - halfW);
-        float cx = Mth.clamp(profile.mouthOffsetX, -cxLimit, cxLimit);
+        float halfH = (0.3F + open * 1.4F) * profile.mouthScale;
+        float cx = profile.mouthOffsetX;
+        float cy = MOUTH_ROW_PX + profile.mouthOffsetY - face.mouthSmile * 0.3F;
 
         float u0 = col / (float) COLUMNS;
         float u1 = (col + 0.5F) / COLUMNS;
@@ -314,12 +241,12 @@ public final class FaceRenderer {
 
         // Inner mouth first, then the teeth strip along the upper lip.
         int inner = open > 0.05F ? profile.mouthInnerColor : profile.lineColor;
-        quadAt(poseStack, buffer, cx - halfW, cx + halfW, top, bottom, u0, u1, v0, v1,
-                inner, light, DEPTH_MOUTH_INNER);
+        quadAt(poseStack, buffer, cx - halfW, cx + halfW, cy - halfH, cy + halfH,
+                u0, u1, v0, v1, inner, light, DEPTH_MOUTH_INNER);
 
         if (open > 0.35F) {
             float teeth = halfH * 0.5F;
-            quadAt(poseStack, buffer, cx - halfW, cx + halfW, top, top + teeth,
+            quadAt(poseStack, buffer, cx - halfW, cx + halfW, cy - halfH, cy - halfH + teeth,
                     u1, (col + 1.0F) / COLUMNS, v0, v1, profile.teethColor, light, DEPTH_TEETH);
         }
     }

@@ -58,3 +58,32 @@ Nginx arkasında `/api/` yolunu bu servise ver. Veri `data/` altında JSON:
 satışa çıkmadan önce bir insan onaylar. Kullanıcı yüklemesi için tek makul
 varsayılan budur. Onaylarken `catalog.json` içinde `published: true` yap ve
 Tebex paketinin `checkoutUrl` adresini gir.
+
+## Sunucuya kurulum
+
+Kod bu depoda: `market-backend/`. Ayrı bir indirme yok.
+
+```bash
+# 1) sunucuya al
+git clone -b claude/reactions-epicfight-compat-yfw9ou \
+    https://github.com/AhmetYasir61/pokewing-os.git
+sudo mkdir -p /opt/pokewing-market
+sudo cp -r pokewing-os/market-backend/* /opt/pokewing-market/
+cd /opt/pokewing-market
+
+# 2) bağımlılık (tek paket: express) ve ilk katalog
+npm install
+cp data/catalog.example.json data/catalog.json
+
+# 3) çalıştır
+TEBEX_WEBHOOK_SECRET=... PUBLISH_TOKEN=... PUBLIC_URL=https://pokewing.com npm start
+```
+
+Kalıcı çalışması için `deploy/pokewing-market.service` dosyasını systemd'ye
+kopyala, `deploy/nginx.conf.example` içindeki `location /api/` bloğunu sitenin
+sunucu bloğuna ekle. Doğrulama: `curl https://pokewing.com/api/health` →
+`{"ok":true}`.
+
+Gereken tek şey **Node 20+**. Veritabanı yok; veri `data/` altında JSON.
+Yedeklemen gereken tek klasör orası (`entitlements.json` = kimin neyi satın
+aldığı, `packs/` = dosyalar).

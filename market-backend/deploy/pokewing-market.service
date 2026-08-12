@@ -1,0 +1,28 @@
+# systemd unit for the cosmetic market API.
+#   sudo cp deploy/pokewing-market.service /etc/systemd/system/
+#   sudo systemctl enable --now pokewing-market
+[Unit]
+Description=PokeWing cosmetic market API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pokewing-market
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+User=pokewing
+Environment=PORT=8080
+Environment=PUBLIC_URL=https://pokewing.com
+# Set these to real values before going live; the service refuses webhooks
+# without a secret and refuses uploads without a publish token.
+Environment=TEBEX_WEBHOOK_SECRET=change-me
+Environment=PUBLISH_TOKEN=change-me
+# The data folder is the only thing it needs to write.
+ProtectSystem=strict
+ReadWritePaths=/opt/pokewing-market/data
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

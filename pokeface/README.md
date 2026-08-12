@@ -13,6 +13,20 @@ Fight eklentisi. Yüz üç kaynaktan sırayla beslenir:
 Ağız ayrıca **Simple Voice Chat** mikrofonuna göre oynar (lip-sync), hem senin
 hem karşı oyuncuların ağzı konuşurken hareket eder.
 
+## Yüz nereye çizilir
+
+Yüz **kafa kemiğine bağlıdır**, dünya üzerinde tahmini bir noktaya değil:
+
+- Vanilla render'da kafa `ModelPart`'ının üzerine geçilir
+  (`head.translateAndRotate`), böylece kafa nereye dönerse yüz de oraya döner.
+- Epic Fight kurulu olduğunda EF'in **animasyonlu Head joint'i** kullanılır.
+  Kullanılan dönüşüm, EF'in kafaya miğfer takarken kendi kullandığı
+  (`PatchedHeadLayer`) dönüşümün aynısıdır:
+  `modelMatrix × (scale(-1,-1,1) · headJointMatrix)`. Yani yüz EF'in savaş
+  animasyonlarıyla birlikte hareket eder.
+- Yüz, kafa küpünün ön yüzeyinin (−4 px) hemen dışına çizilir; başka bir mod
+  kafaya katman ekleyip yüzü içeride bırakırsa `frontOffset` ile dışarı alınır.
+
 ## Neden hiçbir modu bozmaz
 
 - **Mixin yok, renderer değiştirme yok.** Yüz, normal entity buffer'ına çizilen

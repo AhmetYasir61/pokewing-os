@@ -20,9 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * whose layer list our vanilla {@link FaceOverlayLayer} is never added to. Rather
  * than mixin into that renderer — which would be the thing most likely to break
  * Epic Fight, RealCamera or a Connector setup — the face is drawn from Forge's
- * public {@link RenderPlayerEvent.Post} hook, after Epic Fight has finished its
- * own drawing. The pose stack is back at the entity origin there, which is
- * exactly what {@link FaceRenderer} expects.
+ * public {@link RenderPlayerEvent.Post} hook, after Epic Fight has finished, and
+ * is placed on Epic Fight's own animated head bone by {@link EpicFightHeadPose}.
  */
 public final class EpicFightRenderHook {
 
@@ -30,21 +29,25 @@ public final class EpicFightRenderHook {
 
     @SubscribeEvent
     public void onRenderPlayerPost(RenderPlayerEvent.Post event) {
-        HANDLED.remove(event.getEntity().getUUID());
-        if (!PokeFaceConfig.enabled() || !EpicFightCompat.isLoaded()) {
-            return;
-        }
         Player player = event.getEntity();
-        if (player.isInvisible() || !(player instanceof AbstractClientPlayer)) {
+        HANDLED.remove(player.getUUID());
+        if (!PokeFaceConfig.enabled() || !EpicFightCompat.isLoaded() || player.isInvisible()
+                || !(player instanceof AbstractClientPlayer)) {
             return;
         }
         FaceState state = PokeFaceClient.faceFor(player);
         if (state == null) {
             return;
         }
+        if (!EpicFightHeadPose.apply(event.getPoseStack(), player, event.getPartialTick())) {
+            // Epic Fight is loaded but this entity is not being drawn from its
+            // armature (or the lookup failed); leave it to the vanilla layer.
+            return;
+        }
         HANDLED.add(player.getUUID());
-        FaceRenderer.render(event.getPoseStack(), event.getMultiBufferSource(), player, state,
-                PokeFaceClient.profileFor(player), event.getPartialTick(), event.getPackedLight());
+        FaceRenderer.renderInHeadSpace(event.getPoseStack(), event.getMultiBufferSource(), state,
+                PokeFaceClient.profileFor(player), event.getPackedLight());
+        event.getPoseStack().popPose();
     }
 
     /** Prevents the vanilla layer from drawing a second face over the EF one. */

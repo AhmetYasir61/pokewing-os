@@ -215,6 +215,13 @@ public final class FaceCustomizeScreen extends Screen {
                 .create(x, y, 150, h, Component.translatable("pokeface.menu.eye_glow"),
                         (b, v) -> this.working.eyeGlow = v));
         y += 24;
+        addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.market"),
+                b -> {
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreen(new MarketScreen(this));
+                    }
+                }).bounds(x, y, 150, h).build());
+        y += 24;
         addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.attachments"),
                 b -> {
                     if (this.minecraft != null) {

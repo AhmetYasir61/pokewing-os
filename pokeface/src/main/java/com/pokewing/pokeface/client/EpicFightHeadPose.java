@@ -1,6 +1,7 @@
 package com.pokewing.pokeface.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import com.pokewing.pokeface.PokeFace;
 import net.minecraft.world.entity.player.Player;
 
@@ -16,10 +17,18 @@ import java.lang.reflect.Method;
  * {@code PatchedHeadLayer} to hang a helmet on the head:
  *
  * <pre>
- *   modelMatrix                                   // body/root transform
- *   new OpenMatrix4f().scale(-1, -1, 1)
- *                     .mulFront(posedJointMatrix) // animated head joint
+ *   poseStack.mulPose(Y, 180deg)                  // EF's mulPoseStack, verbatim
+ *   mulStack(poseStack, patch.getModelMatrix(pt)) // body/root transform
+ *   mulStack(poseStack, new OpenMatrix4f().scale(-1, -1, 1)
+ *                           .mulFront(armature.getPoseMatrices()[headId]))
  * </pre>
+ *
+ * <p>The 180 degree Y rotation is the part that is easy to miss and the part that
+ * detaches the face from the player when it is missing: Epic Fight applies it in
+ * {@code PatchedEntityRenderer.mulPoseStack} before anything else. The joint
+ * matrices come from {@code armature.getPoseMatrices()} — the live array Epic
+ * Fight hands to its own layers, already posed for this frame — rather than from
+ * a separately computed pose, which does not carry the same bind composition.
  *
  * <p>The {@code scale(-1,-1,1)} is what converts Epic Fight's armature space into
  * the vanilla model-part convention, which is exactly the space
@@ -37,10 +46,8 @@ public final class EpicFightHeadPose {
 
     private static Method getEntityPatch;      // EpicFightCapabilities.getPlayerPatch(Player)
     private static Method getArmature;         // LivingEntityPatch#getArmature()
-    private static Method getAnimator;         // LivingEntityPatch#getAnimator()
     private static Method getModelMatrix;      // LivingEntityPatch#getModelMatrix(float)
-    private static Method getPose;             // Animator#getPose(float)
-    private static Method getPoseAsTransform;  // Armature#getPoseAsTransformMatrix(Pose, boolean)
+    private static Method getPoseMatrices;     // Armature#getPoseMatrices()
     private static Method searchJointByName;   // Armature#searchJointByName(String)
     private static Method getJointId;          // Joint#getId()
     private static Method mulStack;            // MathUtils.mulStack(PoseStack, OpenMatrix4f)
@@ -62,8 +69,6 @@ public final class EpicFightHeadPose {
             Class<?> livingPatch = Class.forName(
                     "yesman.epicfight.world.capabilities.entitypatch.LivingEntityPatch");
             Class<?> armatureClass = Class.forName("yesman.epicfight.api.model.Armature");
-            Class<?> animatorClass = Class.forName("yesman.epicfight.api.animation.Animator");
-            Class<?> poseClass = Class.forName("yesman.epicfight.api.animation.Pose");
             Class<?> jointClass = Class.forName("yesman.epicfight.api.animation.Joint");
             Class<?> mathUtils = Class.forName("yesman.epicfight.api.utils.math.MathUtils");
             openMatrixClass = Class.forName("yesman.epicfight.api.utils.math.OpenMatrix4f");
@@ -71,10 +76,8 @@ public final class EpicFightHeadPose {
 
             getEntityPatch = caps.getMethod("getPlayerPatch", Player.class);
             getArmature = livingPatch.getMethod("getArmature");
-            getAnimator = livingPatch.getMethod("getAnimator");
             getModelMatrix = livingPatch.getMethod("getModelMatrix", float.class);
-            getPose = animatorClass.getMethod("getPose", float.class);
-            getPoseAsTransform = armatureClass.getMethod("getPoseAsTransformMatrix", poseClass, boolean.class);
+            getPoseMatrices = armatureClass.getMethod("getPoseMatrices");
             searchJointByName = armatureClass.getMethod("searchJointByName", String.class);
             getJointId = jointClass.getMethod("getId");
             mulStack = mathUtils.getMethod("mulStack", PoseStack.class, openMatrixClass);
@@ -111,8 +114,7 @@ public final class EpicFightHeadPose {
                 return false;
             }
             Object armature = getArmature.invoke(patch);
-            Object animator = getAnimator.invoke(patch);
-            if (armature == null || animator == null) {
+            if (armature == null) {
                 return false;
             }
             Object joint = findHeadJoint(armature);
@@ -120,8 +122,7 @@ public final class EpicFightHeadPose {
                 return false;
             }
             int jointId = (Integer) getJointId.invoke(joint);
-            Object pose = getPose.invoke(animator, partialTick);
-            Object matrices = getPoseAsTransform.invoke(armature, pose, true);
+            Object matrices = getPoseMatrices.invoke(armature);
             if (matrices == null || jointId < 0 || jointId >= Array.getLength(matrices)) {
                 return false;
             }
@@ -135,6 +136,7 @@ public final class EpicFightHeadPose {
             headMatrix = mulFront.invoke(headMatrix, jointMatrix);
 
             poseStack.pushPose();
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
             if (modelMatrix != null) {
                 mulStack.invoke(null, poseStack, modelMatrix);
             }

@@ -130,8 +130,11 @@ public final class FaceRenderer {
             float iy = sy + Mth.clamp(gazeY, -slackY, slackY);
 
             if (profile.hasEyeArt()) {
-                drawEyeArt(poseStack, buffer, profile, ix - irisHalfW, ix + irisHalfW,
-                        iy - irisHalfH, iy + irisHalfH, mirror, light);
+                // A right eye drawn by hand is used as it is; only the shared
+                // sprite is mirrored to keep the pair symmetric.
+                boolean mirrorArt = mirror && !profile.hasSeparateRightEye();
+                drawEyeArt(poseStack, buffer, profile, left, ix - irisHalfW, ix + irisHalfW,
+                        iy - irisHalfH, iy + irisHalfH, mirrorArt, light);
             } else {
                 quad(poseStack, buffer, ix - irisHalfW, ix + irisHalfW, iy - irisHalfH, iy + irisHalfH,
                         mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, iris, light);
@@ -192,13 +195,14 @@ public final class FaceRenderer {
      * eye size slider is turned down.
      */
     private static void drawEyeArt(PoseStack poseStack, VertexConsumer buffer, FaceProfile profile,
-                                   float x0, float x1, float y0, float y1, boolean mirror, int light) {
+                                   boolean left, float x0, float x1, float y0, float y1,
+                                   boolean mirror, int light) {
         int size = profile.eyeArtSize;
         float stepX = (x1 - x0) / size;
         float stepY = (y1 - y0) / size;
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
-                int argb = profile.eyePixel(mirror ? size - 1 - x : x, y);
+                int argb = profile.eyePixel(left, mirror ? size - 1 - x : x, y);
                 if ((argb >>> 24) == 0) {
                     continue;
                 }

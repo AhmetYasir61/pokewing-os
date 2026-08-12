@@ -76,5 +76,9 @@
   "pokeface.menu.color_sclera_right": "Göz akı (Sağ)",
   "pokeface.menu.color_pupil_left": "Göz bebeği (Sol)",
   "pokeface.menu.color_pupil_right": "Göz bebeği (Sağ)",
-  "pokeface.menu.match_eyes": "Sağ gözü sola eşitle"
+  "pokeface.menu.match_eyes": "Sağ gözü sola eşitle",
+  "pokeface.editor.left_eye": "Sol göz",
+  "pokeface.editor.right_eye": "Sağ göz",
+  "pokeface.editor.mirroring": "(sol gözü aynalıyor)",
+  "pokeface.editor.mirror_to_right": "Solu sağa kopyala (aynalı)"
 }

@@ -106,6 +106,11 @@ public final class FaceProfile {
      */
     public int eyeArtSize;
     public int[] eyeArt = new int[0];
+    /**
+     * The right eye's sprite. Empty means "use the left one", which is what
+     * mirroring expects; drawing into it makes the two eyes independent.
+     */
+    public int[] eyeArtRight = new int[0];
     /** Drive the mouth from the voice chat microphone when available. */
     public boolean voiceChatMouth = true;
     /** Use the webcam tracker when it is streaming. */
@@ -160,6 +165,7 @@ public final class FaceProfile {
         p.facePixels = this.facePixels.clone();
         p.eyeArtSize = this.eyeArtSize;
         p.eyeArt = this.eyeArt.clone();
+        p.eyeArtRight = this.eyeArtRight.clone();
         p.voiceChatMouth = this.voiceChatMouth;
         p.useTracker = this.useTracker;
         return p;
@@ -207,6 +213,13 @@ public final class FaceProfile {
             for (int pixel : this.eyeArt) {
                 buf.writeInt(pixel);
             }
+            boolean separate = hasSeparateRightEye();
+            buf.writeBoolean(separate);
+            if (separate) {
+                for (int pixel : this.eyeArtRight) {
+                    buf.writeInt(pixel);
+                }
+            }
         }
     }
 
@@ -215,8 +228,30 @@ public final class FaceProfile {
                 && this.eyeArt.length == this.eyeArtSize * this.eyeArtSize;
     }
 
-    public int eyePixel(int x, int y) {
-        return this.eyeArt[y * this.eyeArtSize + x];
+    /** The right eye falls back to the left sprite until it is drawn into. */
+    public int[] eyeArtFor(boolean left) {
+        if (left) {
+            return this.eyeArt;
+        }
+        return this.eyeArtRight != null && this.eyeArtRight.length == this.eyeArt.length
+                ? this.eyeArtRight : this.eyeArt;
+    }
+
+    public int eyePixel(boolean left, int x, int y) {
+        return eyeArtFor(left)[y * this.eyeArtSize + x];
+    }
+
+    /** True once the right eye has pixels of its own. */
+    public boolean hasSeparateRightEye() {
+        if (this.eyeArtRight == null || this.eyeArtRight.length != this.eyeArt.length) {
+            return false;
+        }
+        for (int pixel : this.eyeArtRight) {
+            if ((pixel >>> 24) != 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -225,18 +260,40 @@ public final class FaceProfile {
      * a resolution.
      */
     public void resizeEyeArt(int size) {
-        int[] resampled = new int[size * size];
-        if (hasEyeArt()) {
+        int[] left = resample(this.eyeArt, size);
+        int[] right = resample(this.eyeArtRight, size);
+        this.eyeArtSize = size;
+        this.eyeArt = left;
+        this.eyeArtRight = right;
+    }
+
+    private int[] resample(int[] source, int size) {
+        int[] out = new int[size * size];
+        if (hasEyeArt() && source != null && source.length == this.eyeArtSize * this.eyeArtSize) {
             for (int y = 0; y < size; y++) {
                 for (int x = 0; x < size; x++) {
                     int sx = x * this.eyeArtSize / size;
                     int sy = y * this.eyeArtSize / size;
-                    resampled[y * size + x] = this.eyeArt[sy * this.eyeArtSize + sx];
+                    out[y * size + x] = source[sy * this.eyeArtSize + sx];
                 }
             }
         }
-        this.eyeArtSize = size;
-        this.eyeArt = resampled;
+        return out;
+    }
+
+    /** Copies the left eye's drawing onto the right, mirrored horizontally. */
+    public void mirrorEyeArtToRight() {
+        if (!hasEyeArt()) {
+            return;
+        }
+        int size = this.eyeArtSize;
+        int[] out = new int[size * size];
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                out[y * size + x] = this.eyeArt[y * size + (size - 1 - x)];
+            }
+        }
+        this.eyeArtRight = out;
     }
 
     /** Guards against a hand-edited JSON with a wrong-sized pixel array. */
@@ -301,6 +358,12 @@ public final class FaceProfile {
             p.eyeArt = new int[eyeSize * eyeSize];
             for (int i = 0; i < p.eyeArt.length; i++) {
                 p.eyeArt[i] = buf.readInt();
+            }
+            if (buf.readBoolean()) {
+                p.eyeArtRight = new int[p.eyeArt.length];
+                for (int i = 0; i < p.eyeArtRight.length; i++) {
+                    p.eyeArtRight[i] = buf.readInt();
+                }
             }
         }
         return p;

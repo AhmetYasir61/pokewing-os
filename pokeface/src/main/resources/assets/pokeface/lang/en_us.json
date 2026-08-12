@@ -76,5 +76,9 @@
   "pokeface.menu.color_sclera_right": "Eye white (R)",
   "pokeface.menu.color_pupil_left": "Pupil (L)",
   "pokeface.menu.color_pupil_right": "Pupil (R)",
-  "pokeface.menu.match_eyes": "Match right eye to left"
+  "pokeface.menu.match_eyes": "Match right eye to left",
+  "pokeface.editor.left_eye": "Left eye",
+  "pokeface.editor.right_eye": "Right eye",
+  "pokeface.editor.mirroring": "(mirroring the left eye)",
+  "pokeface.editor.mirror_to_right": "Copy left -> right (mirrored)"
 }

@@ -80,12 +80,14 @@ public final class FaceRenderer {
         float centerY = EYE_ROW_PX + profile.eyeOffsetY;       // Y is down: - is up
         float centerX = profile.eyeOffsetX;
 
-        // Blink squashes the quad vertically around its centre, which reads the
+        // Blink squashes the eye vertically around its centre, which reads the
         // same way at any scale and needs no extra atlas frames.
         float openL = 1.0F - Mth.clamp(face.blinkLeft, 0.0F, 1.0F);
         float openR = 1.0F - Mth.clamp(face.blinkRight, 0.0F, 1.0F);
-        float gazeX = face.gazeX * 0.5F;
-        float gazeY = -face.gazeY * 0.5F;
+        // The gaze moves the iris inside the eye, not the eye itself, so the
+        // white stays put the way a real eye does.
+        float gazeX = face.gazeX * halfW * 0.5F;
+        float gazeY = -face.gazeY * halfH * 0.5F;
 
         float u0 = col / (float) COLUMNS;
         float u1 = (col + 0.5F) / COLUMNS;
@@ -100,32 +102,84 @@ public final class FaceRenderer {
             float converge = left ? profile.eyeConverge : -profile.eyeConverge;
             float perEyeX = left ? profile.eyeLeftOffsetX : profile.eyeRightOffsetX;
             float perEyeY = left ? profile.eyeLeftOffsetY : profile.eyeRightOffsetY;
-            float sx = centerX + (left ? -spacing : spacing) + converge + perEyeX + gazeX;
+            float sx = centerX + (left ? -spacing : spacing) + converge + perEyeX;
+            float sy = centerY + perEyeY;
             float open = left ? openL : openR;
-            float y0 = centerY - halfH * open + gazeY + perEyeY;
-            float y1 = centerY + halfH * open + gazeY + perEyeY;
-            int color = left ? profile.eyeColor : profile.eyeColorRight;
+            float top = sy - halfH * open;
+            float bottom = sy + halfH * open;
+            int iris = left ? profile.eyeColor : profile.eyeColorRight;
             // Mirroring the right eye keeps the pair symmetric; without it the
             // same sprite is cloned and an asymmetric eye points the wrong way.
             boolean mirror = !left && profile.mirrorRightEye;
+
+            if (profile.drawSclera) {
+                quad(poseStack, buffer, sx - halfW, sx + halfW, top, bottom,
+                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, profile.scleraColor, light);
+            }
+
+            // The moving part: hand-drawn art if there is any, otherwise an iris
+            // (and pupil) sized as a fraction of the eye.
+            float irisHalfW = halfW * profile.irisScale;
+            float irisHalfH = halfH * profile.irisScale * open;
+            // Kept inside the white, so the iris never slides off the eye.
+            float slackX = Math.max(0.0F, halfW - irisHalfW);
+            float slackY = Math.max(0.0F, halfH * open - irisHalfH);
+            float ix = sx + Mth.clamp(gazeX, -slackX, slackX);
+            float iy = sy + Mth.clamp(gazeY, -slackY, slackY);
+
             if (profile.hasEyeArt()) {
-                drawEyeArt(poseStack, buffer, profile, sx - halfW, sx + halfW, y0, y1, mirror, light);
+                drawEyeArt(poseStack, buffer, profile, ix - irisHalfW, ix + irisHalfW,
+                        iy - irisHalfH, iy + irisHalfH, mirror, light);
             } else {
-                quad(poseStack, buffer, sx - halfW, sx + halfW, y0, y1,
-                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, color, light);
+                quad(poseStack, buffer, ix - irisHalfW, ix + irisHalfW, iy - irisHalfH, iy + irisHalfH,
+                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, iris, light);
+                if (profile.pupilScale > 0.05F) {
+                    float pupilHalfW = irisHalfW * profile.pupilScale;
+                    float pupilHalfH = irisHalfH * profile.pupilScale;
+                    quad(poseStack, buffer, ix - pupilHalfW, ix + pupilHalfW,
+                            iy - pupilHalfH, iy + pupilHalfH,
+                            BLANK_U, BLANK_U, BLANK_V, BLANK_V, profile.pupilColor, light);
+                }
+            }
+
+            if (profile.drawBrows) {
+                drawBrow(poseStack, buffer, profile, face, sx, sy - halfH, left, light);
             }
         }
+    }
 
-        if (Math.abs(face.brow) > 0.05F) {
-            // Brows sit one pixel above the eyes; an angry brow drops inward.
-            float browY = centerY - halfH - 0.6F - Math.max(0.0F, face.brow) * 0.6F;
-            float drop = face.brow < 0.0F ? -face.brow * 0.6F : 0.0F;
-            for (int side = 0; side < 2; side++) {
-                float sx = centerX + (side == 0 ? -spacing : spacing);
-                quad(poseStack, buffer, sx - halfW, sx + halfW,
-                        browY + drop, browY + drop + 0.5F,
-                        u1, (col + 1.0F) / COLUMNS, v0, v1, profile.lineColor, light);
+    /**
+     * A brow drawn as a short stack of steps so it can tilt.
+     *
+     * <p>The tilt is driven by {@link FaceState#brow}: at full anger the inner
+     * end (the one nearest the middle of the face) drops and the outer end
+     * lifts, so the pair forms the inverted V that reads as a scowl. A positive
+     * brow value raises the whole brow instead, for surprise.
+     */
+    private static void drawBrow(PoseStack poseStack, VertexConsumer buffer, FaceProfile profile,
+                                 FaceState face, float eyeCenterX, float eyeTop, boolean left, int light) {
+        int steps = 4;
+        float halfLength = profile.browLength * 0.5F;
+        float thickness = profile.browThickness;
+        float raise = Math.max(0.0F, face.brow) * 0.8F;
+        float baseY = eyeTop - 0.7F + profile.browOffsetY - raise;
+        // Negative brow = angry: drop the inner end by up to browTilt pixels.
+        float tilt = Math.max(0.0F, -face.brow) * profile.browTilt;
+        float stepW = (halfLength * 2.0F) / steps;
+
+        for (int i = 0; i < steps; i++) {
+            float x0 = eyeCenterX - halfLength + stepW * i;
+            float x1 = x0 + stepW;
+            // 0 at the outer end of the face, 1 at the inner end - which side is
+            // "inner" flips between the left and right brow.
+            float towardCenter = (i + 0.5F) / steps;
+            if (left) {
+                towardCenter = 1.0F - towardCenter;
             }
+            // +Y is down, so adding the tilt at the inner end is what drops it.
+            float y = baseY + tilt * towardCenter;
+            quad(poseStack, buffer, x0, x1, y, y + thickness,
+                    BLANK_U, BLANK_U, BLANK_V, BLANK_V, profile.lineColor, light);
         }
     }
 

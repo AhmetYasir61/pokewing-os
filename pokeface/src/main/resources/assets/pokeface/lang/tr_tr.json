@@ -63,5 +63,15 @@
   "pokeface.menu.right_eye_y": "Sağ göz Y",
   "pokeface.menu.mirror_right": "Sağ gözü aynala",
   "pokeface.menu.color_eye_left": "Sol göz",
-  "pokeface.menu.color_eye_right": "Sağ göz"
+  "pokeface.menu.color_eye_right": "Sağ göz",
+  "pokeface.menu.iris_size": "İris boyutu",
+  "pokeface.menu.pupil_size": "Göz bebeği",
+  "pokeface.menu.sclera": "Göz akı",
+  "pokeface.menu.brows": "Kaşlar",
+  "pokeface.menu.brow_tilt": "Sinir eğimi",
+  "pokeface.menu.brow_length": "Kaş uzunluğu",
+  "pokeface.menu.brow_thickness": "Kaş kalınlığı",
+  "pokeface.menu.brow_y": "Kaş Y",
+  "pokeface.menu.color_sclera": "Göz akı",
+  "pokeface.menu.color_pupil": "Göz bebeği"
 }

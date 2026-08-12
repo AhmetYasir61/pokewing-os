@@ -63,5 +63,15 @@
   "pokeface.menu.right_eye_y": "Right eye Y",
   "pokeface.menu.mirror_right": "Mirror right eye",
   "pokeface.menu.color_eye_left": "Left eye",
-  "pokeface.menu.color_eye_right": "Right eye"
+  "pokeface.menu.color_eye_right": "Right eye",
+  "pokeface.menu.iris_size": "Iris size",
+  "pokeface.menu.pupil_size": "Pupil size",
+  "pokeface.menu.sclera": "Eye white",
+  "pokeface.menu.brows": "Brows",
+  "pokeface.menu.brow_tilt": "Angry tilt",
+  "pokeface.menu.brow_length": "Brow length",
+  "pokeface.menu.brow_thickness": "Brow thickness",
+  "pokeface.menu.brow_y": "Brow Y",
+  "pokeface.menu.color_sclera": "Eye white",
+  "pokeface.menu.color_pupil": "Pupil"
 }

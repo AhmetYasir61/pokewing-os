@@ -94,9 +94,30 @@ public final class FaceCustomizeScreen extends Screen {
         addRenderableWidget(CycleButton.onOffBuilder(this.working.mirrorRightEye)
                 .create(ex, ey, w, h, Component.translatable("pokeface.menu.mirror_right"),
                         (b, v) -> this.working.mirrorRightEye = v));
+        ey += 24;
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.iris_size", this.working.irisScale, 0.2F, 1.0F,
+                v -> this.working.irisScale = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.pupil_size", this.working.pupilScale, 0.0F, 1.0F,
+                v -> this.working.pupilScale = v);
+        addRenderableWidget(CycleButton.onOffBuilder(this.working.drawSclera)
+                .create(ex, ey, w, h, Component.translatable("pokeface.menu.sclera"),
+                        (b, v) -> this.working.drawSclera = v));
+        ey += 24;
+        addRenderableWidget(CycleButton.onOffBuilder(this.working.drawBrows)
+                .create(ex, ey, w, h, Component.translatable("pokeface.menu.brows"),
+                        (b, v) -> this.working.drawBrows = v));
+        ey += 24;
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.brow_tilt", this.working.browTilt, 0.0F, 3.0F,
+                v -> this.working.browTilt = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.brow_length", this.working.browLength, 1.0F, 4.0F,
+                v -> this.working.browLength = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.brow_thickness", this.working.browThickness, 0.2F, 1.5F,
+                v -> this.working.browThickness = v);
+        addSlider(ex, ey, w, h, "pokeface.menu.brow_y", this.working.browOffsetY, -3.0F, 3.0F,
+                v -> this.working.browOffsetY = v);
 
         addRenderableWidget(CycleButton.<Integer>builder(this::colorTargetLabel)
-                .withValues(List.of(0, 1, 2, 3, 4))
+                .withValues(List.of(0, 1, 2, 3, 4, 5, 6))
                 .withInitialValue(this.colorTarget)
                 .create(x, y, w, h, Component.translatable("pokeface.menu.color_target"),
                         (button, value) -> this.colorTarget = value));
@@ -156,6 +177,14 @@ public final class FaceCustomizeScreen extends Screen {
         to.eyeRightOffsetX = from.eyeRightOffsetX;
         to.eyeRightOffsetY = from.eyeRightOffsetY;
         to.eyeConverge = from.eyeConverge;
+        to.scleraColor = from.scleraColor;
+        to.pupilColor = from.pupilColor;
+        to.irisScale = from.irisScale;
+        to.pupilScale = from.pupilScale;
+        to.browTilt = from.browTilt;
+        to.browLength = from.browLength;
+        to.browThickness = from.browThickness;
+        to.browOffsetY = from.browOffsetY;
         to.mouthInnerColor = from.mouthInnerColor;
         to.teethColor = from.teethColor;
     }
@@ -164,8 +193,10 @@ public final class FaceCustomizeScreen extends Screen {
         return Component.translatable(switch (target) {
             case 1 -> "pokeface.menu.color_eye_left";
             case 2 -> "pokeface.menu.color_eye_right";
-            case 3 -> "pokeface.menu.color_mouth";
-            case 4 -> "pokeface.menu.color_teeth";
+            case 3 -> "pokeface.menu.color_sclera";
+            case 4 -> "pokeface.menu.color_pupil";
+            case 5 -> "pokeface.menu.color_mouth";
+            case 6 -> "pokeface.menu.color_teeth";
             default -> "pokeface.menu.color_line";
         });
     }
@@ -250,8 +281,10 @@ public final class FaceCustomizeScreen extends Screen {
         return switch (this.colorTarget) {
             case 1 -> this.working.eyeColor;
             case 2 -> this.working.eyeColorRight;
-            case 3 -> this.working.mouthInnerColor;
-            case 4 -> this.working.teethColor;
+            case 3 -> this.working.scleraColor;
+            case 4 -> this.working.pupilColor;
+            case 5 -> this.working.mouthInnerColor;
+            case 6 -> this.working.teethColor;
             default -> this.working.lineColor;
         };
     }
@@ -260,8 +293,10 @@ public final class FaceCustomizeScreen extends Screen {
         switch (this.colorTarget) {
             case 1 -> this.working.eyeColor = argb;
             case 2 -> this.working.eyeColorRight = argb;
-            case 3 -> this.working.mouthInnerColor = argb;
-            case 4 -> this.working.teethColor = argb;
+            case 3 -> this.working.scleraColor = argb;
+            case 4 -> this.working.pupilColor = argb;
+            case 5 -> this.working.mouthInnerColor = argb;
+            case 6 -> this.working.teethColor = argb;
             default -> this.working.lineColor = argb;
         }
     }

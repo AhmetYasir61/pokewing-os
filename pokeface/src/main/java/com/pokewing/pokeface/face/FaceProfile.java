@@ -53,10 +53,35 @@ public final class FaceProfile {
     public float mouthOffsetY = 0.0F;
     public float mouthScale = 1.0F;
 
-    /** ARGB colours. {@link #eyeColor} is the left eye; the right has its own. */
+    /**
+     * ARGB colours. An eye is drawn in two parts: {@link #scleraColor} is the
+     * white, which stays put, and {@link #eyeColor} / {@link #eyeColorRight} are
+     * the irises, which move with the gaze inside it.
+     */
     public int lineColor = 0xFF101010;
-    public int eyeColor = 0xFF3A3A3A;
-    public int eyeColorRight = 0xFF3A3A3A;
+    public int scleraColor = 0xFFF4F1EA;
+    public int eyeColor = 0xFF3A6BA5;
+    public int eyeColorRight = 0xFF3A6BA5;
+    public int pupilColor = 0xFF101010;
+
+    /** Iris size as a fraction of the eye; the rest of the eye is sclera. */
+    public float irisScale = 0.55F;
+    /** Pupil size as a fraction of the iris. 0 disables the pupil. */
+    public float pupilScale = 0.45F;
+    /** Draw the white of the eye at all. Off gives the old flat-blob eye. */
+    public boolean drawSclera = true;
+
+    /** Brows. Thickness and length are in skin pixels. */
+    public boolean drawBrows = true;
+    public float browThickness = 0.5F;
+    public float browLength = 2.6F;
+    public float browOffsetY = 0.0F;
+    /**
+     * How steeply the brows tilt at full anger, in skin pixels of drop across the
+     * brow. The inner ends come down toward the middle of the face, which is the
+     * inverted-V that reads as angry.
+     */
+    public float browTilt = 1.4F;
     public int mouthInnerColor = 0xFF7A1F28;
     public int teethColor = 0xFFF2EAD8;
 
@@ -99,8 +124,18 @@ public final class FaceProfile {
         p.mouthOffsetY = this.mouthOffsetY;
         p.mouthScale = this.mouthScale;
         p.lineColor = this.lineColor;
+        p.scleraColor = this.scleraColor;
+        p.pupilColor = this.pupilColor;
         p.eyeColor = this.eyeColor;
         p.eyeColorRight = this.eyeColorRight;
+        p.irisScale = this.irisScale;
+        p.pupilScale = this.pupilScale;
+        p.drawSclera = this.drawSclera;
+        p.drawBrows = this.drawBrows;
+        p.browThickness = this.browThickness;
+        p.browLength = this.browLength;
+        p.browOffsetY = this.browOffsetY;
+        p.browTilt = this.browTilt;
         p.eyeLeftOffsetX = this.eyeLeftOffsetX;
         p.eyeLeftOffsetY = this.eyeLeftOffsetY;
         p.eyeRightOffsetX = this.eyeRightOffsetX;
@@ -129,8 +164,18 @@ public final class FaceProfile {
         buf.writeFloat(this.mouthOffsetY);
         buf.writeFloat(this.mouthScale);
         buf.writeInt(this.lineColor);
+        buf.writeInt(this.scleraColor);
+        buf.writeInt(this.pupilColor);
         buf.writeInt(this.eyeColor);
         buf.writeInt(this.eyeColorRight);
+        buf.writeFloat(this.irisScale);
+        buf.writeFloat(this.pupilScale);
+        buf.writeBoolean(this.drawSclera);
+        buf.writeBoolean(this.drawBrows);
+        buf.writeFloat(this.browThickness);
+        buf.writeFloat(this.browLength);
+        buf.writeFloat(this.browOffsetY);
+        buf.writeFloat(this.browTilt);
         buf.writeFloat(this.eyeLeftOffsetX);
         buf.writeFloat(this.eyeLeftOffsetY);
         buf.writeFloat(this.eyeRightOffsetX);
@@ -208,8 +253,18 @@ public final class FaceProfile {
         p.mouthOffsetY = buf.readFloat();
         p.mouthScale = buf.readFloat();
         p.lineColor = buf.readInt();
+        p.scleraColor = buf.readInt();
+        p.pupilColor = buf.readInt();
         p.eyeColor = buf.readInt();
         p.eyeColorRight = buf.readInt();
+        p.irisScale = buf.readFloat();
+        p.pupilScale = buf.readFloat();
+        p.drawSclera = buf.readBoolean();
+        p.drawBrows = buf.readBoolean();
+        p.browThickness = buf.readFloat();
+        p.browLength = buf.readFloat();
+        p.browOffsetY = buf.readFloat();
+        p.browTilt = buf.readFloat();
         p.eyeLeftOffsetX = buf.readFloat();
         p.eyeLeftOffsetY = buf.readFloat();
         p.eyeRightOffsetX = buf.readFloat();

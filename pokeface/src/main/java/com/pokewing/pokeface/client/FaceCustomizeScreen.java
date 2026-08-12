@@ -37,6 +37,12 @@ public final class FaceCustomizeScreen extends Screen {
     private int colorTarget;   // 0 line, 1 eye, 2 mouth inner, 3 teeth
     private int scroll;
 
+    /** Preview camera. Zoom is scroll-wheel driven so any GUI scale is usable. */
+    private int previewScale = 110;
+    private float previewYaw;
+    private float previewPitch;
+    private boolean draggingPreview;
+
     public FaceCustomizeScreen(Screen parent) {
         super(Component.translatable("pokeface.menu.title"));
         this.parent = parent;
@@ -97,6 +103,14 @@ public final class FaceCustomizeScreen extends Screen {
                 .create(x, y, w, h, Component.translatable("pokeface.menu.voice_mouth"),
                         (b, v) -> this.working.voiceChatMouth = v));
         y += 28;
+
+        addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.pixel_editor"),
+                b -> {
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreen(new FacePixelEditorScreen(this, this.working));
+                    }
+                }).bounds(x, y, 150, h).build());
+        y += 24;
 
         addRenderableWidget(Button.builder(Component.translatable("pokeface.menu.reset"),
                 b -> {
@@ -162,16 +176,28 @@ public final class FaceCustomizeScreen extends Screen {
 
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFF);
 
-        // Live preview of your own character, face overlay included.
-        if (this.minecraft != null && this.minecraft.player != null) {
-            int px = this.width / 2 - 130;
-            int py = this.height / 2 + 40;
-            InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, px, py, 55,
-                    px - mouseX, py - 70 - mouseY, this.minecraft.player);
-        }
+        renderPreview(graphics);
 
         drawSwatches(graphics, mouseX, mouseY);
         drawStatus(graphics);
+    }
+
+    /**
+     * Live preview of your own character. Scroll to zoom and drag to spin, so the
+     * face stays readable at any GUI scale instead of being a few pixels tall.
+     */
+    private void renderPreview(GuiGraphics graphics) {
+        if (this.minecraft == null || this.minecraft.player == null) {
+            return;
+        }
+        int px = this.width / 2 - 150;
+        int py = this.height / 2 + this.previewScale / 2;
+        int box = this.previewScale;
+        graphics.fill(px - box / 2 - 6, py - box - 12, px + box / 2 + 6, py + 10, 0x60000000);
+        InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, px, py, box,
+                this.previewYaw, this.previewPitch, this.minecraft.player);
+        graphics.drawCenteredString(this.font,
+                Component.translatable("pokeface.menu.preview_hint"), px, py + 14, 0x808080);
     }
 
     private void drawSwatches(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -221,7 +247,36 @@ public final class FaceCustomizeScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (mouseX < this.width / 2.0 - 40) {
+            this.previewScale = Mth.clamp(this.previewScale + (int) Math.signum(delta) * 12, 40, 320);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (this.draggingPreview) {
+            this.previewYaw -= (float) dragX * 0.05F;
+            this.previewPitch = Mth.clamp(this.previewPitch - (float) dragY * 0.05F, -1.5F, 1.5F);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        this.draggingPreview = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (mouseX < this.width / 2.0 - 40) {
+            this.draggingPreview = true;
+            return true;
+        }
         int x = this.width / 2 - 20;
         int y = this.scroll - 18;
         if (mouseY >= y && mouseY <= y + 13) {

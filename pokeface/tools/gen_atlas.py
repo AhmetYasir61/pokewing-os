@@ -47,6 +47,9 @@ def fill(px, ox, oy, rect, alpha):
 
 def build():
     px = blank()
+    # Bottom-right texel is a solid white "blank" pixel: the renderer samples it
+    # when drawing flat-coloured hand-painted face pixels.
+    px[H - 1][W - 1] = (255, 255, 255, 255)
     for row in range(ROWS):
         for col in range(COLS):
             ox, oy = col * TILE, row * TILE

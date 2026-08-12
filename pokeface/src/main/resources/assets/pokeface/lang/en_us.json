@@ -3,7 +3,6 @@
   "key.pokeface.wheel": "Reaction wheel",
   "key.pokeface.menu": "Face menu",
   "key.pokeface.toggle_tracker": "Toggle face camera",
-
   "pokeface.menu.title": "Face & Reactions",
   "pokeface.menu.style": "Style",
   "pokeface.menu.eye_x": "Eye X",
@@ -22,21 +21,17 @@
   "pokeface.menu.use_camera": "Face camera",
   "pokeface.menu.voice_mouth": "Voice chat mouth",
   "pokeface.menu.reset": "Reset",
-
   "pokeface.wheel.title": "Reactions",
-
   "pokeface.status.camera": "Source: camera",
   "pokeface.status.reaction": "Source: reaction",
   "pokeface.status.idle": "Source: idle animation",
   "pokeface.status.epicfight": "Epic Fight: %s",
   "pokeface.status.voicechat": "Voice chat: %s",
-
   "pokeface.style.default": "Default",
   "pokeface.style.anime": "Anime",
   "pokeface.style.toon": "Toon",
   "pokeface.style.sharp": "Sharp",
   "pokeface.style.pixel": "Pixel",
-
   "pokeface.expression.neutral": "Neutral",
   "pokeface.expression.happy": "Happy",
   "pokeface.expression.angry": "Angry",
@@ -44,5 +39,18 @@
   "pokeface.expression.surprised": "Surprised",
   "pokeface.expression.focused": "Focused",
   "pokeface.expression.tired": "Tired",
-  "pokeface.expression.sad": "Sad"
+  "pokeface.expression.sad": "Sad",
+  "pokeface.menu.pixel_editor": "Pixel editor...",
+  "pokeface.menu.preview_hint": "scroll: zoom - drag: rotate",
+  "pokeface.editor.title": "Face pixel editor",
+  "pokeface.editor.brush": "Brush",
+  "pokeface.editor.eraser": "Eraser",
+  "pokeface.editor.fill": "Fill",
+  "pokeface.editor.undo": "Undo",
+  "pokeface.editor.clear": "Clear",
+  "pokeface.editor.cover_eyes": "Cover skin eyes",
+  "pokeface.editor.red": "R",
+  "pokeface.editor.green": "G",
+  "pokeface.editor.blue": "B",
+  "pokeface.editor.tool": "Tool: %s"
 }

@@ -20,6 +20,10 @@ public final class FaceProfile {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    /** The face patch is the 8x8 front area of the head. */
+    public static final int FACE_SIZE = 8;
+    public static final int FACE_PIXELS = FACE_SIZE * FACE_SIZE;
+
     public String style = FaceStyle.DEFAULT.key();
     /** Eye anchor offset in skin pixels, -3..3. */
     public float eyeOffsetX = 0.0F;
@@ -40,6 +44,14 @@ public final class FaceProfile {
 
     /** Read the head pixels from the worn skin instead of the atlas background. */
     public boolean useSkinHead = true;
+    /**
+     * Hand-painted 8x8 patch drawn over the face area of the head, in ARGB, row
+     * major. 0 means "leave the skin alone". This is what lets a player paint
+     * their own skin tone over the eyes their skin already has, so the overlay
+     * eyes do not collide with the painted-on ones.
+     */
+    public int[] facePixels = new int[FACE_PIXELS];
+    public boolean paintEnabled = true;
     /** Drive the mouth from the voice chat microphone when available. */
     public boolean voiceChatMouth = true;
     /** Use the webcam tracker when it is streaming. */
@@ -64,6 +76,8 @@ public final class FaceProfile {
         p.mouthInnerColor = this.mouthInnerColor;
         p.teethColor = this.teethColor;
         p.useSkinHead = this.useSkinHead;
+        p.paintEnabled = this.paintEnabled;
+        p.facePixels = this.facePixels.clone();
         p.voiceChatMouth = this.voiceChatMouth;
         p.useTracker = this.useTracker;
         return p;
@@ -83,6 +97,26 @@ public final class FaceProfile {
         buf.writeInt(this.mouthInnerColor);
         buf.writeInt(this.teethColor);
         buf.writeBoolean(this.useSkinHead);
+        buf.writeBoolean(this.paintEnabled);
+        for (int pixel : normalisedPixels()) {
+            buf.writeInt(pixel);
+        }
+    }
+
+    /** Guards against a hand-edited JSON with a wrong-sized pixel array. */
+    public int[] normalisedPixels() {
+        if (this.facePixels == null || this.facePixels.length != FACE_PIXELS) {
+            this.facePixels = new int[FACE_PIXELS];
+        }
+        return this.facePixels;
+    }
+
+    public int pixel(int x, int y) {
+        return normalisedPixels()[y * FACE_SIZE + x];
+    }
+
+    public void setPixel(int x, int y, int argb) {
+        normalisedPixels()[y * FACE_SIZE + x] = argb;
     }
 
     public static FaceProfile read(FriendlyByteBuf buf) {
@@ -100,6 +134,10 @@ public final class FaceProfile {
         p.mouthInnerColor = buf.readInt();
         p.teethColor = buf.readInt();
         p.useSkinHead = buf.readBoolean();
+        p.paintEnabled = buf.readBoolean();
+        for (int i = 0; i < FACE_PIXELS; i++) {
+            p.facePixels[i] = buf.readInt();
+        }
         return p;
     }
 

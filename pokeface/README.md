@@ -80,8 +80,15 @@ Menüye ayrıca mod listesindeki **Configure** düğmesinden de girilir.
 - **Renkler:** çizgi/kaş, göz, ağız içi ve diş rengi ayrı ayrı seçilir.
 - **Skin kafasını kullan:** yüz, skin'in kendi kafa pikselleri üstüne çizilir.
 - **Yüz kamerası** ve **Voice chat ağzı** anahtarları.
-- Solda canlı önizleme; altta hangi kaynağın aktif olduğu (kamera / reaksiyon /
-  idle) ve Epic Fight + voice chat durumu yazar.
+- **Piksel editörü:** kafanın ön yüzündeki 8x8 alanı elle boyarsın. Asıl amacı,
+  skin'inin kendi gözlerini ten rengiyle kapatıp üst üste iki çift göz
+  görünmesini engellemek — "Skin gözlerini kapat" düğmesi bunu tek tıkla yapar.
+  Fırça / silgi / doldur, geri al, RGB kaydırıcıları ve ten rengi hazır
+  paleti var; sağ tık her zaman siler, tekerlek grid'i büyütür. Şeffaf bırakılan
+  pikseller dama tahtası olarak görünür, yani "burada skin görünsün" demektir.
+- Solda canlı önizleme: **tekerlek ile yakınlaştır/uzaklaştır, sürükleyerek
+  döndür** (arayüz ölçeğinden bağımsız). Altta hangi kaynağın aktif olduğu
+  (kamera / reaksiyon / idle) ve Epic Fight + voice chat durumu yazar.
 
 Ayarlar `config/pokeface/face-profile.json` dosyasına yazılır ve seni gören
 oyunculara otomatik gönderilir, yani herkes aynı yüzü görür.

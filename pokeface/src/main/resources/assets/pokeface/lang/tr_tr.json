@@ -3,7 +3,6 @@
   "key.pokeface.wheel": "Reaction çarkı",
   "key.pokeface.menu": "Yüz menüsü",
   "key.pokeface.toggle_tracker": "Yüz kamerasını aç/kapat",
-
   "pokeface.menu.title": "Yüz ve Reaksiyonlar",
   "pokeface.menu.style": "Tasarım",
   "pokeface.menu.eye_x": "Göz X",
@@ -22,21 +21,17 @@
   "pokeface.menu.use_camera": "Yüz kamerası",
   "pokeface.menu.voice_mouth": "Voice chat ağzı",
   "pokeface.menu.reset": "Sıfırla",
-
   "pokeface.wheel.title": "Reaksiyonlar",
-
   "pokeface.status.camera": "Kaynak: kamera",
   "pokeface.status.reaction": "Kaynak: reaksiyon",
   "pokeface.status.idle": "Kaynak: rastgele animasyon",
   "pokeface.status.epicfight": "Epic Fight: %s",
   "pokeface.status.voicechat": "Voice chat: %s",
-
   "pokeface.style.default": "Varsayılan",
   "pokeface.style.anime": "Anime",
   "pokeface.style.toon": "Çizgi film",
   "pokeface.style.sharp": "Keskin",
   "pokeface.style.pixel": "Piksel",
-
   "pokeface.expression.neutral": "Nötr",
   "pokeface.expression.happy": "Mutlu",
   "pokeface.expression.angry": "Sinirli",
@@ -44,5 +39,18 @@
   "pokeface.expression.surprised": "Şaşkın",
   "pokeface.expression.focused": "Odaklı",
   "pokeface.expression.tired": "Yorgun",
-  "pokeface.expression.sad": "Üzgün"
+  "pokeface.expression.sad": "Üzgün",
+  "pokeface.menu.pixel_editor": "Piksel editörü...",
+  "pokeface.menu.preview_hint": "tekerlek: yakınlaştır - sürükle: döndür",
+  "pokeface.editor.title": "Yüz piksel editörü",
+  "pokeface.editor.brush": "Fırça",
+  "pokeface.editor.eraser": "Silgi",
+  "pokeface.editor.fill": "Doldur",
+  "pokeface.editor.undo": "Geri al",
+  "pokeface.editor.clear": "Temizle",
+  "pokeface.editor.cover_eyes": "Skin gözlerini kapat",
+  "pokeface.editor.red": "K",
+  "pokeface.editor.green": "Y",
+  "pokeface.editor.blue": "M",
+  "pokeface.editor.tool": "Araç: %s"
 }

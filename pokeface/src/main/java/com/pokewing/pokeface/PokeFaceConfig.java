@@ -15,6 +15,7 @@ public final class PokeFaceConfig {
     public final ForgeConfigSpec.IntValue trackerPort;
     public final ForgeConfigSpec.IntValue vmcPort;
     public final ForgeConfigSpec.IntValue trackerTimeoutMillis;
+    public final ForgeConfigSpec.BooleanValue trackerDebug;
     public final ForgeConfigSpec.DoubleValue smoothing;
     public final ForgeConfigSpec.DoubleValue threatRadius;
     public final ForgeConfigSpec.BooleanValue showOwnFaceInFirstPerson;
@@ -61,6 +62,10 @@ public final class PokeFaceConfig {
         this.trackerTimeoutMillis = builder
                 .comment("How long without packets before the camera counts as lost.")
                 .defineInRange("timeoutMillis", 600, 100, 10000);
+        this.trackerDebug = builder
+                .comment("Log the decoded blendshapes every 30 packets. Use this when",
+                        "packets arrive but the face does not move.")
+                .define("debug", false);
         builder.pop();
 
         builder.comment("Fallback drivers").push("reactions");
@@ -112,6 +117,10 @@ public final class PokeFaceConfig {
 
     public static double threatRadius() {
         return INSTANCE.threatRadius.get();
+    }
+
+    public static boolean trackerDebug() {
+        return INSTANCE.trackerDebug.get();
     }
 
     public static boolean combatReactions() {

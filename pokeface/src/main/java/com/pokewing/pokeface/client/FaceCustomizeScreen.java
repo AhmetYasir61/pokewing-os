@@ -78,8 +78,25 @@ public final class FaceCustomizeScreen extends Screen {
         y = addSlider(x, y, w, h, "pokeface.menu.mouth_scale", this.working.mouthScale, 0.4F, 2.0F,
                 v -> this.working.mouthScale = v);
 
+        // Second column: everything that is per eye rather than per face.
+        int ex = Math.min(this.width - 155, x + 160);
+        int ey = 40;
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.converge", this.working.eyeConverge, -2.0F, 2.0F,
+                v -> this.working.eyeConverge = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.left_eye_x", this.working.eyeLeftOffsetX, -3.0F, 3.0F,
+                v -> this.working.eyeLeftOffsetX = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.left_eye_y", this.working.eyeLeftOffsetY, -3.0F, 3.0F,
+                v -> this.working.eyeLeftOffsetY = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.right_eye_x", this.working.eyeRightOffsetX, -3.0F, 3.0F,
+                v -> this.working.eyeRightOffsetX = v);
+        ey = addSlider(ex, ey, w, h, "pokeface.menu.right_eye_y", this.working.eyeRightOffsetY, -3.0F, 3.0F,
+                v -> this.working.eyeRightOffsetY = v);
+        addRenderableWidget(CycleButton.onOffBuilder(this.working.mirrorRightEye)
+                .create(ex, ey, w, h, Component.translatable("pokeface.menu.mirror_right"),
+                        (b, v) -> this.working.mirrorRightEye = v));
+
         addRenderableWidget(CycleButton.<Integer>builder(this::colorTargetLabel)
-                .withValues(List.of(0, 1, 2, 3))
+                .withValues(List.of(0, 1, 2, 3, 4))
                 .withInitialValue(this.colorTarget)
                 .create(x, y, w, h, Component.translatable("pokeface.menu.color_target"),
                         (button, value) -> this.colorTarget = value));
@@ -133,15 +150,22 @@ public final class FaceCustomizeScreen extends Screen {
         to.mouthScale = from.mouthScale;
         to.lineColor = from.lineColor;
         to.eyeColor = from.eyeColor;
+        to.eyeColorRight = from.eyeColorRight;
+        to.eyeLeftOffsetX = from.eyeLeftOffsetX;
+        to.eyeLeftOffsetY = from.eyeLeftOffsetY;
+        to.eyeRightOffsetX = from.eyeRightOffsetX;
+        to.eyeRightOffsetY = from.eyeRightOffsetY;
+        to.eyeConverge = from.eyeConverge;
         to.mouthInnerColor = from.mouthInnerColor;
         to.teethColor = from.teethColor;
     }
 
     private Component colorTargetLabel(int target) {
         return Component.translatable(switch (target) {
-            case 1 -> "pokeface.menu.color_eye";
-            case 2 -> "pokeface.menu.color_mouth";
-            case 3 -> "pokeface.menu.color_teeth";
+            case 1 -> "pokeface.menu.color_eye_left";
+            case 2 -> "pokeface.menu.color_eye_right";
+            case 3 -> "pokeface.menu.color_mouth";
+            case 4 -> "pokeface.menu.color_teeth";
             default -> "pokeface.menu.color_line";
         });
     }
@@ -225,8 +249,9 @@ public final class FaceCustomizeScreen extends Screen {
     private int currentColor() {
         return switch (this.colorTarget) {
             case 1 -> this.working.eyeColor;
-            case 2 -> this.working.mouthInnerColor;
-            case 3 -> this.working.teethColor;
+            case 2 -> this.working.eyeColorRight;
+            case 3 -> this.working.mouthInnerColor;
+            case 4 -> this.working.teethColor;
             default -> this.working.lineColor;
         };
     }
@@ -234,8 +259,9 @@ public final class FaceCustomizeScreen extends Screen {
     private void setCurrentColor(int argb) {
         switch (this.colorTarget) {
             case 1 -> this.working.eyeColor = argb;
-            case 2 -> this.working.mouthInnerColor = argb;
-            case 3 -> this.working.teethColor = argb;
+            case 2 -> this.working.eyeColorRight = argb;
+            case 3 -> this.working.mouthInnerColor = argb;
+            case 4 -> this.working.teethColor = argb;
             default -> this.working.lineColor = argb;
         }
     }

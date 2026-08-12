@@ -35,13 +35,28 @@ public final class FaceProfile {
     public float eyeSpacing = 3.0F;
     public float eyeScale = 1.0F;
     /** Mouth anchor offset in skin pixels, -3..3. */
+    /** Per-eye fine offsets, in skin pixels, on top of the shared eye offset. */
+    public float eyeLeftOffsetX = 0.0F;
+    public float eyeLeftOffsetY = 0.0F;
+    public float eyeRightOffsetX = 0.0F;
+    public float eyeRightOffsetY = 0.0F;
+    /**
+     * How far the two eyes turn inward, in skin pixels. A small convergence
+     * reads as "looking at something in front of you" instead of two eyes
+     * staring straight ahead in parallel.
+     */
+    public float eyeConverge = 0.35F;
+    /** Mirror the right eye so the pair is symmetric rather than cloned. */
+    public boolean mirrorRightEye = true;
+
     public float mouthOffsetX = 0.0F;
     public float mouthOffsetY = 0.0F;
     public float mouthScale = 1.0F;
 
-    /** ARGB colours. */
+    /** ARGB colours. {@link #eyeColor} is the left eye; the right has its own. */
     public int lineColor = 0xFF101010;
     public int eyeColor = 0xFF3A3A3A;
+    public int eyeColorRight = 0xFF3A3A3A;
     public int mouthInnerColor = 0xFF7A1F28;
     public int teethColor = 0xFFF2EAD8;
 
@@ -85,6 +100,13 @@ public final class FaceProfile {
         p.mouthScale = this.mouthScale;
         p.lineColor = this.lineColor;
         p.eyeColor = this.eyeColor;
+        p.eyeColorRight = this.eyeColorRight;
+        p.eyeLeftOffsetX = this.eyeLeftOffsetX;
+        p.eyeLeftOffsetY = this.eyeLeftOffsetY;
+        p.eyeRightOffsetX = this.eyeRightOffsetX;
+        p.eyeRightOffsetY = this.eyeRightOffsetY;
+        p.eyeConverge = this.eyeConverge;
+        p.mirrorRightEye = this.mirrorRightEye;
         p.mouthInnerColor = this.mouthInnerColor;
         p.teethColor = this.teethColor;
         p.useSkinHead = this.useSkinHead;
@@ -108,6 +130,13 @@ public final class FaceProfile {
         buf.writeFloat(this.mouthScale);
         buf.writeInt(this.lineColor);
         buf.writeInt(this.eyeColor);
+        buf.writeInt(this.eyeColorRight);
+        buf.writeFloat(this.eyeLeftOffsetX);
+        buf.writeFloat(this.eyeLeftOffsetY);
+        buf.writeFloat(this.eyeRightOffsetX);
+        buf.writeFloat(this.eyeRightOffsetY);
+        buf.writeFloat(this.eyeConverge);
+        buf.writeBoolean(this.mirrorRightEye);
         buf.writeInt(this.mouthInnerColor);
         buf.writeInt(this.teethColor);
         buf.writeBoolean(this.useSkinHead);
@@ -180,6 +209,13 @@ public final class FaceProfile {
         p.mouthScale = buf.readFloat();
         p.lineColor = buf.readInt();
         p.eyeColor = buf.readInt();
+        p.eyeColorRight = buf.readInt();
+        p.eyeLeftOffsetX = buf.readFloat();
+        p.eyeLeftOffsetY = buf.readFloat();
+        p.eyeRightOffsetX = buf.readFloat();
+        p.eyeRightOffsetY = buf.readFloat();
+        p.eyeConverge = buf.readFloat();
+        p.mirrorRightEye = buf.readBoolean();
         p.mouthInnerColor = buf.readInt();
         p.teethColor = buf.readInt();
         p.useSkinHead = buf.readBoolean();

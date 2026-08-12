@@ -93,15 +93,26 @@ public final class FaceRenderer {
         float v1 = (row + 0.5F) / ROWS;
 
         for (int side = 0; side < 2; side++) {
-            float sx = centerX + (side == 0 ? -spacing : spacing) + gazeX;
-            float open = side == 0 ? openL : openR;
-            float y0 = centerY - halfH * open + gazeY;
-            float y1 = centerY + halfH * open + gazeY;
+            boolean left = side == 0;
+            // Convergence turns each eye toward the middle of the face, which is
+            // what makes a pair read as looking at something instead of staring
+            // in parallel. It is inward on both sides, hence the opposite signs.
+            float converge = left ? profile.eyeConverge : -profile.eyeConverge;
+            float perEyeX = left ? profile.eyeLeftOffsetX : profile.eyeRightOffsetX;
+            float perEyeY = left ? profile.eyeLeftOffsetY : profile.eyeRightOffsetY;
+            float sx = centerX + (left ? -spacing : spacing) + converge + perEyeX + gazeX;
+            float open = left ? openL : openR;
+            float y0 = centerY - halfH * open + gazeY + perEyeY;
+            float y1 = centerY + halfH * open + gazeY + perEyeY;
+            int color = left ? profile.eyeColor : profile.eyeColorRight;
+            // Mirroring the right eye keeps the pair symmetric; without it the
+            // same sprite is cloned and an asymmetric eye points the wrong way.
+            boolean mirror = !left && profile.mirrorRightEye;
             if (profile.hasEyeArt()) {
-                drawEyeArt(poseStack, buffer, profile, sx - halfW, sx + halfW, y0, y1, light);
+                drawEyeArt(poseStack, buffer, profile, sx - halfW, sx + halfW, y0, y1, mirror, light);
             } else {
                 quad(poseStack, buffer, sx - halfW, sx + halfW, y0, y1,
-                        u0, u1, v0, v1, profile.eyeColor, light);
+                        mirror ? u1 : u0, mirror ? u0 : u1, v0, v1, color, light);
             }
         }
 
@@ -125,13 +136,13 @@ public final class FaceRenderer {
      * eye size slider is turned down.
      */
     private static void drawEyeArt(PoseStack poseStack, VertexConsumer buffer, FaceProfile profile,
-                                   float x0, float x1, float y0, float y1, int light) {
+                                   float x0, float x1, float y0, float y1, boolean mirror, int light) {
         int size = profile.eyeArtSize;
         float stepX = (x1 - x0) / size;
         float stepY = (y1 - y0) / size;
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
-                int argb = profile.eyePixel(x, y);
+                int argb = profile.eyePixel(mirror ? size - 1 - x : x, y);
                 if ((argb >>> 24) == 0) {
                     continue;
                 }

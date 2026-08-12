@@ -247,6 +247,12 @@ public final class PokeFaceClient {
                     || !VoiceChatCompat.isLoaded()) {
                 return;
             }
+            if (DIRECTOR.lastSource() == FaceDirector.Source.TRACKER) {
+                // The camera is already reporting the real mouth; forcing the
+                // voice-driven flap on top of it held the mouth open and froze
+                // the expression on "surprised".
+                return;
+            }
             LocalPlayer player = Minecraft.getInstance().player;
             if (player == null) {
                 return;

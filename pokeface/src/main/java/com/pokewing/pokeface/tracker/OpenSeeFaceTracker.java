@@ -1,6 +1,7 @@
 package com.pokewing.pokeface.tracker;
 
 import com.pokewing.pokeface.PokeFace;
+import com.pokewing.pokeface.PokeFaceConfig;
 import com.pokewing.pokeface.face.FaceState;
 
 import java.net.DatagramPacket;
@@ -131,18 +132,34 @@ public final class OpenSeeFaceTracker implements TrackerSource {
         for (int i = 0; i < FEATURE_COUNT; i++) {
             features[i] = in.getFloat();
         }
-        // 0..1 eye openness, 2..7 brow channels, 8..11 mouth corners, 12 open, 13 wide.
+        // OpenSeeFace's feature vector, in order:
+        //  0 eye_l              1 eye_r
+        //  2 eyebrow_steepness_l 3 eyebrow_updown_l  4 eyebrow_quirk_l
+        //  5 eyebrow_steepness_r 6 eyebrow_updown_r  7 eyebrow_quirk_r
+        //  8 mouth_corner_updown_l  9 mouth_corner_inout_l
+        // 10 mouth_corner_updown_r 11 mouth_corner_inout_r
+        // 12 mouth_open          13 mouth_wide
+        // The corner channels are updown at 8/10, NOT inout at 9/11 - reading the
+        // inout pair made the mouth read as permanently pulled open.
+        float eyeOpenLeft = features[0];
+        float eyeOpenRight = features[1];
         float browUpDownLeft = features[3];
         float browUpDownRight = features[6];
-        float mouthCornerUpDownLeft = features[9];
-        float mouthCornerUpDownRight = features[11];
+        float mouthCornerUpDownLeft = features[8];
+        float mouthCornerUpDownRight = features[10];
         float mouthOpen = features[12];
         float mouthWide = features[13];
 
+        // The dedicated blink fields are openness in [0,1]; the eye_l/eye_r
+        // features carry the same information but are the ones trackers embedded
+        // in VSeeFace actually populate. Take whichever reports the eye as more
+        // closed so a blink is never missed.
+        float closedLeft = Math.max(1.0F - blinkLeft, 1.0F - normaliseFeature(eyeOpenLeft));
+        float closedRight = Math.max(1.0F - blinkRight, 1.0F - normaliseFeature(eyeOpenRight));
+
         synchronized (this.lock) {
-            // OpenSeeFace reports eye *openness*; the renderer wants closedness.
-            this.latest.blinkLeft = FaceState.clamp(1.0F - blinkLeft, 0.0F, 1.0F);
-            this.latest.blinkRight = FaceState.clamp(1.0F - blinkRight, 0.0F, 1.0F);
+            this.latest.blinkLeft = FaceState.clamp(closedLeft, 0.0F, 1.0F);
+            this.latest.blinkRight = FaceState.clamp(closedRight, 0.0F, 1.0F);
             this.latest.brow = FaceState.clamp((browUpDownLeft + browUpDownRight) * 0.5F, -1.0F, 1.0F);
             this.latest.mouthOpen = FaceState.clamp(mouthOpen, 0.0F, 1.0F);
             this.latest.mouthSmile = FaceState.clamp(
@@ -151,8 +168,22 @@ public final class OpenSeeFaceTracker implements TrackerSource {
             this.latest.gazeY = FaceState.clamp(-pitch / 30.0F, -1.0F, 1.0F);
             this.latest.intensity = Math.max(Math.abs(this.latest.brow), Math.abs(this.latest.mouthSmile));
             this.latest.expression = classify(this.latest);
+
+            if (PokeFaceConfig.trackerDebug() && this.packetCount % 30 == 0) {
+                PokeFace.LOGGER.info("PokeFace/OSF blinkL={} blinkR={} brow={} mouthOpen={} smile={} -> {}",
+                        this.latest.blinkLeft, this.latest.blinkRight, this.latest.brow,
+                        this.latest.mouthOpen, this.latest.mouthSmile, this.latest.expression);
+            }
         }
         this.latestAt = System.currentTimeMillis();
+    }
+
+    /**
+     * Feature channels are signed and loosely scaled around 0 for "neutral"; the
+     * eye channels are effectively openness once shifted into [0,1].
+     */
+    private static float normaliseFeature(float value) {
+        return FaceState.clamp((value + 1.0F) * 0.5F, 0.0F, 1.0F);
     }
 
     /**
@@ -160,7 +191,7 @@ public final class OpenSeeFaceTracker implements TrackerSource {
      * face still lands on the same stylised tiles the fallback drivers use.
      */
     private static com.pokewing.pokeface.face.Expression classify(FaceState s) {
-        if (s.mouthOpen > 0.6F && s.brow > 0.4F) {
+        if (s.mouthOpen > 0.6F && s.brow > 0.5F) {
             return com.pokewing.pokeface.face.Expression.SURPRISED;
         }
         if (s.brow < -0.45F) {

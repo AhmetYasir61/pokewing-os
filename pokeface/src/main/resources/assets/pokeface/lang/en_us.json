@@ -14,7 +14,6 @@
   "pokeface.menu.mouth_scale": "Mouth size",
   "pokeface.menu.color_target": "Colour",
   "pokeface.menu.color_line": "Lines / brows",
-  "pokeface.menu.color_eye": "Eyes",
   "pokeface.menu.color_mouth": "Inner mouth",
   "pokeface.menu.color_teeth": "Teeth",
   "pokeface.menu.use_skin_head": "Use skin head",
@@ -56,5 +55,13 @@
   "pokeface.editor.canvas_face": "Canvas: face patch (skin)",
   "pokeface.editor.canvas_eye": "Canvas: eye sprite",
   "pokeface.editor.use_builtin": "Use built-in eye",
-  "pokeface.status.tracker": "Tracker: %s"
+  "pokeface.status.tracker": "Tracker: %s",
+  "pokeface.menu.converge": "Look inward",
+  "pokeface.menu.left_eye_x": "Left eye X",
+  "pokeface.menu.left_eye_y": "Left eye Y",
+  "pokeface.menu.right_eye_x": "Right eye X",
+  "pokeface.menu.right_eye_y": "Right eye Y",
+  "pokeface.menu.mirror_right": "Mirror right eye",
+  "pokeface.menu.color_eye_left": "Left eye",
+  "pokeface.menu.color_eye_right": "Right eye"
 }

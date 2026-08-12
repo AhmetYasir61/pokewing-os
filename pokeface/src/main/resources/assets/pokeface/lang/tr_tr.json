@@ -14,7 +14,6 @@
   "pokeface.menu.mouth_scale": "Ağız boyutu",
   "pokeface.menu.color_target": "Renk",
   "pokeface.menu.color_line": "Çizgi / kaş",
-  "pokeface.menu.color_eye": "Göz",
   "pokeface.menu.color_mouth": "Ağız içi",
   "pokeface.menu.color_teeth": "Dişler",
   "pokeface.menu.use_skin_head": "Skin kafasını kullan",
@@ -56,5 +55,13 @@
   "pokeface.editor.canvas_face": "Tuval: yüz alanı (skin)",
   "pokeface.editor.canvas_eye": "Tuval: göz görseli",
   "pokeface.editor.use_builtin": "Hazır gözü kullan",
-  "pokeface.status.tracker": "Takip: %s"
+  "pokeface.status.tracker": "Takip: %s",
+  "pokeface.menu.converge": "İçe bakış",
+  "pokeface.menu.left_eye_x": "Sol göz X",
+  "pokeface.menu.left_eye_y": "Sol göz Y",
+  "pokeface.menu.right_eye_x": "Sağ göz X",
+  "pokeface.menu.right_eye_y": "Sağ göz Y",
+  "pokeface.menu.mirror_right": "Sağ gözü aynala",
+  "pokeface.menu.color_eye_left": "Sol göz",
+  "pokeface.menu.color_eye_right": "Sağ göz"
 }

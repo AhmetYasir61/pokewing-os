@@ -108,16 +108,37 @@ oyunculara otomatik gönderilir, yani herkes aynı yüzü görür.
 ## Yüz kamerası kurulumu
 
 Minecraft'ın JVM'i kameraya doğrudan erişemez, bu yüzden mod dışarıdaki bir
-tracker'dan **UDP** ile blendshape verisi dinler (OpenSeeFace protokolü —
-OpenSeeFace, VSeeFace ve uyumlu araçlar bunu konuşur).
+tracker'dan **UDP** ile veri dinler. **İki protokol birden** dinlenir, hangisi
+veri gönderiyorsa o kullanılır:
+
+| Protokol | Port | Kim gönderir |
+|----------|------|--------------|
+| OpenSeeFace | 11573 | OpenSeeFace'in `facetracker.py`'si |
+| VMC (OSC) | 39539 | **VSeeFace**, VNyan, Warudo |
+
+> **Önemli:** VSeeFace OpenSeeFace formatını **gönderme**z, **alır**. Sadece
+> 11573'ü dinlersen soket açılır ama tek paket gelmez — ekranda yüz "bağlandı
+> ama donuk" görünür. VSeeFace kullanıyorsan VMC yolu gerekir.
+
+### VSeeFace
+
+VSeeFace → **Settings → General settings → OSC/VMC protocol** →
+*Send tracking data* (VMC protocol sender) aç, hedef **127.0.0.1 : 39539**.
+Blendshape verisi için "Send blendshapes / BlendShape values" seçeneğini de aç.
+
+### OpenSeeFace
 
 ```
 python facetracker.py -c 0 -I 127.0.0.1 -P 11573
 ```
 
-`config/pokeface-client.toml` içinden adres/port değiştirilebilir. Paket gelmezse
-(kamera kapalı, tracker yok, seçilmemiş) mod **otomatik olarak** reaksiyon ve
-idle animasyonlarına düşer — ayrıca bir şey yapman gerekmez.
+`config/pokeface-client.toml` içinden adres/portlar değiştirilebilir; tracker
+başka makinedeyse `address = "0.0.0.0"` yap.
+
+Menünün sol altındaki **Takip:** satırı ne olduğunu söyler: `bound, 0 packets`
+= soket açık ama kimse göndermiyor (yanlış protokol/port), aksi halde hangi
+dinleyiciden kaç paket geldiğini yazar. Veri gelmediği sürece mod **otomatik
+olarak** reaksiyon ve idle animasyonlarına düşer.
 
 ## Doku
 

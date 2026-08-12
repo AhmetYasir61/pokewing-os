@@ -55,5 +55,6 @@
   "pokeface.editor.tool": "Araç: %s",
   "pokeface.editor.canvas_face": "Tuval: yüz alanı (skin)",
   "pokeface.editor.canvas_eye": "Tuval: göz görseli",
-  "pokeface.editor.use_builtin": "Hazır gözü kullan"
+  "pokeface.editor.use_builtin": "Hazır gözü kullan",
+  "pokeface.status.tracker": "Takip: %s"
 }

@@ -13,7 +13,9 @@ import com.pokewing.pokeface.face.ReactionTrigger;
 import com.pokewing.pokeface.net.FaceProfilePacket;
 import com.pokewing.pokeface.net.FaceSyncPacket;
 import com.pokewing.pokeface.net.PokeFaceNetwork;
+import com.pokewing.pokeface.tracker.CompositeTracker;
 import com.pokewing.pokeface.tracker.OpenSeeFaceTracker;
+import com.pokewing.pokeface.tracker.OscVmcTracker;
 import com.pokewing.pokeface.tracker.TrackerSource;
 
 import net.minecraft.client.KeyMapping;
@@ -161,6 +163,18 @@ public final class PokeFaceClient {
         return DIRECTOR.lastSource();
     }
 
+    /** Diagnostics for the menu: which listener is feeding us, and how much. */
+    public static String trackerStatus() {
+        if (tracker == null) {
+            return "off";
+        }
+        long packets = tracker instanceof CompositeTracker composite ? composite.packetCount() : -1L;
+        if (packets == 0L) {
+            return "bound, 0 packets";
+        }
+        return tracker.name() + (packets > 0 ? " (" + packets + " pkt)" : "");
+    }
+
     /** (Re)opens the tracker socket after a config or profile change. */
     public static void restartTracker() {
         if (tracker != null) {
@@ -172,8 +186,14 @@ public final class PokeFaceClient {
             CombatReactions.logOnce("face tracking disabled - using reactions and idle animation");
             return;
         }
-        tracker = new OpenSeeFaceTracker(PokeFaceConfig.trackerAddress(), PokeFaceConfig.trackerPort(),
-                PokeFaceConfig.trackerTimeoutMillis());
+        // Both protocols are bound at once: OpenSeeFace's tracker sends the OSF
+        // format, VSeeFace and friends send VMC, and picking wrong looks like a
+        // connected-but-frozen face.
+        tracker = new CompositeTracker(java.util.List.of(
+                new OpenSeeFaceTracker(PokeFaceConfig.trackerAddress(), PokeFaceConfig.trackerPort(),
+                        PokeFaceConfig.trackerTimeoutMillis()),
+                new OscVmcTracker(PokeFaceConfig.trackerAddress(), PokeFaceConfig.vmcPort(),
+                        PokeFaceConfig.trackerTimeoutMillis())));
         tracker.start();
         DIRECTOR.setTracker(tracker);
     }

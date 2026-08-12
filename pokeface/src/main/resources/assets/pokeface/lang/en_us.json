@@ -55,5 +55,6 @@
   "pokeface.editor.tool": "Tool: %s",
   "pokeface.editor.canvas_face": "Canvas: face patch (skin)",
   "pokeface.editor.canvas_eye": "Canvas: eye sprite",
-  "pokeface.editor.use_builtin": "Use built-in eye"
+  "pokeface.editor.use_builtin": "Use built-in eye",
+  "pokeface.status.tracker": "Tracker: %s"
 }

@@ -253,6 +253,10 @@ public final class FaceCustomizeScreen extends Screen {
                 EpicFightCompat.isLoaded() ? "OK" : "-"), 10, y + 11, 0xAAAAAA, false);
         graphics.drawString(this.font, Component.translatable("pokeface.status.voicechat",
                 VoiceChatCompat.isLoaded() ? "OK" : "-"), 10, y + 22, 0xAAAAAA, false);
+        // Spells out "bound but nothing is arriving", which is otherwise
+        // indistinguishable from a frozen face.
+        graphics.drawString(this.font, Component.translatable("pokeface.status.tracker",
+                PokeFaceClient.trackerStatus()), 10, y + 33, 0xAAAAAA, false);
     }
 
     @Override

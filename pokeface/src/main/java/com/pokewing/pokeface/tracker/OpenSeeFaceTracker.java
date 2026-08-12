@@ -48,6 +48,7 @@ public final class OpenSeeFaceTracker implements TrackerSource {
     private final Object lock = new Object();
     private final FaceState latest = new FaceState();
     private volatile long latestAt;
+    private volatile long packetCount;
 
     public OpenSeeFaceTracker(String bindAddress, int port, long stalenessMillis) {
         this.bindAddress = bindAddress;
@@ -89,6 +90,7 @@ public final class OpenSeeFaceTracker implements TrackerSource {
         while (this.running) {
             try {
                 this.socket.receive(packet);
+                this.packetCount++;
                 if (packet.getLength() >= MIN_PACKET) {
                     decode(ByteBuffer.wrap(buf, 0, packet.getLength()).order(ByteOrder.LITTLE_ENDIAN),
                             packet.getLength());
@@ -190,6 +192,15 @@ public final class OpenSeeFaceTracker implements TrackerSource {
     @Override
     public boolean isLive() {
         return this.socket != null && System.currentTimeMillis() - this.latestAt < this.stalenessMillis;
+    }
+
+    /** Packets seen since start; 0 while bound means "nothing is sending here". */
+    public long packetCount() {
+        return this.packetCount;
+    }
+
+    public boolean isBound() {
+        return this.socket != null;
     }
 
     @Override

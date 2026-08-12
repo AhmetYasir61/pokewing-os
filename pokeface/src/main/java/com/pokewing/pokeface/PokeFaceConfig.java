@@ -13,6 +13,7 @@ public final class PokeFaceConfig {
     public final ForgeConfigSpec.BooleanValue trackerEnabled;
     public final ForgeConfigSpec.ConfigValue<String> trackerAddress;
     public final ForgeConfigSpec.IntValue trackerPort;
+    public final ForgeConfigSpec.IntValue vmcPort;
     public final ForgeConfigSpec.IntValue trackerTimeoutMillis;
     public final ForgeConfigSpec.DoubleValue smoothing;
     public final ForgeConfigSpec.DoubleValue threatRadius;
@@ -45,11 +46,18 @@ public final class PokeFaceConfig {
                         "automatically falls back to combat reactions and the idle animator.")
                 .define("enabled", true);
         this.trackerAddress = builder
-                .comment("Address to bind the UDP listener to.")
+                .comment("Address to bind the UDP listeners to. Use 0.0.0.0 when the",
+                        "tracker runs on another machine or sends to the LAN address.")
                 .define("address", "127.0.0.1");
         this.trackerPort = builder
-                .comment("UDP port. OpenSeeFace/VSeeFace default is 11573.")
+                .comment("UDP port for the OpenSeeFace format, which OpenSeeFace's",
+                        "facetracker.py SENDS (VSeeFace only receives it). Default 11573.")
                 .defineInRange("port", 11573, 1024, 65535);
+        this.vmcPort = builder
+                .comment("UDP port for the VMC protocol (OSC). VSeeFace, VNyan and",
+                        "Warudo SEND this format; 39539 is the standard port.",
+                        "Both listeners run at once, so whichever tracker is running wins.")
+                .defineInRange("vmcPort", 39539, 1024, 65535);
         this.trackerTimeoutMillis = builder
                 .comment("How long without packets before the camera counts as lost.")
                 .defineInRange("timeoutMillis", 600, 100, 10000);
@@ -88,6 +96,10 @@ public final class PokeFaceConfig {
 
     public static int trackerPort() {
         return INSTANCE.trackerPort.get();
+    }
+
+    public static int vmcPort() {
+        return INSTANCE.vmcPort.get();
     }
 
     public static int trackerTimeoutMillis() {

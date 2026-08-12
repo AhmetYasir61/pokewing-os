@@ -17,10 +17,16 @@ import java.util.Locale;
 /**
  * Pixel editor for the 8x8 face patch that is painted over the head.
  *
- * <p>This is how a player removes the eyes their skin already has: paint skin
- * tone over them so only the animated eyes remain. Painting is per pixel with a
- * brush, an eraser (back to "show the skin"), a bucket fill and undo, and the
- * colour is mixed with RGB sliders so any skin tone can be matched exactly.
+ * <p>Two canvases share the screen. The <b>face</b> canvas is how a player
+ * removes the eyes their skin already has: paint skin tone over them so only the
+ * animated eyes remain. The <b>eye</b> canvas replaces the built-in eye sprite
+ * with a hand-drawn one, at a resolution the player picks (4x4 to 32x32) —
+ * resolution is detail only, the sprite is stretched to whatever the eye size
+ * slider asks for.
+ *
+ * <p>Painting is per pixel with a brush, an eraser (back to transparent), a
+ * bucket fill and undo, and the colour is mixed with RGB sliders so any skin
+ * tone can be matched exactly.
  */
 public final class FacePixelEditorScreen extends Screen {
 
@@ -38,9 +44,31 @@ public final class FacePixelEditorScreen extends Screen {
     private int color = 0xFFEDC5A4;
     private Tool tool = Tool.BRUSH;
     private boolean painting;
+    private Canvas canvas = Canvas.FACE;
 
     private enum Tool {
         BRUSH, ERASER, FILL
+    }
+
+    private enum Canvas {
+        FACE, EYE
+    }
+
+    /** Edge length of whichever canvas is being edited. */
+    private int gridSize() {
+        return this.canvas == Canvas.EYE ? Math.max(1, this.profile.eyeArtSize) : GRID;
+    }
+
+    private int[] pixels() {
+        return this.canvas == Canvas.EYE ? this.profile.eyeArt : this.profile.normalisedPixels();
+    }
+
+    private int pixel(int x, int y) {
+        return pixels()[y * gridSize() + x];
+    }
+
+    private void setPixel(int x, int y, int argb) {
+        pixels()[y * gridSize() + x] = argb;
     }
 
     public FacePixelEditorScreen(Screen parent, FaceProfile profile) {
@@ -50,19 +78,54 @@ public final class FacePixelEditorScreen extends Screen {
     }
 
     private int gridLeft() {
-        return this.width / 2 - (GRID * this.cell) / 2 - 90;
+        return this.width / 2 - (gridSize() * this.cell) / 2 - 90;
     }
 
     private int gridTop() {
-        return this.height / 2 - (GRID * this.cell) / 2;
+        return this.height / 2 - (gridSize() * this.cell) / 2;
+    }
+
+    /** Keeps the whole canvas on screen whichever resolution is selected. */
+    private void fitCell() {
+        int budget = Math.min(this.width / 2 - 40, this.height - 90);
+        this.cell = Mth.clamp(budget / Math.max(1, gridSize()), 4, 40);
     }
 
     @Override
     protected void init() {
+        if (this.canvas == Canvas.EYE && !this.profile.hasEyeArt()) {
+            this.profile.resizeEyeArt(8);
+        }
+        fitCell();
+
         int x = this.width / 2 + 60;
         int y = 40;
         int w = 130;
         int h = 20;
+
+        addRenderableWidget(Button.builder(
+                Component.translatable(this.canvas == Canvas.EYE
+                        ? "pokeface.editor.canvas_eye" : "pokeface.editor.canvas_face"),
+                b -> {
+                    this.canvas = this.canvas == Canvas.FACE ? Canvas.EYE : Canvas.FACE;
+                    this.undoStack.clear();
+                    rebuildWidgets();
+                }).bounds(x, y, w, h).build());
+        y += 26;
+
+        if (this.canvas == Canvas.EYE) {
+            int bw = (w - 9) / 4;
+            for (int i = 0; i < FaceProfile.EYE_ART_SIZES.length; i++) {
+                int size = FaceProfile.EYE_ART_SIZES[i];
+                addRenderableWidget(Button.builder(Component.literal(size + ""),
+                        b -> {
+                            this.profile.resizeEyeArt(size);
+                            this.undoStack.clear();
+                            rebuildWidgets();
+                        }).bounds(x + i * (bw + 3), y, bw, h).build());
+            }
+            y += 26;
+        }
 
         addRenderableWidget(Button.builder(Component.translatable("pokeface.editor.brush"),
                 b -> this.tool = Tool.BRUSH).bounds(x, y, 42, h).build());
@@ -82,11 +145,23 @@ public final class FacePixelEditorScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("pokeface.editor.clear"),
                 b -> {
                     pushUndo();
-                    java.util.Arrays.fill(this.profile.normalisedPixels(), 0);
+                    java.util.Arrays.fill(pixels(), 0);
                 }).bounds(x + 67, y, 63, h).build());
         y += 24;
-        addRenderableWidget(Button.builder(Component.translatable("pokeface.editor.cover_eyes"),
-                b -> coverSkinEyes()).bounds(x, y, w, h).build());
+        if (this.canvas == Canvas.FACE) {
+            addRenderableWidget(Button.builder(Component.translatable("pokeface.editor.cover_eyes"),
+                    b -> coverSkinEyes()).bounds(x, y, w, h).build());
+        } else {
+            // Dropping back to the built-in sprite is a first-class action: an
+            // empty canvas would otherwise render as no eyes at all.
+            addRenderableWidget(Button.builder(Component.translatable("pokeface.editor.use_builtin"),
+                    b -> {
+                        this.profile.eyeArtSize = 0;
+                        this.profile.eyeArt = new int[0];
+                        this.canvas = Canvas.FACE;
+                        rebuildWidgets();
+                    }).bounds(x, y, w, h).build());
+        }
         y += 24;
         addRenderableWidget(Button.builder(Component.translatable("gui.done"),
                 b -> onClose()).bounds(x, y, w, h).build());
@@ -129,7 +204,7 @@ public final class FacePixelEditorScreen extends Screen {
     }
 
     private void pushUndo() {
-        this.undoStack.push(this.profile.normalisedPixels().clone());
+        this.undoStack.push(pixels().clone());
         if (this.undoStack.size() > 32) {
             this.undoStack.removeLast();
         }
@@ -137,8 +212,9 @@ public final class FacePixelEditorScreen extends Screen {
 
     private void undo() {
         int[] previous = this.undoStack.poll();
-        if (previous != null) {
-            System.arraycopy(previous, 0, this.profile.normalisedPixels(), 0, previous.length);
+        int[] target = pixels();
+        if (previous != null && previous.length == target.length) {
+            System.arraycopy(previous, 0, target, 0, previous.length);
         }
     }
 
@@ -148,15 +224,16 @@ public final class FacePixelEditorScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFF);
 
+        int size = gridSize();
         int left = gridLeft();
         int top = gridTop();
-        graphics.fill(left - 2, top - 2, left + GRID * this.cell + 2, top + GRID * this.cell + 2, 0xFF000000);
+        graphics.fill(left - 2, top - 2, left + size * this.cell + 2, top + size * this.cell + 2, 0xFF000000);
 
-        for (int y = 0; y < GRID; y++) {
-            for (int x = 0; x < GRID; x++) {
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
                 int px = left + x * this.cell;
                 int py = top + y * this.cell;
-                int argb = this.profile.pixel(x, y);
+                int argb = pixel(x, y);
                 // Transparent pixels show a checkerboard: "the skin shows here".
                 int background = ((x + y) % 2 == 0) ? 0xFF3C3C3C : 0xFF303030;
                 graphics.fill(px, py, px + this.cell, py + this.cell, background);
@@ -165,11 +242,13 @@ public final class FacePixelEditorScreen extends Screen {
                 }
             }
         }
-        // Guide lines at the rows a vanilla skin puts eyes and mouth on.
-        int eyeRow = top + 3 * this.cell;
-        graphics.renderOutline(left, eyeRow, GRID * this.cell, this.cell * 2, 0x66FFDD55);
-        int mouthRow = top + 5 * this.cell;
-        graphics.renderOutline(left, mouthRow, GRID * this.cell, this.cell, 0x6655DDFF);
+        if (this.canvas == Canvas.FACE) {
+            // Guide lines at the rows a vanilla skin puts eyes and mouth on.
+            int eyeRow = top + 3 * this.cell;
+            graphics.renderOutline(left, eyeRow, size * this.cell, this.cell * 2, 0x66FFDD55);
+            int mouthRow = top + 5 * this.cell;
+            graphics.renderOutline(left, mouthRow, size * this.cell, this.cell, 0x6655DDFF);
+        }
 
         drawPresets(graphics);
 
@@ -221,16 +300,16 @@ public final class FacePixelEditorScreen extends Screen {
         int top = gridTop();
         int gx = (int) ((mouseX - left) / this.cell);
         int gy = (int) ((mouseY - top) / this.cell);
-        if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) {
+        if (gx < 0 || gy < 0 || gx >= gridSize() || gy >= gridSize()) {
             return false;
         }
         if (startStroke) {
             pushUndo();
         }
         switch (this.tool) {
-            case ERASER -> this.profile.setPixel(gx, gy, 0);
-            case FILL -> java.util.Arrays.fill(this.profile.normalisedPixels(), this.color);
-            default -> this.profile.setPixel(gx, gy, this.color);
+            case ERASER -> setPixel(gx, gy, 0);
+            case FILL -> java.util.Arrays.fill(pixels(), this.color);
+            default -> setPixel(gx, gy, this.color);
         }
         return true;
     }

@@ -241,6 +241,7 @@ public final class PokeFaceClient {
         @SubscribeEvent
         public void onLoggedOut(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
             ClientFaceStore.clear();
+            SkinOverride.clear();
         }
 
         @SubscribeEvent

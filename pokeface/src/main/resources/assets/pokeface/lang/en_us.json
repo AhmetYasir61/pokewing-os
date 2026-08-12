@@ -52,5 +52,8 @@
   "pokeface.editor.red": "R",
   "pokeface.editor.green": "G",
   "pokeface.editor.blue": "B",
-  "pokeface.editor.tool": "Tool: %s"
+  "pokeface.editor.tool": "Tool: %s",
+  "pokeface.editor.canvas_face": "Canvas: face patch (skin)",
+  "pokeface.editor.canvas_eye": "Canvas: eye sprite",
+  "pokeface.editor.use_builtin": "Use built-in eye"
 }

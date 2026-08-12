@@ -39,6 +39,7 @@ public final class EpicFightRenderHook {
         if (state == null) {
             return;
         }
+        SkinOverride.sync((AbstractClientPlayer) player, PokeFaceClient.profileFor(player));
         if (!EpicFightHeadPose.apply(event.getPoseStack(), player, event.getPartialTick())) {
             // Epic Fight is loaded but this entity is not being drawn from its
             // armature (or the lookup failed); leave it to the vanilla layer.

@@ -24,8 +24,10 @@ import net.minecraft.util.Mth;
  * <b>-Z is the facing direction</b> — the same convention vanilla
  * {@code ModelPart} rendering uses.
  *
- * <p>The features are plain textured quads in the normal entity buffer: no
- * mixin, no model surgery, no renderer replacement.
+ * <p>The animated features are the <b>only</b> thing drawn on top of the player:
+ * plain textured quads in the normal entity buffer, no mixin, no model surgery,
+ * no renderer replacement. The hand-painted face patch is not a layer at all —
+ * it is written into the skin texture itself by {@link SkinOverride}.
  */
 public final class FaceRenderer {
 
@@ -45,8 +47,6 @@ public final class FaceRenderer {
     private static final float EYE_ROW_PX = -4.5F;
     /** Mouth row, in model pixels above the head pivot. */
     private static final float MOUTH_ROW_PX = -2.5F;
-    /** The painted patch sits a hair behind the features so they draw on top. */
-    private static final float PAINT_DEPTH = 0.0004F;
     /**
      * Centre of the solid white texel in the atlas' bottom-right corner, sampled
      * when drawing flat-coloured hand-painted pixels.
@@ -65,40 +65,11 @@ public final class FaceRenderer {
     public static void renderInHeadSpace(PoseStack poseStack, MultiBufferSource buffers,
                                          FaceState face, FaceProfile profile, int light) {
         VertexConsumer buffer = buffers.getBuffer(RenderType.entityTranslucent(ATLAS));
-        if (profile.paintEnabled) {
-            drawPaintedPatch(poseStack, buffer, profile, light);
-        }
         int col = face.expression.ordinal() % COLUMNS;
         int row = profile.styleEnum().row() % ROWS;
 
         drawEyes(poseStack, buffer, face, profile, col, row, light);
         drawMouth(poseStack, buffer, face, profile, col, row, light);
-    }
-
-    /**
-     * The player's hand-painted 8x8 patch, drawn just behind the features. This
-     * is how a skin's own eyes get covered with skin tone so the animated eyes
-     * are the only pair on the face.
-     */
-    private static void drawPaintedPatch(PoseStack poseStack, VertexConsumer buffer,
-                                         FaceProfile profile, int light) {
-        int[] pixels = profile.normalisedPixels();
-        int size = FaceProfile.FACE_SIZE;
-        // The patch covers the whole 8x8 face: x from -4..4, y from -8..0.
-        for (int y = 0; y < size; y++) {
-            for (int x = 0; x < size; x++) {
-                int argb = pixels[y * size + x];
-                if ((argb >>> 24) == 0) {
-                    continue;
-                }
-                float x0 = -4.0F + x;
-                float y0 = -8.0F + y;
-                // A fully opaque UV region of the atlas is not needed: the patch
-                // is flat colour, so the tile's blank corner is sampled.
-                quadAt(poseStack, buffer, x0, x0 + 1.0F, y0, y0 + 1.0F,
-                        BLANK_U, BLANK_U, BLANK_V, BLANK_V, argb, light, PAINT_DEPTH);
-            }
-        }
     }
 
     private static void drawEyes(PoseStack poseStack, VertexConsumer buffer, FaceState face,
@@ -124,9 +95,14 @@ public final class FaceRenderer {
         for (int side = 0; side < 2; side++) {
             float sx = centerX + (side == 0 ? -spacing : spacing) + gazeX;
             float open = side == 0 ? openL : openR;
-            quad(poseStack, buffer, sx - halfW, sx + halfW,
-                    centerY - halfH * open + gazeY, centerY + halfH * open + gazeY,
-                    u0, u1, v0, v1, profile.eyeColor, light);
+            float y0 = centerY - halfH * open + gazeY;
+            float y1 = centerY + halfH * open + gazeY;
+            if (profile.hasEyeArt()) {
+                drawEyeArt(poseStack, buffer, profile, sx - halfW, sx + halfW, y0, y1, light);
+            } else {
+                quad(poseStack, buffer, sx - halfW, sx + halfW, y0, y1,
+                        u0, u1, v0, v1, profile.eyeColor, light);
+            }
         }
 
         if (Math.abs(face.brow) > 0.05F) {
@@ -138,6 +114,31 @@ public final class FaceRenderer {
                 quad(poseStack, buffer, sx - halfW, sx + halfW,
                         browY + drop, browY + drop + 0.5F,
                         u1, (col + 1.0F) / COLUMNS, v0, v1, profile.lineColor, light);
+            }
+        }
+    }
+
+    /**
+     * Draws a hand-painted eye sprite stretched across the eye rectangle. The
+     * canvas resolution is the player's choice (4x4 up to 32x32) and is
+     * independent of the on-head size, so a detailed eye stays detailed when the
+     * eye size slider is turned down.
+     */
+    private static void drawEyeArt(PoseStack poseStack, VertexConsumer buffer, FaceProfile profile,
+                                   float x0, float x1, float y0, float y1, int light) {
+        int size = profile.eyeArtSize;
+        float stepX = (x1 - x0) / size;
+        float stepY = (y1 - y0) / size;
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                int argb = profile.eyePixel(x, y);
+                if ((argb >>> 24) == 0) {
+                    continue;
+                }
+                float px0 = x0 + x * stepX;
+                float py0 = y0 + y * stepY;
+                quad(poseStack, buffer, px0, px0 + stepX, py0, py0 + stepY,
+                        BLANK_U, BLANK_U, BLANK_V, BLANK_V, argb, light);
             }
         }
     }

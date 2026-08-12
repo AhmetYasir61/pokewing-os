@@ -80,12 +80,24 @@ Menüye ayrıca mod listesindeki **Configure** düğmesinden de girilir.
 - **Renkler:** çizgi/kaş, göz, ağız içi ve diş rengi ayrı ayrı seçilir.
 - **Skin kafasını kullan:** yüz, skin'in kendi kafa pikselleri üstüne çizilir.
 - **Yüz kamerası** ve **Voice chat ağzı** anahtarları.
-- **Piksel editörü:** kafanın ön yüzündeki 8x8 alanı elle boyarsın. Asıl amacı,
-  skin'inin kendi gözlerini ten rengiyle kapatıp üst üste iki çift göz
-  görünmesini engellemek — "Skin gözlerini kapat" düğmesi bunu tek tıkla yapar.
-  Fırça / silgi / doldur, geri al, RGB kaydırıcıları ve ten rengi hazır
-  paleti var; sağ tık her zaman siler, tekerlek grid'i büyütür. Şeffaf bırakılan
+- **Piksel editörü** iki tuvalli:
+  - **Yüz alanı (skin):** kafanın 8x8 ön yüzü. Buraya boyadıkların **skin
+    dokusuna yazılır** — ek katman değil. Skin'inin kendi gözlerini ten rengiyle
+    kapatınca (tek tıkla "Skin gözlerini kapat") gerçekten silinmiş olur; üstelik
+    aynı bölgenin hat/overlay katmanı da temizlenir ki alttan göz sızmasın.
+  - **Göz görseli:** hazır göz sprite'ı yerine kendi gözünü çizersin.
+    **4x4 / 8x8 / 16x16 / 32x32** çözünürlük seçilir; çözünürlük değiştirince
+    çizim en yakın komşu ile yeniden örneklenir, kaybolmaz. Çözünürlük sadece
+    detay demek — göz, "Göz boyutu" kaydırıcısının verdiği alana esnetilir.
+    "Hazır gözü kullan" ile istediğin an geri dönersin.
+
+  Fırça / silgi / doldur, geri al, RGB kaydırıcıları ve ten rengi hazır paleti
+  var; sağ tık her zaman siler, tekerlek grid'i büyütür. Şeffaf bırakılan
   pikseller dama tahtası olarak görünür, yani "burada skin görünsün" demektir.
+
+  **Oyuncunun üstüne eklenen tek katman animasyonlu göz ve ağızdır.** Boya
+  katman değildir; skin'in kendisidir. Boyamayı temizlediğin an orijinal skin
+  geri yüklenir.
 - Solda canlı önizleme: **tekerlek ile yakınlaştır/uzaklaştır, sürükleyerek
   döndür** (arayüz ölçeğinden bağımsız). Altta hangi kaynağın aktif olduğu
   (kamera / reaksiyon / idle) ve Epic Fight + voice chat durumu yazar.

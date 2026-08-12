@@ -52,5 +52,8 @@
   "pokeface.editor.red": "K",
   "pokeface.editor.green": "Y",
   "pokeface.editor.blue": "M",
-  "pokeface.editor.tool": "Araç: %s"
+  "pokeface.editor.tool": "Araç: %s",
+  "pokeface.editor.canvas_face": "Tuval: yüz alanı (skin)",
+  "pokeface.editor.canvas_eye": "Tuval: göz görseli",
+  "pokeface.editor.use_builtin": "Hazır gözü kullan"
 }

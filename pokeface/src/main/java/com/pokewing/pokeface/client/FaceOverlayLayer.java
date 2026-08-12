@@ -42,6 +42,8 @@ public final class FaceOverlayLayer extends RenderLayer<AbstractClientPlayer, Pl
         FaceProfile profile = PokeFaceClient.profileFor(player);
         ModelPart head = getParentModel().head;
 
+        SkinOverride.sync(player, profile);
+
         poseStack.pushPose();
         head.translateAndRotate(poseStack);
         FaceRenderer.renderInHeadSpace(poseStack, buffers, state, profile, light);

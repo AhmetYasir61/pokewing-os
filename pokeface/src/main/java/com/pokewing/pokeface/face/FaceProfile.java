@@ -24,6 +24,9 @@ public final class FaceProfile {
     public static final int FACE_SIZE = 8;
     public static final int FACE_PIXELS = FACE_SIZE * FACE_SIZE;
 
+    /** Selectable eye canvas resolutions. */
+    public static final int[] EYE_ART_SIZES = {4, 8, 16, 32};
+
     public String style = FaceStyle.DEFAULT.key();
     /** Eye anchor offset in skin pixels, -3..3. */
     public float eyeOffsetX = 0.0F;
@@ -52,6 +55,15 @@ public final class FaceProfile {
      */
     public int[] facePixels = new int[FACE_PIXELS];
     public boolean paintEnabled = true;
+
+    /**
+     * Optional hand-drawn eye sprite. {@link #eyeArtSize} is the edge length in
+     * pixels (one of {@link #EYE_ART_SIZES}); 0 means "use the built-in sprite
+     * from the style atlas". The art is stretched across whatever the eye size
+     * slider asks for, so the resolution chosen here is about detail, not scale.
+     */
+    public int eyeArtSize;
+    public int[] eyeArt = new int[0];
     /** Drive the mouth from the voice chat microphone when available. */
     public boolean voiceChatMouth = true;
     /** Use the webcam tracker when it is streaming. */
@@ -78,6 +90,8 @@ public final class FaceProfile {
         p.useSkinHead = this.useSkinHead;
         p.paintEnabled = this.paintEnabled;
         p.facePixels = this.facePixels.clone();
+        p.eyeArtSize = this.eyeArtSize;
+        p.eyeArt = this.eyeArt.clone();
         p.voiceChatMouth = this.voiceChatMouth;
         p.useTracker = this.useTracker;
         return p;
@@ -101,6 +115,41 @@ public final class FaceProfile {
         for (int pixel : normalisedPixels()) {
             buf.writeInt(pixel);
         }
+        buf.writeVarInt(hasEyeArt() ? this.eyeArtSize : 0);
+        if (hasEyeArt()) {
+            for (int pixel : this.eyeArt) {
+                buf.writeInt(pixel);
+            }
+        }
+    }
+
+    public boolean hasEyeArt() {
+        return this.eyeArtSize > 0 && this.eyeArt != null
+                && this.eyeArt.length == this.eyeArtSize * this.eyeArtSize;
+    }
+
+    public int eyePixel(int x, int y) {
+        return this.eyeArt[y * this.eyeArtSize + x];
+    }
+
+    /**
+     * Switches the eye canvas to {@code size}, resampling whatever is already
+     * drawn with nearest neighbour so a sketch is not lost when going up or down
+     * a resolution.
+     */
+    public void resizeEyeArt(int size) {
+        int[] resampled = new int[size * size];
+        if (hasEyeArt()) {
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    int sx = x * this.eyeArtSize / size;
+                    int sy = y * this.eyeArtSize / size;
+                    resampled[y * size + x] = this.eyeArt[sy * this.eyeArtSize + sx];
+                }
+            }
+        }
+        this.eyeArtSize = size;
+        this.eyeArt = resampled;
     }
 
     /** Guards against a hand-edited JSON with a wrong-sized pixel array. */
@@ -137,6 +186,16 @@ public final class FaceProfile {
         p.paintEnabled = buf.readBoolean();
         for (int i = 0; i < FACE_PIXELS; i++) {
             p.facePixels[i] = buf.readInt();
+        }
+        int eyeSize = buf.readVarInt();
+        // Clamped against the known sizes so a malformed packet cannot make the
+        // client allocate an arbitrary array.
+        if (eyeSize > 0 && eyeSize <= 32) {
+            p.eyeArtSize = eyeSize;
+            p.eyeArt = new int[eyeSize * eyeSize];
+            for (int i = 0; i < p.eyeArt.length; i++) {
+                p.eyeArt[i] = buf.readInt();
+            }
         }
         return p;
     }

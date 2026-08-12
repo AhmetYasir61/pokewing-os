@@ -111,7 +111,7 @@
   "pokeface.menu.market": "Kozmetik market...",
   "pokeface.market.title": "Kozmetik market",
   "pokeface.market.catalog_url": "Mağaza katalog adresi",
-  "pokeface.market.catalog_hint": "https://magazan/api/cosmetics.json",
+  "pokeface.market.catalog_hint": "https://pokewing.com/api/cosmetic.json",
   "pokeface.market.refresh": "Yenile",
   "pokeface.market.search": "Ara",
   "pokeface.market.browser": "Tarayıcıda öde",

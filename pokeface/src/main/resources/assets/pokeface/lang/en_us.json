@@ -111,7 +111,7 @@
   "pokeface.menu.market": "Cosmetic market...",
   "pokeface.market.title": "Cosmetic market",
   "pokeface.market.catalog_url": "Store catalog URL",
-  "pokeface.market.catalog_hint": "https://your-store/api/cosmetics.json",
+  "pokeface.market.catalog_hint": "https://pokewing.com/api/cosmetic.json",
   "pokeface.market.refresh": "Refresh",
   "pokeface.market.search": "Search",
   "pokeface.market.browser": "Pay in browser",

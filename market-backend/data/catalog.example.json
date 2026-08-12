@@ -1,0 +1,13 @@
+[
+  {
+    "id": "fox-ears",
+    "name": "Tilki kulakları",
+    "author": "pokewing",
+    "description": "Kafaya takılan tüylü kulaklar",
+    "price": 49.9,
+    "currency": "TRY",
+    "fileName": "fox-ears.zip",
+    "checkoutUrl": "https://checkout.tebex.io/checkout/xxxxxxxx",
+    "published": true
+  }
+]

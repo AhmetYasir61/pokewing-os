@@ -20,10 +20,18 @@ public final class MarketConfig {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    /**
+     * The official store, baked in so nobody has to type it. It stays editable
+     * because a server or a creator may run their own listing service, but the
+     * default has to work out of the box.
+     */
+    public static final String DEFAULT_CATALOG = "https://pokewing.com/api/cosmetic.json";
+    public static final String DEFAULT_PUBLISH = "https://pokewing.com/api/publish";
+
     /** Catalog endpoint: returns a JSON array of {@link MarketItem}. */
-    public String catalogUrl = "";
+    public String catalogUrl = DEFAULT_CATALOG;
     /** Where "publish" uploads a packaged cosmetic. */
-    public String publishUrl = "";
+    public String publishUrl = DEFAULT_PUBLISH;
     /** Open checkout in the system browser (safest) rather than in-game. */
     public boolean useSystemBrowser = true;
     /**
@@ -57,6 +65,14 @@ public final class MarketConfig {
             if (Files.exists(file())) {
                 MarketConfig config = GSON.fromJson(Files.readString(file()), MarketConfig.class);
                 if (config != null) {
+                    // An older config, or one a user blanked, still lands on the
+                    // official store rather than on an empty market.
+                    if (config.catalogUrl == null || config.catalogUrl.isBlank()) {
+                        config.catalogUrl = DEFAULT_CATALOG;
+                    }
+                    if (config.publishUrl == null || config.publishUrl.isBlank()) {
+                        config.publishUrl = DEFAULT_PUBLISH;
+                    }
                     return config;
                 }
             }

@@ -1,0 +1,57 @@
+# =====================================================================
+#  plugins/BetterHud/huds/vanilla-hud.yml
+#
+#  gui.x / gui.y  -> 0..100 arasi YUZDE (kaynak: GuiLocation, deger
+#                    0 ile 100 arasina kirpilir). Ekranin oransal noktasi.
+#                    y: 0   = ust kenar
+#                    y: 100 = alt kenar
+#  pixel.x / .y   -> o noktadan piksel ofset (GUI birimi, +y yukari)
+#
+#  Neden her GUI Scale'de calisir:
+#  Yuzde ile capa atip pikselle ince ayar yaptigimiz icin panel, scale
+#  1'de de 4'te de ekranin ayni bolgesinde kalir. Scale 4'te (cok buyuk
+#  arayuz) panellerin ortaya tasmamasi icin kenar bosluklarini bilerek
+#  genis biraktim: hicbir panel ekranin %25'inden fazlasini kaplamaz.
+# =====================================================================
+
+vanilla_hud:
+
+  layouts:
+
+    # --- Scoreboard: sag kenar, dikey ortali -------------------------
+    # Sag kenardan 4 px iceri. 11 satir * 10 px = ~110 px yukseklik,
+    # y merkezi 50% -> ust/alt tasma yok (Scale 4 / 640x360 efektif
+    # cozunurlukte bile sigar).
+    1:
+      name: vanilla_scoreboard
+      gui:  { x: 100, y: 50 }
+      pixel: { x: -4, y: 55 }
+
+    # --- Oyuncu listesi: sol ust -------------------------------------
+    2:
+      name: vanilla_playerlist
+      gui:  { x: 0, y: 0 }
+      pixel: { x: 4, y: -12 }
+
+    # --- Durum satiri: hotbar'in hemen ustu, ortali ------------------
+    # y: 100 = alt kenar, +43 px yukari = hotbar + can/aclik satirinin
+    # ustu. Bu ofset vanilla HUD yerlesimi sabit oldugu icin her
+    # scale'de dogru yere denk gelir.
+    3:
+      name: vanilla_status
+      gui:  { x: 50, y: 100 }
+      pixel: { x: 0, y: 43 }
+
+    # --- Para: sag ust kose ------------------------------------------
+    4:
+      name: vanilla_economy
+      gui:  { x: 100, y: 0 }
+      pixel: { x: -4, y: -12 }
+
+  # Belirli dunyalarda gizlemek istersen:
+  # conditions:
+  #   not_in_lobby:
+  #     type: string
+  #     from: '[world]'
+  #     operation: '!='
+  #     to: 'lobby'

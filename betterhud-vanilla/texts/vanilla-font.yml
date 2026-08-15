@@ -1,0 +1,24 @@
+# =====================================================================
+#  plugins/BetterHud/texts/vanilla-font.yml
+#
+#  TEK font tanimi. Disaridan HICBIR .ttf / .png / .otf gelmiyor.
+#
+#  merge-default-bitmap: true
+#     -> Minecraft'in KENDI ascii.png / accented.png / nonlatin_european.png
+#        bitmap'lerini kullanir. Yani harfler birebir vanilla harfler.
+#  use-unifont: true
+#     -> Vanilla'nin unifont fallback'i (Turkce ç ğ ı ö ş ü dahil tum
+#        karakterler icin). Bu da Mojang'in kendi verisi.
+#  include: []
+#     -> Ek karakter/glyph yok.
+#
+#  Sonuc: BetterHud'un urettigi pakette tek bir custom texture bulunmaz,
+#  sadece vanilla glyph'lerin yeniden paketlenmis hali olur.
+# =====================================================================
+
+vanilla_font:
+  merge-default-bitmap: true
+  use-unifont: true
+  include: []
+  # scale: 8  <- ELLEME. Varsayilan vanilla yuksekligi korunur; boylece
+  #             metin GUI Scale 1/2/3/4'te vanilla yaziyla ayni buyur.

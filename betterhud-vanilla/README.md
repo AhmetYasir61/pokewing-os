@@ -132,21 +132,49 @@ eklenti disi olanlar `%yuzde%` icindedir.
 `layouts/vanilla-layout.yml` icindeki `vanilla_economy` layout'unu ve
 scoreboard'un 7. satirini sil.
 
-### PlaceholderAPI (opsiyonel)
+### PlaceholderAPI — `[papi:xxx]`
 
-| Placeholder | Ne verir | Gereken expansion |
-|---|---|---|
-| `%server_online%` | gercek online oyuncu sayisi | Server |
-| `%server_max_players%` | slot | Server |
-| `%player_ping%` | ping | Player |
-| `%playerlist_players_N%` | listedeki N. oyuncu | PlayerList |
+**Yuzde isaretiyle yazma.** BetterHud ham `%xxx%` metnini hic islemez,
+oldugu gibi ekrana basar. PAPI placeholder'lari `papi` adiyla string
+container'a `requiredArgsLength(1)` ile kayitlidir; yani tek argumanli
+ve koseli parantez icinde `:` sonrasina yazilir:
 
 ```
+%vault_eco_balance_formatted%   ->  [papi:vault_eco_balance_formatted]
+%server_online%                 ->  [papi:server_online]
+```
+
+| Kullanilan | Ne verir | Gereken expansion |
+|---|---|---|
+| `[papi:vault_eco_balance_formatted]` | bakiye | Vault |
+| `[papi:server_online]` | gercek online oyuncu sayisi | Server |
+| `[papi:server_max_players]` | slot | Server |
+| `[papi:player_ping]` | ping | Player |
+| `[papi:playerlist_players_N]` | listedeki N. oyuncu | PlayerList |
+
+```
+/papi ecloud download Vault
 /papi ecloud download Server
 /papi ecloud download Player
 /papi ecloud download PlayerList
 /papi reload
 ```
 
-PAPI kurmayacaksan oyuncu listesi panelindeki 3-8. satirlari sil;
-geri kalan her sey dahili placeholder'larla calismaya devam eder.
+Ekonomi icin Vault'un dahili `[money]` placeholder'i da vardir ama bu
+sunucuda deger dondurmedi, o yuzden her yerde PAPI surumu kullanildi.
+
+## Yazi boyu — `scale: 8`
+
+`texts/vanilla-font.yml` icindeki `scale: 8` satirini silme, yoksa yazi
+**tam 2 kati** buyur.
+
+Plugin'in kendi `font.yml`'i `scale: 16` kullanir ama varsayilan font
+yolunda `8.0 / scale` oraninda bir kucultme uygular: 16 px rasterize
+edilip 8 px cizilir. `texts/` altinda kendi tanimladigin fontlarda bu
+bolme **yoktur** — `scale` kac ise o kadar piksel cizilir. Varsayilan
+16 oldugu icin, degeri yazmazsan 16 px yazi alirsin.
+
+`scale: 8` -> 8 px rasterize, 8 px cizim = vanilla yazi boyu.
+
+Font scale'ini degistirirsen `layouts/` icindeki 10 px'lik satir
+araliklarini da ayni oranda olceklemen gerekir.

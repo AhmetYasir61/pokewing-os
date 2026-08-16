@@ -4,34 +4,34 @@
 #  Tum layout'lar SADECE 'texts:' kullanir. Ne 'images:' ne 'heads:' var
 #  -> tek bir PNG bile gerekmez.
 #
+#  PLACEHOLDER YAZIMI
+#    [xxx]        -> BetterHud'un dahili placeholder'i (name, world,
+#                    level, health, food, armor ...)
+#    [papi:xxx]   -> PlaceholderAPI. Yuzde isaretleri OLMADAN yazilir.
+#                    Ornek:  %vault_eco_balance_formatted%
+#                        ->  [papi:vault_eco_balance_formatted]
+#
+#    Dogrudan '%xxx%' yazarsan BetterHud onu hic islemez ve ekrana ham
+#    '%xxx%' basar. papi, plugin icinde string container'a
+#    requiredArgsLength(1) ile kayitli -- yani tek argumani var ve o da
+#    koseli parantez icinde ':' sonrasina yazilir.
+#
 #  KOORDINAT YAZIMI
 #  Her girdinin x / y degeri DOGRUDAN girdinin kokunde durur -- tipki
-#  plugin'in kendi 'health' / 'hunger' layout'larindaki gibi:
-#
-#      texts:
-#        1:
-#          name: vanilla_font
-#          x: 0
-#          y: 0
-#
-#  'loc:' diye bir alt-anahtar YOKTUR. HudLayout dogrudan
-#  PixelLocation(yamlObject) cagirir, yani x/y kokten okunur.
-#  Alt bolum acarsan degerler sessizce yok sayilir ve butun satirlar
-#  y=0'da ust uste biner.
+#  plugin'in kendi 'health' / 'hunger' layout'larindaki gibi.
+#  'loc:' diye bir alt-anahtar YOKTUR; acarsan degerler yok sayilir ve
+#  butun satirlar y=0'da ust uste biner.
 #
 #  Y YONU:  +y ASAGI, -y YUKARI.
-#  Satirlar 0, 10, 22, 32 ... diye ARTARAK gider; her satir bir
-#  oncekinin altina duser.
-#
-#  Satir araligi 10 px: vanilla font yuksekligi 8 px + 2 px bosluk --
-#  vanilla scoreboard/tab ile ayni ritim.
+#  Satirlar 0, 10, 22, 32 ... diye ARTARAK gider.
+#  10 px aralik, texts/vanilla-font.yml'deki 'scale: 8' ile birlikte
+#  vanilla satir ritmini verir (8 px glyph + 2 px bosluk). Font
+#  scale'ini degistirirsen bu araliklari da olceklemen gerekir.
 #
 #  Alanlar:
 #    align   : metnin kendi hizalamasi (LEFT / CENTER / RIGHT)
 #    offset  : layout grubunun cikis yonu (LEFT / CENTER / RIGHT)
 #    name    : kullanilacak font (texts/ icindeki tanim)
-#    pattern : yazilacak icerik. [xxx] = BetterHud placeholder,
-#              %xxx% = PlaceholderAPI (PAPI kuruluysa).
 # =====================================================================
 
 
@@ -78,21 +78,24 @@ vanilla_scoreboard:
       align: RIGHT
       x: 0
       y: 54
+    # Vault'un dahili [money] placeholder'i bu sunucuda calismiyor,
+    # onun yerine PAPI'nin vault surumu kullanildi.
     7:
       name: vanilla_font
-      pattern: '<gray>Para <green>$[money]'
+      pattern: '<gray>Para <green>$[papi:vault_eco_balance_formatted]'
       align: RIGHT
       x: 0
       y: 66
+    # Sunucudaki GERCEK online oyuncu sayisi.
     8:
       name: vanilla_font
-      pattern: '<gray>Online <green>%server_online%<dark_gray>/<green>%server_max_players%'
+      pattern: '<gray>Online <green>[papi:server_online]<dark_gray>/<green>[papi:server_max_players]'
       align: RIGHT
       x: 0
       y: 76
     9:
       name: vanilla_font
-      pattern: '<gray>Ping <green>%player_ping%<dark_gray>ms'
+      pattern: '<gray>Ping <green>[papi:player_ping]<dark_gray>ms'
       align: RIGHT
       x: 0
       y: 86
@@ -112,7 +115,17 @@ vanilla_scoreboard:
 
 # ---------------------------------------------------------------------
 #  2) OYUNCU LISTESI PANELI  (sol ust)
-#     %server_online% = sunucudaki GERCEK oyuncu sayisi.
+#
+#     BetterHud'un dahili placeholder'lari arasinda online sayisi ya da
+#     isim listesi yoktur (standart modul sadece oyuncunun kendi
+#     verisini verir), o yuzden bu panel bastan sona PAPI kullanir.
+#
+#     Isim satirlari PlayerList expansion ister:
+#       /papi ecloud download PlayerList
+#       /papi reload
+#     Expansion yoksa 3-8 numarali satirlari sil; baslik satiri Server
+#     expansion ile calismaya devam eder.
+#
 #     Kafa ikonu yok -> 'heads:' kullanmadim, cunku o skin texture ister.
 # ---------------------------------------------------------------------
 vanilla_playerlist:
@@ -121,7 +134,7 @@ vanilla_playerlist:
   texts:
     1:
       name: vanilla_font
-      pattern: '<yellow><bold>OYUNCULAR <dark_gray>(<white>%server_online%<dark_gray>/<white>%server_max_players%<dark_gray>)'
+      pattern: '<yellow><bold>OYUNCULAR <dark_gray>(<white>[papi:server_online]<dark_gray>/<white>[papi:server_max_players]<dark_gray>)'
       align: LEFT
       x: 0
       y: 0
@@ -131,41 +144,39 @@ vanilla_playerlist:
       align: LEFT
       x: 0
       y: 10
-    # Asagidaki 6 satir ilk 6 online oyuncuyu listeler.
-    # PAPI + PlayerList expansion gerekir: /papi ecloud download PlayerList
     3:
       name: vanilla_font
-      pattern: '<white>%playerlist_players_1%'
+      pattern: '<white>[papi:playerlist_players_1]'
       align: LEFT
       x: 0
       y: 22
     4:
       name: vanilla_font
-      pattern: '<white>%playerlist_players_2%'
+      pattern: '<white>[papi:playerlist_players_2]'
       align: LEFT
       x: 0
       y: 32
     5:
       name: vanilla_font
-      pattern: '<white>%playerlist_players_3%'
+      pattern: '<white>[papi:playerlist_players_3]'
       align: LEFT
       x: 0
       y: 42
     6:
       name: vanilla_font
-      pattern: '<white>%playerlist_players_4%'
+      pattern: '<white>[papi:playerlist_players_4]'
       align: LEFT
       x: 0
       y: 52
     7:
       name: vanilla_font
-      pattern: '<white>%playerlist_players_5%'
+      pattern: '<white>[papi:playerlist_players_5]'
       align: LEFT
       x: 0
       y: 62
     8:
       name: vanilla_font
-      pattern: '<white>%playerlist_players_6%'
+      pattern: '<white>[papi:playerlist_players_6]'
       align: LEFT
       x: 0
       y: 72
@@ -191,7 +202,6 @@ vanilla_status:
 
 # ---------------------------------------------------------------------
 #  4) PARA GOSTERGESI  (sag ust kose)
-#     Ekonomi icin Vault'un kendi [money] placeholder'i kullanildi.
 # ---------------------------------------------------------------------
 vanilla_economy:
   offset: RIGHT
@@ -199,8 +209,7 @@ vanilla_economy:
   texts:
     1:
       name: vanilla_font
-      pattern: '<green>$[money]'
+      pattern: '<green>$[papi:vault_eco_balance_formatted]'
       align: RIGHT
-      number-format: '#,###'
       x: 0
       y: 0

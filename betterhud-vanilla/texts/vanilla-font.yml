@@ -17,8 +17,18 @@
 # =====================================================================
 
 vanilla_font:
+  # scale: BU SATIRI SILME.
+  #
+  # Glyph'lerin kac pikselde rasterize edilecegi. Varsayilani 16'dir ve
+  # varsayilani birakirsan yazi TAM 2 KATI buyuk cikar.
+  #
+  # Nedeni: plugin'in kendi font.yml'inde (varsayilan font) 'scale: 16'
+  # ile birlikte 8.0/scale oraninda bir kucultme uygulanir, yani 16 px
+  # rasterize edilip 8 px cizilir. Ama texts/ altinda tanimladigin
+  # fontlarda o bolme YOKTUR -- 16 px rasterize edilip 16 px cizilir.
+  # 8 yazinca 8 px rasterize edilip 8 px cizilir = vanilla yazi boyu.
+  scale: 8
+
   merge-default-bitmap: true
   use-unifont: true
   include: []
-  # scale: 8  <- ELLEME. Varsayilan vanilla yuksekligi korunur; boylece
-  #             metin GUI Scale 1/2/3/4'te vanilla yaziyla ayni buyur.

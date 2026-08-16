@@ -34,6 +34,10 @@ vanilla_hud:
     # Panel 11 satir * ~10 px = ~110 px. Merkezi %50'ye oturtmak icin
     # yarisi kadar (-55) yukari kaydiriliyor; satirlar oradan asagi
     # dogru diziliyor. Sag kenardan 4 px iceri.
+    #
+    # NOT: Sunucunda baska bir scoreboard plugini varsa (vanilla sidebar)
+    # bu panel onun altina/ustune biner. O plugini kapat, ya da burayi
+    # gui.y ile baska bir yere tasi.
     1:
       name: vanilla_scoreboard
       gui:   { x: 100, y: 50 }

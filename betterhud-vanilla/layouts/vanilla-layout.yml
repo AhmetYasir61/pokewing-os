@@ -4,73 +4,175 @@
 #  Tum layout'lar SADECE 'texts:' kullanir. Ne 'images:' ne 'heads:' var
 #  -> tek bir PNG bile gerekmez.
 #
-#  KOORDINAT MANTIGI (GUI scale uyumunun anahtari):
-#    - hud dosyasindaki  gui.x / gui.y  = ekranin YUZDESI (0..100).
-#      Cozunurluk ve GUI scale ne olursa olsun panel ayni oransal noktada.
-#    - buradaki           x / y         = o noktadan itibaren piksel ofset,
-#      Minecraft GUI birimi cinsinden. GUI birimi zaten scale ile birlikte
-#      buyudugu icin metin de yaziyla birlikte buyur -> 1/2/3/4 hepsinde
-#      ayni hizada durur.
+#  KOORDINAT YAZIMI
+#  Her girdinin x / y degeri DOGRUDAN girdinin kokunde durur -- tipki
+#  plugin'in kendi 'health' / 'hunger' layout'larindaki gibi:
 #
-#  Satir araligi 10 px: vanilla font yuksekligi 8 px + 2 px bosluk.
-#  Vanilla scoreboard/tab ile ayni ritim.
+#      texts:
+#        1:
+#          name: vanilla_font
+#          x: 0
+#          y: 0
 #
-#  align       : metnin kendi hizalamasi (LEFT / CENTER / RIGHT)
-#  offset      : layout grubunun cikis yonu (LEFT / CENTER / RIGHT)
-#  name        : kullanilacak font (texts/ icindeki tanim)
-#  pattern     : yazilacak icerik. [xxx] = BetterHud placeholder,
-#                %xxx% = PlaceholderAPI (PAPI kuruluysa).
+#  'loc:' diye bir alt-anahtar YOKTUR. HudLayout dogrudan
+#  PixelLocation(yamlObject) cagirir, yani x/y kokten okunur.
+#  Alt bolum acarsan degerler sessizce yok sayilir ve butun satirlar
+#  y=0'da ust uste biner.
+#
+#  Y YONU:  +y ASAGI, -y YUKARI.
+#  Satirlar 0, 10, 22, 32 ... diye ARTARAK gider; her satir bir
+#  oncekinin altina duser.
+#
+#  Satir araligi 10 px: vanilla font yuksekligi 8 px + 2 px bosluk --
+#  vanilla scoreboard/tab ile ayni ritim.
+#
+#  Alanlar:
+#    align   : metnin kendi hizalamasi (LEFT / CENTER / RIGHT)
+#    offset  : layout grubunun cikis yonu (LEFT / CENTER / RIGHT)
+#    name    : kullanilacak font (texts/ icindeki tanim)
+#    pattern : yazilacak icerik. [xxx] = BetterHud placeholder,
+#              %xxx% = PlaceholderAPI (PAPI kuruluysa).
 # =====================================================================
 
 
 # ---------------------------------------------------------------------
 #  1) SCOREBOARD PANELI  (sag kenar, vanilla sidebar gorunumu)
-#     Vanilla scoreboard'un yerini alir; ekranin sag ortasina yaslanir.
 # ---------------------------------------------------------------------
 vanilla_scoreboard:
   offset: RIGHT
   align: RIGHT
   texts:
-    1:  { name: vanilla_font, pattern: '<yellow><bold>POKEWING',            align: RIGHT, loc: { x: 0, y: 0   } }
-    2:  { name: vanilla_font, pattern: '<dark_gray>-----------------',      align: RIGHT, loc: { x: 0, y: -10 } }
-    3:  { name: vanilla_font, pattern: '<gray>Oyuncu <white>[name]',        align: RIGHT, loc: { x: 0, y: -22 } }
-    4:  { name: vanilla_font, pattern: '<gray>Dunya <white>[world]',        align: RIGHT, loc: { x: 0, y: -32 } }
-    5:  { name: vanilla_font, pattern: '<gray>Seviye <white>[level]',       align: RIGHT, loc: { x: 0, y: -42 } }
-    6:  { name: vanilla_font, pattern: '<dark_gray>-----------------',      align: RIGHT, loc: { x: 0, y: -54 } }
-    7:  { name: vanilla_font, pattern: '<gray>Para <green>$[money]',        align: RIGHT, loc: { x: 0, y: -66 } }
-    8:  { name: vanilla_font, pattern: '<gray>Online <green>%server_online%<dark_gray>/<green>%server_max_players%',
-                                                                            align: RIGHT, loc: { x: 0, y: -76 } }
-    9:  { name: vanilla_font, pattern: '<gray>Ping <green>%player_ping%<dark_gray>ms',
-                                                                            align: RIGHT, loc: { x: 0, y: -86 } }
-    10: { name: vanilla_font, pattern: '<dark_gray>-----------------',      align: RIGHT, loc: { x: 0, y: -98 } }
-    11: { name: vanilla_font, pattern: '<yellow>play.pokewing.net',         align: RIGHT, loc: { x: 0, y: -110 } }
+    1:
+      name: vanilla_font
+      pattern: '<yellow><bold>POKEWING'
+      align: RIGHT
+      x: 0
+      y: 0
+    2:
+      name: vanilla_font
+      pattern: '<dark_gray>-----------------'
+      align: RIGHT
+      x: 0
+      y: 10
+    3:
+      name: vanilla_font
+      pattern: '<gray>Oyuncu <white>[name]'
+      align: RIGHT
+      x: 0
+      y: 22
+    4:
+      name: vanilla_font
+      pattern: '<gray>Dunya <white>[world]'
+      align: RIGHT
+      x: 0
+      y: 32
+    5:
+      name: vanilla_font
+      pattern: '<gray>Seviye <white>[level]'
+      align: RIGHT
+      x: 0
+      y: 42
+    6:
+      name: vanilla_font
+      pattern: '<dark_gray>-----------------'
+      align: RIGHT
+      x: 0
+      y: 54
+    7:
+      name: vanilla_font
+      pattern: '<gray>Para <green>$[money]'
+      align: RIGHT
+      x: 0
+      y: 66
+    8:
+      name: vanilla_font
+      pattern: '<gray>Online <green>%server_online%<dark_gray>/<green>%server_max_players%'
+      align: RIGHT
+      x: 0
+      y: 76
+    9:
+      name: vanilla_font
+      pattern: '<gray>Ping <green>%player_ping%<dark_gray>ms'
+      align: RIGHT
+      x: 0
+      y: 86
+    10:
+      name: vanilla_font
+      pattern: '<dark_gray>-----------------'
+      align: RIGHT
+      x: 0
+      y: 98
+    11:
+      name: vanilla_font
+      pattern: '<yellow>play.pokewing.net'
+      align: RIGHT
+      x: 0
+      y: 110
 
 
 # ---------------------------------------------------------------------
 #  2) OYUNCU LISTESI PANELI  (sol ust)
 #     %server_online% = sunucudaki GERCEK oyuncu sayisi.
 #     Kafa ikonu yok -> 'heads:' kullanmadim, cunku o skin texture ister.
-#     Isim listesi icin PAPI gerekir (asagida not var).
 # ---------------------------------------------------------------------
 vanilla_playerlist:
   offset: LEFT
   align: LEFT
   texts:
-    1: { name: vanilla_font, pattern: '<yellow><bold>OYUNCULAR <dark_gray>(<white>%server_online%<dark_gray>/<white>%server_max_players%<dark_gray>)',
-                                                                            align: LEFT, loc: { x: 0, y: 0   } }
-    2: { name: vanilla_font, pattern: '<dark_gray>--------------------',    align: LEFT, loc: { x: 0, y: -10 } }
+    1:
+      name: vanilla_font
+      pattern: '<yellow><bold>OYUNCULAR <dark_gray>(<white>%server_online%<dark_gray>/<white>%server_max_players%<dark_gray>)'
+      align: LEFT
+      x: 0
+      y: 0
+    2:
+      name: vanilla_font
+      pattern: '<dark_gray>--------------------'
+      align: LEFT
+      x: 0
+      y: 10
     # Asagidaki 6 satir ilk 6 online oyuncuyu listeler.
-    # Bunun icin PAPI + "Player List" expansion gerekir:  /papi ecloud download PlayerList
-    3: { name: vanilla_font, pattern: '<white>%playerlist_players_1%',      align: LEFT, loc: { x: 0, y: -22 } }
-    4: { name: vanilla_font, pattern: '<white>%playerlist_players_2%',      align: LEFT, loc: { x: 0, y: -32 } }
-    5: { name: vanilla_font, pattern: '<white>%playerlist_players_3%',      align: LEFT, loc: { x: 0, y: -42 } }
-    6: { name: vanilla_font, pattern: '<white>%playerlist_players_4%',      align: LEFT, loc: { x: 0, y: -52 } }
-    7: { name: vanilla_font, pattern: '<white>%playerlist_players_5%',      align: LEFT, loc: { x: 0, y: -62 } }
-    8: { name: vanilla_font, pattern: '<white>%playerlist_players_6%',      align: LEFT, loc: { x: 0, y: -72 } }
+    # PAPI + PlayerList expansion gerekir: /papi ecloud download PlayerList
+    3:
+      name: vanilla_font
+      pattern: '<white>%playerlist_players_1%'
+      align: LEFT
+      x: 0
+      y: 22
+    4:
+      name: vanilla_font
+      pattern: '<white>%playerlist_players_2%'
+      align: LEFT
+      x: 0
+      y: 32
+    5:
+      name: vanilla_font
+      pattern: '<white>%playerlist_players_3%'
+      align: LEFT
+      x: 0
+      y: 42
+    6:
+      name: vanilla_font
+      pattern: '<white>%playerlist_players_4%'
+      align: LEFT
+      x: 0
+      y: 52
+    7:
+      name: vanilla_font
+      pattern: '<white>%playerlist_players_5%'
+      align: LEFT
+      x: 0
+      y: 62
+    8:
+      name: vanilla_font
+      pattern: '<white>%playerlist_players_6%'
+      align: LEFT
+      x: 0
+      y: 72
 
 
 # ---------------------------------------------------------------------
-#  3) ALT DURUM CUBUGU  (hotbar ustu, ortali)
+#  3) ALT DURUM SATIRI  (hotbar ustu, ortali)
 #     Can/aclik/zirh degerlerini SAYI olarak gosterir -- bar cizmez,
 #     cunku bar cizmek PNG ister. Vanilla kalpler/etler zaten duruyor.
 # ---------------------------------------------------------------------
@@ -78,11 +180,13 @@ vanilla_status:
   offset: CENTER
   align: CENTER
   texts:
-    1: { name: vanilla_font,
-         pattern: '<red>[health]<dark_gray>/<red>[max_health]   <gold>[food]<dark_gray>/<gold>20   <aqua>[armor]',
-         align: CENTER,
-         number-format: '#',
-         loc: { x: 0, y: 0 } }
+    1:
+      name: vanilla_font
+      pattern: '<red>[health]<dark_gray>/<red>[max_health]   <gold>[food]<dark_gray>/<gold>20   <aqua>[armor]'
+      align: CENTER
+      number-format: '#'
+      x: 0
+      y: 0
 
 
 # ---------------------------------------------------------------------
@@ -93,8 +197,10 @@ vanilla_economy:
   offset: RIGHT
   align: RIGHT
   texts:
-    1: { name: vanilla_font,
-         pattern: '<green>$[money]',
-         align: RIGHT,
-         number-format: '#,###',
-         loc: { x: 0, y: 0 } }
+    1:
+      name: vanilla_font
+      pattern: '<green>$[money]'
+      align: RIGHT
+      number-format: '#,###'
+      x: 0
+      y: 0

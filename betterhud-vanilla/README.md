@@ -62,7 +62,13 @@ zaten yerinde duruyor.
    default-compass: []
    load-minecraft-default-textures: false
    remove-default-hotbar: false   # vanilla hotbar dursun
+   disable-legacy-offset: true    # varsayilan; ASAGIYI OKU
    ```
+
+   `disable-legacy-offset: true` iken `PixelLocation.hotBarHeight`
+   sifir doner, yani layout konumlarina gizli bir kayma eklenmez.
+   `false` yaparsan tum layout'lar eski hotbar ofseti kadar kayar ve
+   buradaki y degerlerini yeniden ayarlaman gerekir.
 
 4. `/hud reload`
 
@@ -73,12 +79,32 @@ Konumlandirma iki katmanli:
 | Katman | Alan | Birim |
 |---|---|---|
 | Capa | `huds/*.yml` → `gui.x`, `gui.y` | ekranin **yuzdesi**, 0-100 |
-| Ince ayar | `gui` + `layouts/*.yml` → `pixel` / `loc` | GUI pikseli |
+| Ince ayar | `huds/*.yml` → `pixel`, `layouts/*.yml` → girdinin `x`/`y`'si | GUI pikseli |
 
-Yuzde capa cozunurluk ve scale'den bagimsiz calisir; piksel ofset ise
-GUI birimi cinsinden oldugu icin scale ile birlikte buyur. Ikisi
-beraber panelin her scale'de ayni oransal noktada, yaziyla ayni
-oranda kalmasini saglar.
+Layout icinde `loc:` diye bir alt-anahtar **yoktur** — `HudLayout`
+dogrudan `PixelLocation(yamlObject)` cagirdigi icin `x`/`y` girdinin
+kokunde durur (plugin'in kendi `health` / `hunger` layout'larindaki
+gibi). Alt bolum acarsan degerler sessizce yok sayilir.
+
+Capa degeri uretilen shader'a birebir su sekilde giriyor:
+
+```glsl
+xGui = ui.x * <gui.x> / 100.0;
+yGui = ui.y * <gui.y> / 100.0;
+pos.x += xGui;
+pos.y += yGui;
+```
+
+`ui`, GUI uzayindaki ekran boyutu — yani deger cozunurluge degil orana
+bagli. `gui.y: 0` ust kenar, `gui.y: 100` alt kenar.
+
+**Y yonu: `+y` asagi, `-y` yukari.** Plugin'in kendi ornegindeki gibi:
+`gui.y: 100` + `pixel.y: -80` = alt kenardan 80 px yukari. Layout
+icindeki satirlar da bu yuzden 0, 10, 22, 32... diye **artarak** gider.
+
+Piksel ofset GUI birimi cinsinden oldugu icin scale ile birlikte buyur.
+Yuzde capa + GUI pikseli birlikte, panelin her scale'de ayni oransal
+noktada ve yaziyla ayni oranda kalmasini saglar.
 
 Ayrica Scale 4'un dar efektif cozunurlugu (≈640x360) icin:
 
